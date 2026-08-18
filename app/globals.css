@@ -1,0 +1,10 @@
+/**
+ * Tailwind entra SÓ como utilitário de layout: flex, grid, gap, p, m, w, h e
+ * breakpoints. Cor, borda, sombra, raio e tipografia vêm do tema MUI.
+ *
+ * NÃO EXISTE NENHUMA COR NESTE ARQUIVO, de propósito. As variáveis `--cn-*` são
+ * injetadas no `:root` pelo `MuiCssBaseline` a partir de `lib/tokens.ts` (ver
+ * `variaveisCss`). Colá-las aqui à mão criaria uma segunda cópia da paleta, que
+ * é exatamente como um produto acaba com 116 tons para uma paleta de 17.
+ */
+@import "tailwindcss";

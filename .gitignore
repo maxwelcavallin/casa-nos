@@ -1,0 +1,21 @@
+node_modules/
+.next/
+out/
+build/
+.DS_Store
+*.pem
+
+# Segredo nao entra no repositorio. Nem truncado, nem "so no meu ambiente".
+.env
+.env.local
+.env*.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+coverage/

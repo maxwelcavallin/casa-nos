@@ -1,0 +1,51 @@
+{
+  "_leia_me": "Este arquivo E o conteudo do site. O dono edita aqui e roda `pnpm db:seed`. Nao existe painel administrativo nesta fatia — e proposital, esta registrado em docs/fatia-0.md. Chaves comecando com _ sao ignoradas pelo seed.",
+
+  "slug": "ana-e-max",
+  "nomeCasal": "Ana Flávia e Maxwel",
+
+  "_data": "Coluna `date`. Formato AAAA-MM-DD, sempre. 22/08/2027 e um domingo, e o domingo e intencional (confirmado pelo dono em 18/08/2026).",
+  "dataEvento": "2027-08-22",
+  "fuso": "America/Sao_Paulo",
+
+  "_hora": "Enquanto `horaPublicada` for false, o site nao anuncia horario nenhum e a contagem regressiva persegue o comeco do dia. Quando o horario fechar: preencha `horaEvento` (formato HH:MM) e vire `horaPublicada` para true. Nao precisa de deploy.",
+  "horaEvento": null,
+  "horaPublicada": false,
+
+  "cidade": "Rio de Janeiro",
+  "uf": "RJ",
+
+  "_local_nome": "Deixado VAZIO de proposito. O nome do local nao vai ser divulgado agora, e este arquivo mora no repositorio — escrever o nome aqui com a flag desligada esconderia da pagina e nao esconderia de quem abre o repositorio. Quando for revelar: preencha `localNome` e vire `localNomePublicado` para true.",
+  "localNome": null,
+  "localNomePublicado": false,
+
+  "_localizacao": "PONTO APROXIMADO, ESCOLHIDO PELO DEV, NAO E O ENDERECO DO LOCAL. E um centro generico da regiao Jacarepagua/Barra, na Zona Oeste do Rio, com raio de 4 km — largo o bastante para nenhum estabelecimento ser inferivel. Com `localRevelacao: \"regiao\"` o mapa desenha a AREA e nenhum marcador. O dono deve conferir e ajustar o ponto se a regiao estiver errada.",
+  "localLatitude": -22.97,
+  "localLongitude": -43.37,
+  "localRaioMetros": 4000,
+
+  "_revelacao": "'oculto' = nem mapa (so cidade e 'em breve'). 'regiao' = mapa afastado com area destacada, sem pin, sem endereco, sem link de rotas. 'exato' = pin, endereco e link de rotas. Ir de regiao para exato e trocar esta palavra e preencher `localEndereco` — o mesmo componente desenha os dois.",
+  "localRevelacao": "regiao",
+  "localEndereco": null,
+
+  "_publicado": "false tira o site do ar respondendo 404, sem apagar nada.",
+  "publicado": true,
+
+  "_dominios": "Como a requisicao vira este evento. `www.` e a porta sao normalizados antes da consulta, entao nao cadastre a variante com www.",
+  "dominios": [
+    { "dominio": "anaemax.com.br", "principal": true }
+  ],
+
+  "_indicacoes": "Hospedagem e dicas. Enquanto a lista estiver vazia, a secao inteira nao aparece na pagina — nao fica um card vazio. Preencha e rode o seed de novo. `tipo` e 'hospedagem' ou 'dica'; `ordem` decide a posicao (menor primeiro); `referencia` e a distancia ou o bairro, em texto livre. NAO foram cadastradas indicacoes de exemplo de proposito: hotel inventado num site de casamento e informacao falsa no ar.",
+  "_indicacoes_exemplo": [
+    {
+      "tipo": "hospedagem",
+      "titulo": "Nome do hotel",
+      "descricao": "Uma linha sobre por que voce esta indicando.",
+      "referencia": "Barra da Tijuca · 10 min do local",
+      "url": "https://exemplo.com.br",
+      "ordem": 1
+    }
+  ],
+  "indicacoes": []
+}
