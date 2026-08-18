@@ -14,6 +14,13 @@ import type { EventoPublico } from "@/lib/eventos";
  *
  * `overflowWrap: "anywhere"` porque um casal pode ter quatro nomes e 60
  * caracteres: sem isso o `h1` estoura a lateral no celular e corta letra.
+ *
+ * `textWrap: "balance"` reparte o texto entre as linhas em vez de encher a
+ * primeira e jogar o resto para baixo. Sem ele, em 390px, o nome quebrava como
+ * "Ana Flávia e / Maxwel" — a conjunção pendurada no fim da linha e o nome do
+ * noivo sozinho embaixo —, e a data como "domingo, 22 de agosto de / 2027", com
+ * o ano órfão. Num convite cujo único elemento gráfico é o nome do casal, a
+ * quebra é lida.
  */
 export function HeroDoCasamento({
   evento,
@@ -37,13 +44,17 @@ export function HeroDoCasamento({
       <Typography
         variant="h1"
         component="h1"
-        sx={{ color: "text.primary", overflowWrap: "anywhere" }}
+        sx={{ color: "text.primary", overflowWrap: "anywhere", textWrap: "balance" }}
       >
         {evento.nomeCasal}
       </Typography>
 
       <Stack sx={{ gap: 0.5, alignItems: "center" }}>
-        <Typography variant="h2" component="p" sx={{ color: "primary.dark" }}>
+        <Typography
+          variant="h2"
+          component="p"
+          sx={{ color: "primary.dark", textWrap: "balance" }}
+        >
           {porExtenso}
         </Typography>
         {evento.horaEvento && (

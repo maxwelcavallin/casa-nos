@@ -158,11 +158,22 @@ de 4 km**, não o endereço — de propósito, para que nem o código-fonte da p
 nem o link do mapa permitam inferir o estabelecimento. O mesmo componente desenha
 os três estados: revelar é um `UPDATE`.
 
-**Mapa sem chave de API**, por embed do OpenStreetMap. Não é só custo: uma chave
-do Google Maps num site público é uma chave exposta, com cota que qualquer um
-pode gastar. O mapa embutido não é arrastável — a área é desenhada por cima, em
-coordenada de tela, e se o mapa se movesse o círculo passaria a marcar o lugar
-errado. Quem quiser explorar tem o botão, que abre o mapa de verdade.
+**Mapa sem chave de API**, montado com tiles do OpenStreetMap (`lib/mapa.ts`).
+Não é só custo: uma chave do Google Maps num site público é uma chave exposta,
+com cota que qualquer um pode gastar.
+
+As tiles e a área destacada penduram na **mesma âncora** (o ponto central, em
+50%/50% do contêiner), então a área fica centrada no ponto guardado em qualquer
+largura de tela — por construção, e não por ajuste. `test/mapa.test.ts` prova a
+aritmética; a conferência no navegador cobre o resto.
+
+A primeira versão usava o iframe de embed do OSM e **errava o alvo em cerca de
+2 km**, diferente em cada largura de tela, porque o embed reserva parte da
+própria altura para a barra de atribuição. O ADR 0002 conta a história inteira e
+por que nenhum recorte do iframe resolvia.
+
+O crédito da licença é texto nosso, abaixo do mapa, com link vivo — dentro do
+embed ele existia com os links mortos.
 
 > **Confira o ponto.** A coordenada no seed (`-22.97, -43.37`, região
 > Jacarepaguá/Barra) foi escolhida como centro genérico da região, sem consultar
@@ -191,6 +202,8 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/datas.test.ts` | data e fuso, **rodando com `TZ=UTC`** |
 | `test/sql-instrucoes.test.ts` | o separador de instruções do runner de migration |
 | `test/pagina-com-dados-do-seed.test.tsx` | o conteúdo real, do arquivo de seed até o texto na tela |
+| `test/mapa.test.ts` | a área do mapa cai sobre o ponto guardado, em qualquer largura |
+| `test/design-system.test.ts` | mede o código de hoje **e** prova que a catraca ainda acusa desvio |
 | `scripts/ds-check.mjs` (no `build`) | contagem de desvios de design system; falha se subir |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**

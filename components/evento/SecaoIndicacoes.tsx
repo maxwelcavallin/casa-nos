@@ -9,6 +9,7 @@ import { BedDouble, Lightbulb } from "lucide-react";
 
 import { enviarEvento } from "@/lib/analytics";
 import type { Indicacao } from "@/lib/eventos";
+import { toque } from "@/lib/tokens";
 
 /**
  * Hospedagem e dicas.
@@ -90,7 +91,17 @@ export function SecaoIndicacoes({
                                 recommendation_position: indice + 1,
                               })
                             }
-                            sx={{ alignSelf: "flex-start", py: 1 }}
+                            // 44px de alvo de toque (régua §9.4). Com `body2` e
+                            // `py: 1` dava 38px: passa despercebido hoje, que a
+                            // seção está apagada por não haver indicação
+                            // cadastrada, e acende no dia do primeiro hotel —
+                            // quando ninguém vai lembrar de conferir.
+                            sx={{
+                              alignSelf: "flex-start",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              minHeight: toque.minimo,
+                            }}
                           >
                             Abrir o site de {item.titulo}
                           </Link>

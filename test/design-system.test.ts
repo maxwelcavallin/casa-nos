@@ -1,5 +1,7 @@
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 import baseline from "@/design-system.baseline.json";
 // A MESMA medição que o build usa. Importá-la daqui é o ponto: se o teste
@@ -10,13 +12,12 @@ import { medir } from "@/scripts/ds-medidas.mjs";
 const RAIZ = path.resolve(import.meta.dirname, "..");
 
 type Medida = Record<string, number>;
+type Resultado = { medido: Medida; detalhes: string[]; quantosArquivos: number };
 
-describe("catraca do design system", () => {
-  const { medido, detalhes, quantosArquivos } = medir(RAIZ) as {
-    medido: Medida;
-    detalhes: string[];
-    quantosArquivos: number;
-  };
+const medirEm = medir as (raiz: string) => Resultado;
+
+describe("catraca do design system — o código de hoje", () => {
+  const { medido, detalhes, quantosArquivos } = medirEm(RAIZ);
 
   it("a medição achou os arquivos — se não achou, o resto é falso positivo", () => {
     expect(quantosArquivos).toBeGreaterThan(5);
@@ -33,15 +34,111 @@ describe("catraca do design system", () => {
     });
   }
 
-  it("nenhuma cor literal em app/ e components/ — o projeto nasceu em zero e fica em zero", () => {
-    expect(medido.coresLiterais).toBe(0);
-    expect(medido.coresEmFuncao).toBe(0);
+  it("toda medida do baseline existe na medição, e vice-versa", () => {
+    // Sem isto, renomear uma medida em `ds-medidas.mjs` e esquecer o baseline
+    // deixaria a medida órfã: ela continuaria sendo contada e nunca comparada
+    // com nada. A catraca ficaria verde por não estar olhando.
+    const noBaseline = Object.keys(baseline).filter(k => !k.startsWith("_")).sort();
+    expect(Object.keys(medido).sort()).toEqual(noBaseline);
   });
+});
 
-  it("nenhum `dark:` — não existe modo escuro neste produto", () => {
-    // Regra §13 do padrão da casa: ou está montado e testado, ou não existe.
-    // Meio modo escuro é código morto que parece funcionalidade, e alguém
-    // escreve `dark:` achando que tem efeito.
-    expect(medido.modoEscuro).toBe(0);
+/**
+ * A CATRACA CONSEGUE PEGAR ALGUMA COISA?
+ *
+ * POR QUE ESTE BLOCO EXISTE: todos os números do projeto estão em zero, o que
+ * quer dizer que nenhum teste acima jamais viu a medição acusar um desvio. Uma
+ * catraca quebrada e uma catraca com nada para pegar produzem exatamente o mesmo
+ * relatório — todos zerados, "OK: nada piorou" — e a diferença entre as duas só
+ * apareceria no dia em que alguém cometesse o desvio que ela deveria barrar.
+ *
+ * Aqui a medição roda contra código deliberadamente errado, num diretório
+ * temporário, e cada medida precisa acusar.
+ */
+describe("catraca do design system — ela pega o desvio quando ele existe", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "casa-nos-ds-"));
+  fs.mkdirSync(path.join(tmp, "app"), { recursive: true });
+  fs.mkdirSync(path.join(tmp, "components"), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(tmp, "components", "Ruim.tsx"),
+    `
+    import { Botao } from "@/components/ui/button";
+    import { Fraunces, Inter, Lobster } from "next/font/google";
+
+    export function Ruim() {
+      return (
+        <div
+          className="bg-white text-slate-700 border-[#ccc] dark:bg-black"
+          style={{ color: "white", fontSize: 13 }}
+          sx={{
+            fontSize: 13,
+            fontFamily: "Comic Sans",
+            backgroundColor: "#FF00FF",
+            borderColor: "rgb(1, 2, 3)",
+            outlineColor: "oklch(0.7 0.1 20)",
+          }}
+        >
+          <Botao />
+        </div>
+      );
+    }
+    `,
+    "utf8"
+  );
+
+  // Página sem teto de largura: só padding responsivo, que era o passe-livre da
+  // versão anterior do `trataLargura`.
+  fs.writeFileSync(
+    path.join(tmp, "app", "page.tsx"),
+    `export default function P() { return <Box sx={{ px: { xs: 2, sm: 3 } }} />; }`,
+    "utf8"
+  );
+
+  afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  const { medido } = medirEm(tmp);
+
+  const esperados: [keyof Medida, string][] = [
+    ["coresLiterais", "#FF00FF"],
+    ["coresEmFuncao", "rgb() e oklch()"],
+    ["classesDeCorTailwind", "bg-white, text-slate-700, border-[#ccc]"],
+    ["nomesDeCorCss", 'color: "white"'],
+    ["modoEscuro", "dark:bg-black"],
+    ["estiloInlineDeCor", "style={{ color }}"],
+    ["tipografiaForaDaEscala", "fontSize em style e em sx"],
+    ["familiaDeFonteAvulsa", "fontFamily avulso"],
+    ["familiasDeFonteAMais", "uma terceira família em next/font"],
+    ["importsDeComponentsUi", "import de components/ui/"],
+    ["paginasSemLarguraTratada", "página só com padding responsivo"],
+  ];
+
+  for (const [chave, oQue] of esperados) {
+    it(`acusa ${chave} (${oQue})`, () => {
+      expect(
+        medido[chave],
+        `A medida "${chave}" não acusou nada num arquivo que viola ${oQue}. ` +
+          "A catraca está cega para essa regra — e um relatório de zeros não " +
+          "distingue código limpo de medição quebrada."
+      ).toBeGreaterThan(0);
+    });
+  }
+
+  it("não confunde caminho de token do tema com nome de cor CSS", () => {
+    // `color: "text.secondary"` e `borderColor: "divider"` são o jeito CERTO.
+    // Uma catraca que reprova o certo é desligada na primeira sexta-feira.
+    const limpo = fs.mkdtempSync(path.join(os.tmpdir(), "casa-nos-ds-ok-"));
+    fs.mkdirSync(path.join(limpo, "components"), { recursive: true });
+    fs.writeFileSync(
+      path.join(limpo, "components", "Bom.tsx"),
+      `export const B = () => (
+        <Typography sx={{ color: "text.secondary", borderColor: "divider", bgcolor: "primary.main" }} />
+      );`,
+      "utf8"
+    );
+    const r = medirEm(limpo);
+    expect(r.medido.nomesDeCorCss).toBe(0);
+    expect(r.medido.coresLiterais).toBe(0);
+    fs.rmSync(limpo, { recursive: true, force: true });
   });
 });

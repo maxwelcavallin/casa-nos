@@ -125,22 +125,38 @@ describe("a página de anaemax.com.br, com o conteúdo do arquivo de seed", () =
   });
 
   it("mostra o mapa da REGIÃO, sem marcador e sem endereço", async () => {
-    await montarComOSeed();
+    const { container } = await montarComOSeed();
     expect(
-      screen.getByTitle("Mapa da região aproximada do casamento, sem o local exato")
+      screen.getByRole("img", {
+        name: "Mapa da região aproximada do casamento, sem o local exato",
+      })
     ).toBeInTheDocument();
 
-    const mapa = screen.getByTitle(/Mapa da região/) as HTMLIFrameElement;
-    expect(
-      mapa.getAttribute("src"),
-      "O embed do mapa levou um marcador. Com revelação por região, marcador entrega o local."
-    ).not.toContain("marker");
+    // Nenhum pin desenhado sobre as tiles: o que marca a região é a área, e o
+    // ponto guardado é o centro aproximado de 4 km, não o endereço. (O ícone do
+    // BOTÃO "abrir a região" é outro elemento e continua existindo — por isso a
+    // busca é dentro do mapa, e não na página inteira.)
+    const mapa = container.querySelector("[data-mapa]")!;
+    expect(mapa.querySelector("[data-pin-do-local]")).toBeNull();
+    expect(mapa.querySelector("[data-area-da-regiao]")).not.toBeNull();
 
     // E o link externo também não pode cravar pin: `mlat`/`mlon` fazem o
-    // OpenStreetMap marcar o ponto, que aqui é o centro aproximado de uma área
-    // de quilômetros — apontaria com ar de precisão para o lugar errado.
+    // OpenStreetMap marcar o ponto — apontaria com ar de precisão para o lugar
+    // errado.
     const link = screen.getByRole("link", { name: /Abrir a região no mapa/ });
     expect(link.getAttribute("href")).not.toContain("mlat");
+  });
+
+  it("as tiles pedidas são do zoom de bairro, não do zoom de rua", async () => {
+    const { container } = await montarComOSeed();
+    const zooms = [...container.querySelectorAll("img")]
+      .map(i => (i.getAttribute("src") ?? "").match(/tile\.openstreetmap\.org\/(\d+)\//))
+      .filter(Boolean)
+      .map(m => Number(m![1]));
+
+    expect(zooms.length).toBeGreaterThan(0);
+    // Zoom de rua entregaria o que a região existe para esconder.
+    for (const z of zooms) expect(z).toBeLessThanOrEqual(13);
   });
 
   it("não existe nome de local no HTML — nem escondido", async () => {

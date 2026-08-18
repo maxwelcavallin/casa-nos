@@ -3,7 +3,12 @@
   "coresLiterais": 0,
   "coresEmFuncao": 0,
   "classesDeCorTailwind": 0,
+  "nomesDeCorCss": 0,
   "modoEscuro": 0,
-  "fontSizeInline": 0,
+  "estiloInlineDeCor": 0,
+  "tipografiaForaDaEscala": 0,
+  "familiaDeFonteAvulsa": 0,
+  "familiasDeFonteAMais": 0,
+  "importsDeComponentsUi": 0,
   "paginasSemLarguraTratada": 0
 }

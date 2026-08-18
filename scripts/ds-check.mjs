@@ -27,11 +27,16 @@ const baseline = JSON.parse(fs.readFileSync(ARQUIVO_BASELINE, "utf8"))
 const { medido, detalhes, quantosArquivos } = medir(RAIZ)
 
 const rotulos = {
-  coresLiterais: "cores literais (#hex em app/ e components/)",
-  coresEmFuncao: "cores em rgb()/hsl()",
+  coresLiterais: "cores literais (#hex)",
+  coresEmFuncao: "cores em rgb/hsl/oklch/lab/color-mix",
   classesDeCorTailwind: "classes de cor do Tailwind",
+  nomesDeCorCss: "nome de cor CSS como valor",
   modoEscuro: "usos de dark: (nao existe modo escuro)",
-  fontSizeInline: "style={{ fontSize }} inline",
+  estiloInlineDeCor: "estilo inline de cor",
+  tipografiaForaDaEscala: "fontSize fora da escala (style ou sx)",
+  familiaDeFonteAvulsa: "fontFamily avulso",
+  familiasDeFonteAMais: "familias de fonte alem das duas do produto",
+  importsDeComponentsUi: "imports de components/ui/",
   paginasSemLarguraTratada: "paginas sem largura tratada",
 }
 

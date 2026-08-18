@@ -145,12 +145,47 @@ describe("a página do casamento, montada", () => {
   });
 
   it("mapa de região: desenha o mapa e NÃO promete endereço nem nome", () => {
-    montar(COM_REGIAO);
+    const { container } = montar(COM_REGIAO);
     expect(
-      screen.getByTitle("Mapa da região aproximada do casamento, sem o local exato")
+      screen.getByRole("img", {
+        name: "Mapa da região aproximada do casamento, sem o local exato",
+      })
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Abrir a região no mapa/ })).toBeInTheDocument();
     expect(screen.queryByText(/Rua/)).not.toBeInTheDocument();
+
+    // Sem iframe: o mapa é montado com tiles aqui. Enquanto era embed do OSM, o
+    // círculo ficava preso ao centro do CONTÊINER, e o centro geográfico ficava
+    // acima dele pela metade da altura da barra de atribuição — uma barra que
+    // muda de altura com a largura da tela.
+    expect(container.querySelector("iframe")).toBeNull();
+
+    // O crédito da licença é obrigatório e precisa estar VIVO. Dentro do embed
+    // ele existia com os links mortos, porque o iframe não recebia toque.
+    const credito = screen.getByRole("link", { name: /colaboradores do OpenStreetMap/ });
+    expect(credito).toHaveAttribute("href", "https://www.openstreetmap.org/copyright");
+  });
+
+  it("mapa de região: todas as tiles pendem do mesmo ponto do contêiner", () => {
+    const { container } = montar(COM_REGIAO);
+    const tiles = [...container.querySelectorAll("img")].filter(i =>
+      (i.getAttribute("src") ?? "").includes("tile.openstreetmap.org")
+    );
+    expect(tiles.length).toBeGreaterThan(0);
+
+    // Toda tile é posicionada a partir de 50%/50% e deslocada por margem — a
+    // mesma âncora da área destacada. É daí que vem a centralização em qualquer
+    // largura: as duas coisas penduram do mesmo prego, não de dois ajustes que
+    // precisam concordar. (A aritmética disso é provada em test/mapa.test.ts.)
+    for (const tile of tiles) {
+      expect(tile.style.position).toBe("absolute");
+      expect(tile.style.left).toBe("50%");
+      expect(tile.style.top).toBe("50%");
+    }
+
+    const area = container.querySelector("[data-area-da-regiao]");
+    expect(area, "a área da região não foi desenhada").not.toBeNull();
+    expect(container.querySelector("[data-pin-do-local]")).toBeNull();
   });
 
   it("com tudo revelado: nome do local, endereço, horário e pin", () => {
@@ -158,7 +193,9 @@ describe("a página do casamento, montada", () => {
     expect(screen.getByText("Nome do local já divulgado")).toBeInTheDocument();
     expect(screen.getByText("Rua Exemplo, 100")).toBeInTheDocument();
     expect(screen.getByText(/começa às 16h/)).toBeInTheDocument();
-    expect(screen.getByTitle("Mapa com o local do casamento")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Mapa com o local do casamento" })
+    ).toBeInTheDocument();
     expect(screen.queryByText(/falta confirmar/)).not.toBeInTheDocument();
   });
 

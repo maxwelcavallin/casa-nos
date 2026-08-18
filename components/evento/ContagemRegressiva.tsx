@@ -93,10 +93,18 @@ export function ContagemRegressiva({ alvoMs, agoraInicialMs, textoQuandoChegou }
         // `aria-hidden` porque o `aria-label` acima já diz tudo isto em
         // português; sem ele, o leitor lê "22 dias 4 horas" duas vezes.
         aria-hidden
-        sx={{ gap: { xs: 2, sm: 4 }, justifyContent: "center" }}
+        // O gap cai para 8px em 320px. A largura da fileira ali não vem do
+        // `minWidth` das colunas, vem do rótulo: "SEGUNDOS" mede 81px por causa
+        // do `letterSpacing` de .14em do `overline`. Com gap de 16 a fileira
+        // ocupava a caixa de conteúdo inteira (294 de 288) e o bloco deixava de
+        // parecer centrado — virava justificado de ponta a ponta.
+        sx={{ gap: { xs: 1, sm: 4 }, justifyContent: "center" }}
       >
         {UNIDADES.map(unidade => (
-          <Stack key={unidade.chave} sx={{ minWidth: 56, alignItems: "center" }}>
+          <Stack
+            key={unidade.chave}
+            sx={{ minWidth: { xs: 48, sm: 56 }, alignItems: "center" }}
+          >
             <Typography
               variant="h2"
               component="span"
@@ -104,7 +112,20 @@ export function ContagemRegressiva({ alvoMs, agoraInicialMs, textoQuandoChegou }
             >
               {contagem[unidade.chave]}
             </Typography>
-            <Typography variant="overline" component="span" sx={{ color: "text.secondary" }}>
+            <Typography
+              variant="overline"
+              component="span"
+              // O `overline` do design system tem tracking de .14em, e é ele —
+              // não o `minWidth` das colunas — que decide a largura da fileira:
+              // "segundos" mede 81px com esse tracking, e as quatro colunas mais
+              // os vãos davam 272.8px numa caixa de conteúdo de 272.8px em
+              // 320px de tela. Encaixe exato: a fileira encostava nos dois lados
+              // e deixava de parecer centrada.
+              //
+              // Em `xs` o tracking afrouxa; o tamanho e a variante continuam os
+              // do tema, e as palavras continuam inteiras.
+              sx={{ color: "text.secondary", letterSpacing: { xs: "0.02em", sm: "0.14em" } }}
+            >
               {contagem[unidade.chave] === 1 ? unidade.singular : unidade.plural}
             </Typography>
           </Stack>
