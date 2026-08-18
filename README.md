@@ -204,6 +204,9 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/pagina-com-dados-do-seed.test.tsx` | o conteúdo real, do arquivo de seed até o texto na tela |
 | `test/mapa.test.ts` | a área do mapa cai sobre o ponto guardado, em qualquer largura |
 | `test/design-system.test.ts` | mede o código de hoje **e** prova que a catraca ainda acusa desvio |
+| `test/analytics-sem-pii.test.tsx` | monta a página, aciona os eventos e varre **o que saiu** para o GA4 atrás do nome do casal |
+| `test/analytics-privacidade.test.ts` | o mascaramento de URL, inclusive nas rotas que ainda não existem |
+| `test/analytics-gtag-unico.test.ts` | ninguém fala com o `gtag` fora de `lib/analytics.ts` |
 | `scripts/ds-check.mjs` (no `build`) | contagem de desvios de design system; falha se subir |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
@@ -245,8 +248,14 @@ Dicionário de eventos em [`docs/analytics.md`](docs/analytics.md). Nenhum event
 existe fora dele, e a assinatura é tipada — nome errado quebra o `tsc` em vez de
 sumir em silêncio no relatório, que o GA4 não preenche retroativamente.
 
-Nenhuma PII: o convidado desta fatia não tem conta e não é identificado. O único
-identificador enviado é `wedding_id`, o uuid do evento.
+**Nenhuma PII, e isso é catraca, não promessa.** Nenhuma URL do produto chega ao
+GA4 legível: `page_location`, `page_title` e `page_referrer` são declarados em
+todo hit e mascarados para `https://casa-nos.invalid/e/<wedding_id>`. O
+identificador que viaja é o `wedding_id`, que é opaco. O modo de consentimento
+nasce em `denied`, sem banner.
+
+O motivo de cada uma dessas escolhas — e o que saía antes, medido no fio — está
+em [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-mascarada-e-consentimento-negado.md).
 
 ---
 
@@ -256,6 +265,7 @@ identificador enviado é `wedding_id`, o uuid do evento.
 - [`docs/analytics.md`](docs/analytics.md) — dicionário de eventos GA4
 - [`docs/adr/0001-evento-como-inquilino.md`](docs/adr/0001-evento-como-inquilino.md)
 - [`docs/adr/0002-mapa-sem-chave-de-api.md`](docs/adr/0002-mapa-sem-chave-de-api.md)
+- [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-mascarada-e-consentimento-negado.md)
 
 ---
 
