@@ -214,7 +214,7 @@ export function medir(raiz) {
   medido.familiasDeFonteAMais = Math.max(0, familiasDeclaradas - LIMITE_DE_FAMILIAS)
   if (medido.familiasDeFonteAMais > 0) {
     detalhes.push(
-      `next/font declara ${familiasDeclaradas} familias; o produto tem ${LIMITE_DE_FAMILIAS} (Fraunces e Inter)`
+      `next/font declara ${familiasDeclaradas} familias; o produto tem ${LIMITE_DE_FAMILIAS} (Cormorant Garamond e Montserrat)`
     )
   }
 

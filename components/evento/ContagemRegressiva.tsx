@@ -93,17 +93,19 @@ export function ContagemRegressiva({ alvoMs, agoraInicialMs, textoQuandoChegou }
         // `aria-hidden` porque o `aria-label` acima já diz tudo isto em
         // português; sem ele, o leitor lê "22 dias 4 horas" duas vezes.
         aria-hidden
-        // O gap cai para 8px em 320px. A largura da fileira ali não vem do
-        // `minWidth` das colunas, vem do rótulo: "SEGUNDOS" mede 81px por causa
-        // do `letterSpacing` de .14em do `overline`. Com gap de 16 a fileira
-        // ocupava a caixa de conteúdo inteira (294 de 288) e o bloco deixava de
-        // parecer centrado — virava justificado de ponta a ponta.
-        sx={{ gap: { xs: 1, sm: 4 }, justifyContent: "center" }}
+        // O gap voltou ao respiro do sistema (16px em `xs`): o aperto de 8px era
+        // remendo da variante errada e saiu junto com ela. Com `caption`,
+        // "segundos" mede 59px em vez dos 81px que media em `overline`.
+        sx={{ gap: { xs: 2, sm: 4 }, justifyContent: "center" }}
       >
         {UNIDADES.map(unidade => (
           <Stack
             key={unidade.chave}
-            sx={{ minWidth: { xs: 48, sm: 56 }, alignItems: "center" }}
+            // 48 e não 56: medido em 320px, com 56 as quatro colunas somavam
+            // 227px e, com os vãos, a fileira dava 275px numa caixa de conteúdo
+            // de 272.8px — encostava dos dois lados de novo. Quem prendia agora
+            // era o `minWidth`, não o rótulo: "dias" mede 28px e ocupava 56.
+            sx={{ minWidth: 48, alignItems: "center" }}
           >
             <Typography
               variant="h2"
@@ -112,20 +114,20 @@ export function ContagemRegressiva({ alvoMs, agoraInicialMs, textoQuandoChegou }
             >
               {contagem[unidade.chave]}
             </Typography>
-            <Typography
-              variant="overline"
-              component="span"
-              // O `overline` do design system tem tracking de .14em, e é ele —
-              // não o `minWidth` das colunas — que decide a largura da fileira:
-              // "segundos" mede 81px com esse tracking, e as quatro colunas mais
-              // os vãos davam 272.8px numa caixa de conteúdo de 272.8px em
-              // 320px de tela. Encaixe exato: a fileira encostava nos dois lados
-              // e deixava de parecer centrada.
-              //
-              // Em `xs` o tracking afrouxa; o tamanho e a variante continuam os
-              // do tema, e as palavras continuam inteiras.
-              sx={{ color: "text.secondary", letterSpacing: { xs: "0.02em", sm: "0.14em" } }}
-            >
+            {/*
+              `caption`, e não `overline`. A regra do sistema é:
+              **`overline` é sobrescrita de SEÇÃO; rótulo de unidade sob número é
+              metadado, e metadado é `caption`.**
+
+              Isso quita uma dívida: aqui existia um `letterSpacing` responsivo,
+              caindo de .14em para .02em em `xs`, porque "SEGUNDOS" media 81px
+              em caixa alta espaçada e as quatro colunas enchiam exatamente a
+              caixa de conteúdo em 320px. A exceção não existia porque a régua
+              era apertada — existia porque a variante estava errada. Com a
+              variante certa, a exceção sai do componente e nada precisou de
+              media query no tema.
+            */}
+            <Typography variant="caption" component="span" sx={{ color: "text.secondary" }}>
               {contagem[unidade.chave] === 1 ? unidade.singular : unidade.plural}
             </Typography>
           </Stack>

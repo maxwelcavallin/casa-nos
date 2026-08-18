@@ -8,6 +8,7 @@ import baseline from "@/design-system.baseline.json";
 // medisse por conta própria, o CI e o build poderiam discordar sobre o mesmo
 // código — que é a pior forma possível de uma catraca falhar.
 import { medir } from "@/scripts/ds-medidas.mjs";
+import { monograma } from "@/lib/tokens";
 
 const RAIZ = path.resolve(import.meta.dirname, "..");
 
@@ -64,7 +65,7 @@ describe("catraca do design system — ela pega o desvio quando ele existe", () 
     path.join(tmp, "components", "Ruim.tsx"),
     `
     import { Botao } from "@/components/ui/button";
-    import { Fraunces, Inter, Lobster } from "next/font/google";
+    import { Cormorant_Garamond, Montserrat, Lobster } from "next/font/google";
 
     export function Ruim() {
       return (
@@ -108,7 +109,7 @@ describe("catraca do design system — ela pega o desvio quando ele existe", () 
     ["estiloInlineDeCor", "style={{ color }}"],
     ["tipografiaForaDaEscala", "fontSize em style e em sx"],
     ["familiaDeFonteAvulsa", "fontFamily avulso"],
-    ["familiasDeFonteAMais", "uma terceira família em next/font"],
+    ["familiasDeFonteAMais", "uma terceira família além de Cormorant e Montserrat"],
     ["importsDeComponentsUi", "import de components/ui/"],
     ["paginasSemLarguraTratada", "página só com padding responsivo"],
   ];
@@ -140,5 +141,41 @@ describe("catraca do design system — ela pega o desvio quando ele existe", () 
     expect(r.medido.nomesDeCorCss).toBe(0);
     expect(r.medido.coresLiterais).toBe(0);
     fs.rmSync(limpo, { recursive: true, force: true });
+  });
+});
+
+/**
+ * O MONOGRAMA TEM UM PISO, E ELE É MEDIDA — NÃO GOSTO.
+ *
+ * O traço mais fino da ligadura vale 1.9% da largura da tinta. Abaixo de 88px
+ * de tinta ele cai de 1.7px CSS e some numa tela de densidade 1: o monograma
+ * vira um borrão azul. A tinta ocupa 64.9% do arquivo (o resto é respiro
+ * simétrico já embutido), então 88px de tinta são 136px de arquivo.
+ *
+ * Isto existe porque "diminui um pouquinho para caber" é a mudança mais provável
+ * que alguém vai fazer neste token, e o estrago não aparece em teste de layout:
+ * a caixa continua do tamanho certo, só o desenho some.
+ */
+describe("piso do monograma", () => {
+  it("nenhum tamanho declarado desce do mínimo medido", () => {
+    const tamanhos = [
+      monograma.rodape,
+      monograma.hero.xs,
+      monograma.hero.sm,
+    ];
+    for (const tamanho of tamanhos) {
+      expect(
+        tamanho,
+        `${tamanho}px é menor que o piso de ${monograma.minimo}px. Abaixo dele o ` +
+          "traço fino da ligadura desaparece — e a caixa continua do tamanho certo, " +
+          "então nenhum teste de layout acusaria."
+      ).toBeGreaterThanOrEqual(monograma.minimo);
+    }
+  });
+
+  it("a tinta no piso ainda mantém o traço fino acima de 1px CSS", () => {
+    // 136px de arquivo × 64.9% de tinta × 1.9% = ~1.68px de traço.
+    const traco = monograma.minimo * monograma.fracaoDaTinta * 0.019;
+    expect(traco).toBeGreaterThan(1);
   });
 });

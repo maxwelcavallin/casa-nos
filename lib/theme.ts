@@ -13,13 +13,14 @@ import {
   variaveisCss,
 } from "@/lib/tokens";
 
-/**
- * Tema MUI — seção 5 do `tokens.ts` entregue pelo `lead-design`, movida para cá
- * sem alteração de valor.
+/* ------------------------------------------------------------------ *
+ * 6. Tema MUI — construído dos tokens. NENHUM hex daqui para baixo.
  *
- * **Nenhum hex daqui para baixo.** Se aparecer um, o token correspondente está
- * faltando em `lib/tokens.ts` e é lá que ele nasce.
- */
+ * No projeto este bloco mora em `lib/theme.ts` e importa os tokens acima.
+ * Nenhum valor foi alterado na cópia: o que muda é só o endereço dos tokens,
+ * que agora vêm por import em vez de estarem no mesmo arquivo.
+ * ------------------------------------------------------------------ */
+
 
 const sombrasMui = createTheme().shadows.slice() as Shadows;
 sombrasMui[1] = sombra.sm;
@@ -46,6 +47,20 @@ export const tema: Theme = createTheme({
       disabled: cor.textHint,
     },
     divider: cor.divider,
+
+    /**
+     * DÍVIDA QUITADA. `primaryBg` não tinha assento no tema — a paleta do MUI
+     * só tem main/dark/light/contrastText — e por isso `MapaDoLocal` importava
+     * `cor` direto para pintar o fundo do quadrado. Escrever `"primary.bg"` no
+     * `sx` não daria erro: simplesmente não pintaria, que é o jeito mais
+     * silencioso de um estilo sumir.
+     *
+     * `action.selected` é o assento nativo certo: é literalmente o papel de
+     * "tinta clara da marca sob um item escolhido", e é o mesmo valor que a §8
+     * manda usar no estado Selecionado. Agora `sx={{ bgcolor: "action.selected" }}`
+     * funciona, e nenhum componente precisa importar `cor`.
+     */
+    action: { selected: cor.primaryBg },
   },
 
   /** MUI: theme.spacing(1) = 8px. Use 0.5 para 4 e 1.5 para 12. */
@@ -60,71 +75,107 @@ export const tema: Theme = createTheme({
     htmlFontSize: 16,
     fontSize: 16,
 
-    // Display (Fraunces) — emoção. Só título.
+    /**
+     * Display — Cormorant Garamond.
+     *
+     * h1 e h2 são CAIXA ALTA com tracking porque é assim que a marca se
+     * escreve: a capa do manual traz "ANA FLÁVIA & MAXWEL" e o fecho traz
+     * "A ETERNIDADE MORA AQUI", os dois em Cormorant, caixa alta, espaçados.
+     * Caixa alta a 32px+ não tem o custo de leitura que tem num botão.
+     *
+     * h3 e h4 são caixa mista: eles carregam frase inteira ("Casamos em
+     * domingo, 22 de agosto de 2027."), e frase inteira em caixa alta com ponto
+     * final é grito.
+     *
+     * A Cormorant é uma serifa de contraste altíssimo — o traço fino some cedo.
+     * Ela NÃO desce de 20px em lugar nenhum do produto.
+     */
     h1: {
       fontFamily: fonte.display,
       fontWeight: peso.regular,
-      fontSize: "clamp(2.5rem, 9vw, 4rem)", // 40 -> 64
-      lineHeight: 1.05,
-      letterSpacing: "-0.01em",
+      fontSize: "clamp(2rem, 7.5vw, 3.5rem)", // 32 -> 56
+      lineHeight: 1.12,
+      letterSpacing: "0.05em",
+      textTransform: "uppercase",
     },
     h2: {
       fontFamily: fonte.display,
       fontWeight: peso.regular,
-      fontSize: "clamp(1.75rem, 6vw, 2.5rem)", // 28 -> 40
-      lineHeight: 1.15,
-      letterSpacing: "-0.01em",
+      fontSize: "clamp(1.5rem, 5.5vw, 2.25rem)", // 24 -> 36
+      lineHeight: 1.2,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
     },
     h3: {
       fontFamily: fonte.display,
-      fontWeight: peso.regular,
+      fontWeight: peso.medio,
       fontSize: "1.5rem", // 24
-      lineHeight: 1.25,
+      lineHeight: 1.3,
+      letterSpacing: 0,
     },
     h4: {
       fontFamily: fonte.display,
       fontWeight: peso.medio,
-      fontSize: "1.25rem", // 20
-      lineHeight: 1.3,
+      fontSize: "1.25rem", // 20 — o piso da Cormorant
+      lineHeight: 1.35,
     },
 
-    // Interface (Inter) — clareza. Título de card, diálogo, seção do app.
+    // Interface — Montserrat.
     h5: {
       fontFamily: fonte.sans,
       fontWeight: peso.semi,
       fontSize: "1.125rem", // 18
-      lineHeight: 1.35,
+      lineHeight: 1.4,
     },
     h6: {
       fontFamily: fonte.sans,
       fontWeight: peso.semi,
       fontSize: "1rem", // 16
-      lineHeight: 1.4,
+      lineHeight: 1.45,
     },
 
-    subtitle1: { fontWeight: peso.medio, fontSize: "1rem", lineHeight: 1.5 },
-    subtitle2: { fontWeight: peso.semi, fontSize: "0.875rem", lineHeight: 1.45 },
+    /**
+     * A LINHA DE DATA, e por isso mudou de desenho.
+     * O manual escreve a data em Montserrat, caixa alta, espaçada — na capa e
+     * no fecho. Não em serifa. Este é o papel: destaque curto em caixa alta
+     * (data, cidade, mote de uma linha).
+     */
+    subtitle1: {
+      fontWeight: peso.medio,
+      fontSize: "1rem", // 16
+      lineHeight: 1.5,
+      letterSpacing: "0.12em",
+      textTransform: "uppercase",
+    },
+    subtitle2: { fontWeight: peso.semi, fontSize: "0.875rem", lineHeight: 1.5 },
 
-    body1: { fontWeight: peso.regular, fontSize: "1rem", lineHeight: 1.6 },
-    body2: { fontWeight: peso.regular, fontSize: "0.875rem", lineHeight: 1.55 },
+    /**
+     * Corpo. `lineHeight` subiu de 1.6 para 1.75 porque a Montserrat é
+     * geométrica e larga: com o entrelinha antigo o parágrafo fechava e a
+     * coluna de 640px ficava pesada. É o entrelinha do texto corrido da
+     * página 02 do manual.
+     */
+    body1: { fontWeight: peso.regular, fontSize: "1rem", lineHeight: 1.75 },
+    body2: { fontWeight: peso.regular, fontSize: "0.875rem", lineHeight: 1.7 },
 
-    caption: { fontWeight: peso.regular, fontSize: "0.75rem", lineHeight: 1.4 },
+    /** Metadado — e rótulo de unidade sob número. Ver §3 do design-system.md. */
+    caption: { fontWeight: peso.regular, fontSize: "0.75rem", lineHeight: 1.5 },
 
-    /** Sobrescrita "SAVE THE DATE", "ONDE", "QUANDO". */
+    /** Sobrescrita de SEÇÃO: "SAVE THE DATE", "ONDE", "QUANDO". */
     overline: {
-      fontWeight: peso.semi,
+      fontWeight: peso.medio,
       fontSize: "0.75rem",
-      lineHeight: 1.4,
-      letterSpacing: "0.14em",
+      lineHeight: 1.5,
+      letterSpacing: "0.16em",
       textTransform: "uppercase",
     },
 
-    /** Sem CAPS LOCK em botão — nome de rua e nome de pessoa apareceriam gritando. */
+    /** Sem CAPS em botão: nome de rua e nome de pessoa apareceriam gritando. */
     button: {
       fontWeight: peso.semi,
       fontSize: "0.9375rem", // 15
       lineHeight: 1.2,
-      letterSpacing: 0,
+      letterSpacing: "0.02em",
       textTransform: "none",
     },
   },

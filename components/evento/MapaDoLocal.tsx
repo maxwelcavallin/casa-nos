@@ -10,7 +10,7 @@ import { MapPin } from "lucide-react";
 import { enviarEvento } from "@/lib/analytics";
 import type { MapaPublico } from "@/lib/eventos";
 import { LARGURA_MAXIMA_MAPA, montarMapa, TAMANHO_TILE } from "@/lib/mapa";
-import { cor, raio, toque } from "@/lib/tokens";
+import { raio, toque } from "@/lib/tokens";
 
 /**
  * O mapa do local, em dois níveis de revelação — e é o MESMO componente nos
@@ -72,11 +72,14 @@ export function MapaDoLocal({ mapa, eventoId, endereco }: Props) {
           // Fundo enquanto as tiles não chegam. Sem ele o quadrado pisca branco
           // no 4G — e branco puro não é cor desta página.
           //
-          // Vem do token e não de um papel do tema porque `primaryBg` não tem
-          // entrada na paleta do MUI (ela só tem main/dark/light/contrastText).
-          // Escrever "primary.bg" no `sx` não daria erro nenhum: simplesmente
-          // não pintaria, que é o jeito mais silencioso de um estilo sumir.
-          bgcolor: cor.primaryBg,
+          // `action.selected` É o `primaryBg` do token: o tema passou a dar a
+          // ele esse assento, que é o papel nativo de "tinta clara da marca".
+          // Antes este arquivo importava `cor` direto, porque a paleta do MUI
+          // só tem main/dark/light/contrastText e `"primary.bg"` no `sx` não
+          // daria erro — simplesmente não pintaria, que é o jeito mais
+          // silencioso de um estilo sumir. Com o assento, nenhum componente do
+          // projeto precisa mais importar `cor`.
+          bgcolor: "action.selected",
         }}
       >
         {tiles.map(tile => (

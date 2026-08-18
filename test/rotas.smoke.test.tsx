@@ -229,6 +229,29 @@ describe("a página do casamento, montada", () => {
     expect(screen.getByText(/Casamos em sábado, 4 de janeiro de 2020/)).toBeInTheDocument();
   });
 
+  it("o monograma aparece duas vezes — hero e rodapé — e não mais", () => {
+    const { container } = montar(BASE);
+    // Um convite não carimba a mesma ligadura a cada seção.
+    expect(container.querySelectorAll("[data-monograma]")).toHaveLength(2);
+  });
+
+  it("o monograma NUNCA substitui o h1 em texto", () => {
+    montar(BASE);
+    // Ele é máscara CSS: se a máscara falhar, a caixa fica invisível. O nome do
+    // casal não pode depender disso — daí o h1 em texto, sempre.
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Ana Flávia e Maxwel"
+    );
+  });
+
+  it("cada monograma é uma imagem rotulada com os nomes, para leitor de tela", () => {
+    const { container } = montar(BASE);
+    for (const marca of container.querySelectorAll("[data-monograma]")) {
+      expect(marca).toHaveAttribute("role", "img");
+      expect(marca).toHaveAttribute("aria-label", "Ana Flávia e Maxwel");
+    }
+  });
+
   it("o rodapé cita o nome do produto uma vez, como texto", () => {
     montar(BASE);
     expect(screen.getAllByText(/casa-nos/)).toHaveLength(1);
