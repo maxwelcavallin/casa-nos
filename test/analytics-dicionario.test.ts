@@ -218,3 +218,41 @@ describe("o quarto valor de `error_kind`", () => {
     ).toMatch(/o portal engole/);
   });
 });
+
+/**
+ * OS SILÊNCIOS DA v1.0 (V-13).
+ *
+ * Um evento com zero ocorrências no relatório é indistinguível de um evento
+ * quebrado, e a diferença entre os dois custa uma tarde a quem investiga. Os
+ * três silêncios desta versão são decisões — não esquecimentos —, e a única
+ * defesa contra alguém "consertá-los" daqui a seis meses é o motivo estar
+ * escrito no lugar onde o evento seria procurado.
+ */
+describe("os silêncios da v1.0 estão escritos no dicionário", () => {
+  it("`wedding_created` não é emitido, e o documento diz por quê", () => {
+    expect(DOCUMENTO).toMatch(/`wedding_created` não é emitido/);
+    expect(DOCUMENTO).toMatch(/db:bootstrap/);
+  });
+
+  it("os zeros do álbum são a flag desligada, e não instrumentação quebrada", () => {
+    expect(DOCUMENTO).toMatch(/álbum continuam declarados e não são emitidos/);
+    expect(DOCUMENTO).toMatch(/album_ativo/);
+  });
+
+  it("a galeria não emite evento, e a decisão vira pergunta e não invenção", () => {
+    /**
+     * O caso mais fácil de errar dos três: a história tinha um botão de envio na
+     * mão, e nomear `photo_uploaded` ali custaria trinta segundos. O nome entra
+     * no relatório para sempre, com o parâmetro que a pressa daquele dia
+     * escolher — por isso vira Q-V8 para quem escreve métrica, e não decisão de
+     * quem estava implementando o botão.
+     */
+    expect(DOCUMENTO).toMatch(/galeria do casal \(V-18 e V-19\) não emite evento/);
+    expect(DOCUMENTO).toMatch(/Q-V8/);
+    expect(eventosDeclarados()).not.toContain("photo_uploaded");
+  });
+
+  it("a prévia não emite `page_view`, e a palavra dela é legível de propósito", () => {
+    expect(DOCUMENTO).toMatch(/prévia \(V-10\) não emite `page_view`/);
+  });
+});

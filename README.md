@@ -737,6 +737,17 @@ nasce em `denied`, sem banner.
 O motivo de cada uma dessas escolhas — e o que saía antes, medido no fio — está
 em [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-mascarada-e-consentimento-negado.md).
 
+**O que a v1.0 decidiu não medir**, e está escrito em
+[`docs/analytics.md`](docs/analytics.md) para ninguém "consertar" um zero que é
+decisão: `wedding_created` não é emitido (o evento nasce por
+`pnpm db:bootstrap`, não por navegador); os treze eventos do álbum continuam
+declarados e não viajam, porque as telas que os emitem respondem 404 com
+`album_ativo = false`; e **a galeria do casal não emite evento nenhum** —
+`metricas.md` não declara nenhum, e inventar um nome no meio de uma história o
+deixaria no relatório para sempre. A prévia também não emite `page_view`: ela é
+do casal, e oito aberturas numa noite contaminariam a medição de um site que
+ainda não teve um único convidado.
+
 ---
 
 ## Documentação

@@ -129,6 +129,14 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
       "onde",
       "painel",
       "perguntas",
+      /**
+       * A palavra da prévia (V-10), declarada na V-13 e não antes. Ela nomeia a
+       * tela — a mesma para todo casal — e o `[eventoId]` que vem antes continua
+       * mascarado. A prévia **não emite `page_view`**; a palavra existe para que
+       * a ausência dela no relatório signifique alguma coisa, em vez de somar-se
+       * a qualquer outra tela de painel que nasça mascarada.
+       */
+      "previa",
       "programacao",
       "r",
       "rodape",

@@ -367,16 +367,28 @@ export const TELAS: Tela[] = [
    * casando com `[midiaId]`). Evitar a colisão custa uma pasta; lembrar dela
    * custa um 404 em produção.
    *
-   * **`previa` NÃO ENTRA EM `segmentosPublicos` AINDA**, e a ausência é
-   * deliberada: o caminho chega ao GA4 como `/e/<wedding_id>/painel/_`, que é o
-   * lado seguro de errar. Declarar a palavra é decisão da V-13, num commit que
-   * alguém lê — e não efeito colateral de uma tela nova. O `[eventoId]` continua
-   * mascarado de qualquer forma (RN-24).
+   * **`previa` ENTRA EM `segmentosPublicos` AQUI, e este é o commit da V-13.**
+   * Quando a tela nasceu a palavra ficou de fora de propósito — o caminho ia ao
+   * GA4 como `/e/<wedding_id>/painel/_`, que é o lado seguro de errar —, e a
+   * decisão foi adiada para o commit em que alguém a lê em vez de recebê-la como
+   * efeito colateral de uma tela nova.
+   *
+   * A palavra entra pela mesma régua de `album`, `minhas` e das oito chaves de
+   * seção: ela nomeia **qual tela foi aberta**, e a prévia é a mesma tela para
+   * todo casal. O `[eventoId]` continua mascarado (RN-24).
+   *
+   * **O que ela mede é a ausência, e é justamente por isso que ela precisa ser
+   * legível:** a prévia **não emite `page_view`** (V-10) — é do casal, e oito
+   * aberturas numa noite contaminariam a medição de um site que ainda não tem um
+   * único convidado. Com a palavra mascarada, `/painel/_` juntava a prévia com o
+   * que quer que nascesse ao lado dela, e a próxima pessoa a abrir o relatório
+   * não teria como distinguir "ninguém abriu a prévia" de "a prévia foi
+   * contada como outra coisa".
    */
   {
     caminho: "/painel/[eventoId]/previa",
     superficie: "casal",
-    segmentosPublicos: ["painel"],
+    segmentosPublicos: ["painel", "previa"],
   },
   /**
    * O editor de uma seção (V-04 a V-09).

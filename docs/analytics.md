@@ -484,6 +484,53 @@ a pergunta "quantos sites estão no ar hoje?" se responde de verdade.
 o nome do casal escrito de outro jeito; o terceiro responde a uma pergunta que
 ninguém fez.
 
+### Os silêncios da v1.0 — o que o produto decidiu **não** medir
+
+Esta seção existe porque a pergunta "por que este evento tem zero ocorrências?"
+custa uma tarde a quem a faz, e três parágrafos a quem responde antes. **Nome
+declarado sem emissão é dívida de relatório**, e a única defesa é escrever, no
+mesmo lugar onde o evento seria procurado, que ele não vai aparecer.
+
+**`wedding_created` não é emitido, e não está declarado.** Nesta versão o evento
+nasce por `pnpm db:bootstrap`, num terminal — não há navegador, não há tela, e
+não há cadastro público (decisão P4 do `prd.md`, que segue valendo). Um evento de
+GA4 emitido por script seria um número que descreve o dono do produto rodando um
+comando, e não um casal chegando. **Ninguém deve procurá-lo no relatório nem
+"consertar" a ausência**; ele volta com o cadastro público, que é Fatia 2.
+
+**Os eventos do álbum continuam declarados e não são emitidos.** Os treze eventos
+da Fatia 1 — `media_upload_*`, `album_opened`, `guest_identified`,
+`media_moderated`, `growth_*` e os outros — estão no dicionário e no código, com
+teste, e **as telas que os emitem respondem 404** desde a V-01: o álbum está
+desligado por dado (`eventos.album_ativo`, migration `0014`), e nada dele viaja.
+Zero ocorrências aqui **não é defeito de instrumentação** — é a flag desligada. O
+dia em que um casal religar o álbum, os treze voltam a viajar sem deploy e sem
+commit, que é o motivo de eles terem ficado declarados.
+
+**A galeria do casal (V-18 e V-19) não emite evento nenhum, e a decisão é de
+fronteira, não de esquecimento.** `metricas.md` não declara nenhum evento de foto
+do casal. Inventar um `photo_uploaded` aqui seria escrever métrica no meio de uma
+história — trabalho do `product-analytics`, não desta camada —, e o dicionário é
+contrato com catraca (`test/analytics-dicionario.test.ts`): o nome inventado
+entraria no relatório para sempre, com o parâmetro que a pressa daquele dia
+tivesse escolhido. Se medir o envio da galeria importar, é **pedido a quem
+escreve métrica** (Q-V8 do `prd-v1.md` §12.2), e não decisão de quem estava
+implementando o botão.
+
+O que a galeria **manda** ao GA4 é só o `page_view` do editor, com o caminho
+`/e/<wedding_id>/painel/site/galeria`: a palavra `galeria` é de superfície e diz
+qual editor foi aberto. **Nem o nome do arquivo, nem a legenda, nem o `foto_id`
+saem daqui** — e o `[fotoId]`, que só existe em rota de API, é mascarado como
+qualquer segmento não declarado (`test/analytics-mascara-rotas.test.ts` varre
+`ROTAS_DE_API` justamente porque um link colado no navegador vira
+`page_location`).
+
+**A prévia (V-10) não emite `page_view`**, e a palavra `previa` entrou em
+`segmentosPublicos` na V-13 exatamente por isso: com ela mascarada, a ausência da
+prévia no relatório se confundiria com qualquer outra tela de painel que nascesse
+ao lado. A prévia é do casal — oito aberturas numa noite de ansiedade
+contaminariam a medição de um site que ainda não teve um único convidado.
+
 ### O quarto valor de `error_kind`, e a ressalva que ele carrega
 
 `media_upload_retried` passou a ter **quatro** valores: `rede`, `portal`,
