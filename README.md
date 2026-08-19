@@ -197,8 +197,10 @@ hoje, e ele quebra o CI se alguém desligar o guarda.
 
 **Fatia 1 · F1.1 e F1.2 — o acesso e o caminho da foto.**
 
-- **O casal entra por link de e-mail** (30 minutos, uma vez só) e configura o
-  dia: janela de envio, janela da festa, modo de moderação, moderador.
+- **O casal configura o dia**: janela de envio, janela da festa, modo de
+  moderação, moderador. (A entrada dele deixou de ser o link de e-mail em
+  19/08/2026 — hoje é e-mail e senha, e isso vale para o produto inteiro, não só
+  para a Fatia 1.)
 - **O convidado abre `/e/<slug>/album`** e a participação nasce na primeira
   resposta — sem cadastro, sem tela intermediária, sem pedir nada.
 - **O botão de mandar não espera nada**: ele não depende de rede em caminho de
@@ -360,7 +362,7 @@ painel da Vercel e no do Neon.
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | não | o GA4 não carrega — nenhum script, nenhum cookie |
 | `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | para o envio | as duas superfícies respondem 503, e fazem coisas **diferentes** com a linha: no **álbum** a intenção fica gravada (perdê-la é perder a foto do convidado, e a reconciliação a procura); na **galeria nenhuma linha nasce** — não há reconciliação, o original está no celular do casal, e gravar produziria lixo que nenhum cron limpa |
 | `R2_PUBLIC_BASE` | **sim, para quem publica site com galeria** | a galeria não funciona e **não quebra nada**: o envio responde 503 e a tela avisa **antes** de a pessoa escolher o arquivo, e nenhuma foto renderiza — sem imagem quebrada na página, porque foto sem endereço público é descartada no recorte. O resto do site continua no ar. (No álbum, que está desligado, ela era opcional: a grade renderizava os tiles sem imagem.) Ver [ADR 0005](docs/adr/0005-leitura-de-midia-por-base-publica.md) |
-| `BREVO_API_KEY`, `BREVO_REMETENTE` | para o link do casal | nenhum e-mail sai; a tela não mente dizendo que mandou. Entre pelo cookie que o bootstrap imprime |
+| `BREVO_API_KEY`, `BREVO_REMETENTE` | **sim, desde que a senha substituiu o link** | nenhum e-mail sai, e a tela não mente dizendo que mandou — mas **não existe recuperação de senha**: quem esquecer a senha não entra, e a única saída é `pnpm db:conta` no terminal. Cadastro e login continuam funcionando; o que morre em silêncio é o caminho de volta |
 | `ALERTA_EMAIL` | não | o alerta de taxa de erro não sai; o registro em `eventos_de_erro` continua |
 | `CRON_SEGREDO` | F1.6 | a sessão de cron nunca é reconhecida — o lado seguro de errar |
 
@@ -400,11 +402,51 @@ sub-fatias F1.6 e F1.7, e estão escritas lá com esses números. A tabela de er
 da H-18 entrou como `0010` para não tomar o número de ninguém. O runner ordena
 por nome; buraco na sequência não quebra nada.
 
-### Bootstrap — é assim que um evento nasce
+### A conta: cadastro público, e-mail e senha
 
-Não existe cadastro público na Fatia 1 (decisão P4 do PRD): não há página de
-aquisição, e a estratégia proíbe vender ao segundo casal antes do primeiro
-casamento. O evento nasce por script, e o casal entra por link.
+> **Isto reverte a decisão P4 do PRD, em 19/08/2026, por decisão do dono.** Até
+> essa data o produto não tinha cadastro público — o evento nascia por script e o
+> casal entrava por um link de e-mail de 30 minutos. O que a decisão antiga
+> protegia (*"não vender ao segundo casal antes do primeiro casamento"*) deixa de
+> ser protegido por código e passa a ser escolha de quem divulga o endereço. As
+> telas continuam `noindex`.
+
+| Tela | O que faz |
+|---|---|
+| `/cadastrar` | cinco campos, e **cria o casamento junto com a conta** |
+| `/entrar` | e-mail e senha |
+| `/recuperar` | pede o link da senha nova |
+| `/recuperar/[token]` | escolhe a senha nova, e **derruba todas as sessões** |
+| `/verificar/[token]` | confirma o e-mail do cadastro |
+
+**O cadastro pede cinco campos e nem um a mais**, e a lista não é gosto: `eventos`
+tem `nome_casal`, `data_evento`, `cidade` e `uf` como `not null`. Um cadastro de
+duas linhas teria que inventar os quatro, e o site nasceria anunciando um
+casamento em branco. **O casamento nasce fora do ar** — publicar é um toque no
+painel, e a tela de cadastro diz isso.
+
+**Conta, casamento e acesso nascem numa instrução só** (`with ... insert ...
+returning`). O driver HTTP do Neon não abraça três `insert` numa transação: em
+três instruções, a segunda falhando deixaria uma conta sem casamento, e a
+terceira, um casamento sem dono.
+
+**A senha é PBKDF2-SHA-256 com 210 000 iterações, pela Web Crypto**, e o
+algoritmo, o custo e o sal viajam dentro do valor guardado — é o que permite
+subir o custo sem invalidar as senhas antigas. `scrypt`/`argon2id` resistem
+melhor a GPU e ficaram de fora por um motivo escrito em `lib/senhas.ts`: eles só
+existem no Node, o produto tem dois runtimes, e uma função de senha que existe só
+num deles é uma função que alguém reimplementa no outro — e aí o login para de
+bater sem erro nenhum aparecer. **A implementação é uma só**
+(`lib/senhas-nucleo.mjs`), usada pelo produto e pelo `pnpm db:conta`.
+
+**Entrar responde a mesma coisa** para e-mail que não existe, senha errada e
+conta sem casamento — e gasta o mesmo tempo nos três, comparando contra um hash
+de mentira quando não há conta. Sem isso, a tela de login vira um verificador de
+endereços: por frase ou por cronômetro.
+
+#### Um evento que nasce por script
+
+Continua existindo, e é assim que nascem o casamento cobaia e o de laboratório:
 
 ```bash
 pnpm db:bootstrap db/seed/casamento-ana-e-max.json --dono
@@ -415,12 +457,21 @@ pnpm db:bootstrap db/seed/casamento-de-teste.json
 inquilinos é critério de término da fatia, e ele é invisível com um inquilino só.
 Acrescentar o segundo depois significa auditar cada consulta escrita até ali.
 
-O script imprime **uma vez** o valor do cookie de acesso do casal — no banco só
-existe o hash. Se o `email_casal` estiver preenchido, o caminho normal é pedir o
-link na tela de entrada, que manda por e-mail (Brevo).
-
 `--dono` marca o acesso do dono do produto, que é quem enxerga a medição. No
 casamento cobaia o dono **é** o casal; no evento de teste, ninguém é dono.
+
+#### A conta de um casamento que já existe
+
+```bash
+pnpm db:conta ana-e-max eu@exemplo.com
+pnpm db:conta ana-e-max eu@exemplo.com --senha "uma frase que eu lembro"
+```
+
+Cadastrar pelo site criaria um **segundo** casamento, vazio, e deixaria o
+primeiro órfão. Este comando aponta uma conta para o casamento que já está lá.
+Sem `--senha`, ele sorteia uma e a imprime **uma vez** — no banco só existe o
+hash, e não há como recuperá-la depois. Rodado de novo no mesmo e-mail, ele troca
+a senha.
 
 ### Seed — é assim que o evento nasce com conteúdo inicial
 
@@ -634,6 +685,9 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/perguntas-sugeridas.test.ts` | as cinco nascem invisíveis, entram num `unnest` só, e **a consulta que decide a oferta não filtra `excluido_em`** — a ausência é a funcionalidade |
 | `test/perguntas-oferta.test.tsx` | a oferta aparece só na seção que nunca teve pergunta, e não volta depois que o casal apagou todas |
 | `test/perguntas-lote-rota.test.ts` | o teto conferido **contra o tamanho do lote** — com 12 gravadas, as cinco são recusadas com 409 e nada é inserido |
+| `test/conta.test.ts` | **o hash confere consigo mesmo** (é o que quebra quando alguém reimplementa PBKDF2 no script), hash malformado é `false` e não exceção, e o slug do casamento novo não rouba caminho da plataforma |
+| `test/conta-rotas.test.ts` | o cadastro numa instrução só; **o casamento nasce fora do ar**; e-mail desconhecido e senha errada com a **mesma** resposta; trocar a senha revogando todas as sessões, nesta ordem |
+| `test/conta-telas.test.tsx` | a confirmação de "esqueci a senha" **não diz que o e-mail existe**; o cadastro avisa que o site nasce fora do ar; `sign_up` e `wedding_created` só depois de o servidor confirmar |
 | `test/contagem-de-caracteres.test.tsx` | a contagem só perto do teto, e **`maxLength` ausente pelo nome do atributo** — é a primeira coisa que alguém repõe "para proteger o campo" |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
@@ -786,10 +840,13 @@ nasce em `denied`, sem banner.
 O motivo de cada uma dessas escolhas — e o que saía antes, medido no fio — está
 em [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-mascarada-e-consentimento-negado.md).
 
+**`sign_up` e `wedding_created` passaram a ser emitidos em 19/08/2026**, com o
+cadastro público. Eles eram o exemplo escrito de "nome declarado e nunca
+emitido"; o dicionário acompanhou a realidade.
+
 **O que a v1.0 decidiu não medir**, e está escrito em
 [`docs/analytics.md`](docs/analytics.md) para ninguém "consertar" um zero que é
-decisão: `wedding_created` não é emitido (o evento nasce por
-`pnpm db:bootstrap`, não por navegador); os treze eventos do álbum continuam
+decisão: os treze eventos do álbum continuam
 declarados e não viajam, porque as telas que os emitem respondem 404 com
 `album_ativo = false`; e **a galeria do casal não emite evento nenhum** —
 `metricas.md` não declara nenhum, e inventar um nome no meio de uma história o

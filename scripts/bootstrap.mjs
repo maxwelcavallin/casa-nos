@@ -5,11 +5,14 @@
  *   node scripts/bootstrap.mjs db/seed/casamento-ana-e-max.json --dono
  *   node scripts/bootstrap.mjs db/seed/casamento-de-teste.json
  *
- * POR QUE ISTO EXISTE, E POR QUE NAO HA CADASTRO PUBLICO (PRD §3.2, P4): a
- * Fatia 1 nao tem pagina de aquisicao, e a N12 proibe vender ao segundo casal
- * antes do primeiro casamento. O evento nasce por script; o casal entra por
- * link. A alternativa pedia pagina de cadastro, senha, recuperacao de senha e
- * uma tabela `usuarios` — trabalho que a estrategia diz para nao fazer ainda.
+ * POR QUE ISTO CONTINUA EXISTINDO DEPOIS DO CADASTRO PUBLICO (19/08/2026): o
+ * cadastro cria um casamento NOVO, pelo site. Este script cria um casamento a
+ * partir de um arquivo — e e assim que nascem os dois eventos que o teste de
+ * vazamento entre inquilinos exige desde o primeiro dia, e o casamento cobaia,
+ * que existia antes de haver conta.
+ *
+ * A CONTA E OUTRA COISA, e ela nao nasce aqui: `pnpm db:conta <slug> <email>`
+ * cria (ou troca a senha de) a conta que abre este casamento.
  *
  * DOIS EVENTOS DESDE O PRIMEIRO DIA (PRD §9.1, item 6). O teste de vazamento
  * entre inquilinos e criterio de termino da F1.1, e acrescentar o segundo

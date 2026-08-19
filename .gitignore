@@ -21,3 +21,6 @@ next-env.d.ts
 coverage/
 
 .vercel
+
+# Log de falha do Chrome, escrito pela automacao do navegador. Nao e do produto.
+debug.log

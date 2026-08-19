@@ -20,7 +20,7 @@
     "db:bootstrap": "node scripts/bootstrap.mjs",
     "carga": "node scripts/carga.mjs",
     "medida": "vitest run --config vitest.medida.mts",
-    "db:link": "node scripts/link-de-entrada.mjs"
+    "db:conta": "node scripts/conta.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
