@@ -93,6 +93,19 @@ describe("a seção que já teve pergunta e ficou vazia", () => {
 
     expect(screen.queryByRole("button", { name: /começar com essas cinco/i })).not.toBeInTheDocument();
     // O caminho de escrever continua ali, e vira a ação principal.
-    expect(screen.getByRole("button", { name: /escrever uma pergunta/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /escrever a primeira/i })).toBeInTheDocument();
+  });
+});
+
+describe("a lista vazia tem um caminho de escrever, e não dois", () => {
+  it("o botão de baixo não aparece quando o estado vazio está na tela", () => {
+    montar(false);
+
+    /**
+     * Dois botões para a mesma ação a dois centímetros de distância — e o de
+     * baixo dizendo "outra" numa tela onde não existe nenhuma. Com a oferta das
+     * cinco, viravam três.
+     */
+    expect(screen.queryByRole("button", { name: /escrever outra/i })).not.toBeInTheDocument();
   });
 });

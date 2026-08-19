@@ -268,10 +268,18 @@ export function EditorDaProgramacao({ dados }: { dados: DadosDaProgramacao }) {
             </Stack>
           </Stack>
         </Card>
-      ) : (
+      ) : momentos.length > 0 ? (
+        /**
+         * **O BOTÃO DE BAIXO SÓ EXISTE COM A momentos CHEIA** (v1.0, acabamento).
+         *
+         * Com a lista vazia, quem convida a escrever é o estado vazio, que já
+         * diz a consequência de a seção continuar assim. Os dois juntos são dois
+         * botões para a mesma ação a dois centímetros de distância — e o de
+         * baixo ainda dizia "outra", numa tela onde não existe nenhuma.
+         */
         <Stack sx={{ gap: 0.5, alignItems: "flex-start" }}>
           <Button
-            variant={momentos.length === 0 ? "text" : "contained"}
+            variant="contained"
             onClick={abrirNovo}
             disabled={noTeto || salvamento.salvando}
             sx={{ minHeight: toque.confortavel }}
@@ -285,7 +293,7 @@ export function EditorDaProgramacao({ dados }: { dados: DadosDaProgramacao }) {
             </Typography>
           ) : null}
         </Stack>
-      )}
+      ) : null}
 
       <Dialog
         open={aApagar !== null}

@@ -319,10 +319,18 @@ export function EditorDeIndicacoes({ dados }: { dados: DadosDasIndicacoes }) {
             </Stack>
           </Stack>
         </Card>
-      ) : (
+      ) : itens.length > 0 ? (
+        /**
+         * **O BOTÃO DE BAIXO SÓ EXISTE COM A itens CHEIA** (v1.0, acabamento).
+         *
+         * Com a lista vazia, quem convida a escrever é o estado vazio, que já
+         * diz a consequência de a seção continuar assim. Os dois juntos são dois
+         * botões para a mesma ação a dois centímetros de distância — e o de
+         * baixo ainda dizia "outra", numa tela onde não existe nenhuma.
+         */
         <Stack sx={{ gap: 0.5, alignItems: "flex-start" }}>
           <Button
-            variant={itens.length === 0 ? "text" : "contained"}
+            variant="contained"
             onClick={abrirNovo}
             disabled={noTeto || salvamento.salvando}
             sx={{ minHeight: toque.confortavel }}
@@ -337,7 +345,7 @@ export function EditorDeIndicacoes({ dados }: { dados: DadosDasIndicacoes }) {
             </Typography>
           ) : null}
         </Stack>
-      )}
+      ) : null}
 
       <Dialog
         open={aApagar !== null}
