@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { FotosQueChegaram } from "@/components/painel/FotosQueChegaram";
-import { pode } from "@/lib/autorizacao";
+import { podeNoEvento } from "@/lib/autorizacao";
 import { agoraNoServidor } from "@/lib/datas";
 import { buscarEventoPorId } from "@/lib/eventos";
 import { ehUuid } from "@/lib/ids";
@@ -45,15 +45,15 @@ export default async function PaginaDeMidias({
   if (!evento) notFound();
 
   const sessao = await sessaoDoEvento(evento.id);
-  if (pode(sessao, "midia.ver.todas") === "nao") notFound();
+  if (podeNoEvento(sessao, "midia.ver.todas", evento) === "nao") notFound();
 
   const agora = agoraNoServidor();
 
   return (
     <FotosQueChegaram
       eventoId={evento.id}
-      ehDono={pode(sessao, "medicao.ver") !== "nao"}
-      podeExcluir={pode(sessao, "midia.excluir") !== "nao"}
+      ehDono={podeNoEvento(sessao, "medicao.ver", evento) !== "nao"}
+      podeExcluir={podeNoEvento(sessao, "midia.excluir", evento) !== "nao"}
       /**
        * Sem `fim_festa_em` configurado o aviso **não aparece**, e é o lado certo
        * de errar: a H-23 diz "nunca durante a festa", e sem os carimbos não há

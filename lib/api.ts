@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { pode, type Acao, type Alcance } from "@/lib/autorizacao";
+import { ACOES_DO_ALBUM, pode, type Acao, type Alcance } from "@/lib/autorizacao";
 import { buscarEventoPorId, type Evento } from "@/lib/eventos";
 import { registrarErro } from "@/lib/observabilidade";
 import { sessaoDoEvento, type Sessao } from "@/lib/sessao";
@@ -82,6 +82,25 @@ export async function autorizar(
 ): Promise<Autorizada | Recusada> {
   const evento = await buscarEventoPorId(eventoId);
   if (!evento) return { ok: false, resposta: naoEncontrado() };
+
+  /**
+   * O ÁLBUM DESLIGADO — **404, e antes de resolver a sessão** (v1.0, V-01).
+   *
+   * ANTES da sessão porque o resultado não depende dela: com `album_ativo =
+   * false` a ação não existe para ninguém, nem para o dono. Resolver o cookie
+   * primeiro custaria uma ida ao banco para chegar na mesma resposta.
+   *
+   * **404 E NÃO 403**, pelo mesmo motivo do recurso de outro inquilino: 403
+   * confirmaria que existe. Aqui seria pior — diria "o álbum existe, você só não
+   * pode agora" sobre uma funcionalidade que o produto decidiu não oferecer.
+   *
+   * ESTE `IF` É O ÚNICO GUARDA DAS ~20 ROTAS DO ÁLBUM. Desligá-lo para fazer um
+   * teste passar é o remédio errado mais fácil de escrever, e é exatamente o que
+   * `test/album-desligado.test.ts` existe para impedir.
+   */
+  if (!evento.albumAtivo && ACOES_DO_ALBUM.has(acao)) {
+    return { ok: false, resposta: naoEncontrado() };
+  }
 
   const sessao = await sessaoDoEvento(evento.id, { tokenDoTelao: opcoes.tokenDoTelao });
   const alcance = pode(sessao, acao);

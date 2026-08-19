@@ -65,6 +65,9 @@ export type Acao =
   | "convidados.editar"
   | "convidados.ver.publico"
   | "evento.configurar"
+  | "dia.configurar"
+  | "site.editar"
+  | "site.publicar"
   | "evento.materiais.ver"
   | "participacao.renomear"
   | "participacao.recuperar"
@@ -119,7 +122,36 @@ export const MATRIZ: Record<Acao, Linha> = {
     dono: "todas",
   },
 
+  /**
+   * `evento.configurar` PASSOU A SIGNIFICAR SÓ UMA COISA na v1.0: "esta sessão é
+   * o casal deste evento". Ela ficou com as duas rotas de sessão
+   * (`/api/sessao/link` e `/api/sessao/entrar`), e por isso ela **não** está em
+   * `ACOES_DO_ALBUM` — se estivesse, ninguém logava.
+   *
+   * Configurar o DIA DA FESTA virou `dia.configurar`, logo abaixo. As duas eram
+   * a mesma ação até a v1.0, e a separação não é cosmética: uma precisa ser
+   * desligada com o álbum e a outra é o login. Não há terceira saída.
+   */
   "evento.configurar": { casal: "todas", dono: "todas" },
+
+  // A janela de envio, a moderação, os acessos de moderador e de telão. Tudo da
+  // Fatia 1, e por isso dentro de `ACOES_DO_ALBUM`.
+  "dia.configurar": { casal: "todas", dono: "todas" },
+
+  /**
+   * A v1.0. Editar e publicar continuam SEPARADAS mesmo tendo linhas idênticas
+   * hoje: publicar é o ato com consequência diferente — é o instante em que o
+   * endereço passa a responder — e é o primeiro que se restringe quando existir
+   * um quarto tipo de acesso (assessora), que `evento_acessos.tipo` já aceita
+   * como valor.
+   *
+   * O MODERADOR NÃO EDITA O SITE, e a ausência é a decisão: ele foi designado
+   * para decidir o que aparece na parede durante a festa, não para escrever o
+   * texto que 150 convidados vão ler meses antes.
+   */
+  "site.editar": { casal: "todas", dono: "todas" },
+  "site.publicar": { casal: "todas", dono: "todas" },
+
   "evento.materiais.ver": { casal: "todas", moderador: "todas", dono: "todas" },
 
   "participacao.renomear": { convidado: "proprias", casal: "todas", dono: "todas" },
@@ -184,4 +216,86 @@ export function pode(sessao: Sessao, acao: Acao): Alcance {
 /** Açúcar honesto: `pode(...) !== "nao"`. Não esconde o alcance, só o testa. */
 export function podeAlgo(sessao: Sessao, acao: Acao): boolean {
   return pode(sessao, acao) !== "nao";
+}
+
+/* ------------------------------------------------------------------ *
+ * O ÁLBUM DESLIGADO (v1.0, V-01)
+ * ------------------------------------------------------------------ */
+
+/**
+ * AS AÇÕES QUE DEIXAM DE EXISTIR QUANDO `eventos.album_ativo` É `false`.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * O QUE ISTO RESOLVE: a v1.0 é o site do casamento e o painel que o edita. O
+ * álbum, o feed, o telão, a moderação, o QR e a lista de convidados estão
+ * construídos, testados e aprovados — e **não** fazem parte desta versão. Um
+ * produto que expõe metade de si mesmo é pior que um produto menor: uma tela que
+ * abre e não funciona custa mais confiança do que uma tela que não existe.
+ *
+ * TRÊS PRINCÍPIOS:
+ *   P1. Nada é apagado. As ~30 rotas e as ~14 telas continuam no repositório.
+ *   P2. Nada fica meio exposto. Ou responde completamente, ou responde 404.
+ *   P3. O desligamento é DADO, e é POR EVENTO.
+ *
+ * **404 E NÃO 403.** É o mesmo motivo que `autorizar()` já usa para recurso de
+ * outro inquilino: 403 confirmaria que o recurso existe. Aqui, 403 diria "o
+ * álbum existe, você só não pode agora" — informação que o produto não deve dar
+ * sobre uma funcionalidade que ele decidiu não oferecer.
+ *
+ * O QUE FICA DE FORA DO CONJUNTO, e por quê:
+ *   `evento.configurar`  é como o casal ENTRA. Dentro do conjunto, ninguém loga.
+ *   `site.editar`/`site.publicar`  são a v1.0.
+ *   `interno.erro`  é observabilidade. O site também falha, e este é o único
+ *                   canal que leva defeito a uma pessoa que lê.
+ *   `interno.cron`  a rotina continua existindo. O que muda é a consulta dela
+ *                   (`eventosParaReconciliar`, que ganhou `and album_ativo`).
+ *   `lead.ver`      não tem rota e não tem ninguém na matriz.
+ *
+ * `test/album-desligado.test.ts` varre `ROTAS_DE_API` e exige 404 de toda rota
+ * cuja ação está aqui. Rota do álbum criada depois nasce coberta; rota do site
+ * que entre no conjunto por engano acusa na hora.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export const ACOES_DO_ALBUM: ReadonlySet<Acao> = new Set<Acao>([
+  "feed.ver",
+  "album.minhas.ver",
+  "midia.enviar",
+  "midia.visibilidade.editar",
+  "midia.excluir",
+  "midia.ver.todas",
+  "midia.moderar",
+  "midia.baixar",
+  "convidados.editar",
+  "convidados.ver.publico",
+  "participacao.renomear",
+  "participacao.recuperar",
+  "participacao.reconciliar",
+  "lead.criar",
+  "medicao.ver",
+  "evento.materiais.ver",
+  "dia.configurar",
+]);
+
+export function ehAcaoDoAlbum(acao: Acao): boolean {
+  return ACOES_DO_ALBUM.has(acao);
+}
+
+/**
+ * O alcance desta sessão nesta ação **neste evento** — a matriz mais a flag.
+ *
+ * É o que as TELAS usam. As rotas de API não chamam isto: elas passam por
+ * `autorizar()` (`lib/api.ts`), que aplica o mesmo corte antes até de resolver a
+ * sessão. Dois pontos de entrada, um só conceito — e o teste varre os dois.
+ *
+ * Recebe o evento inteiro por estrutura mínima de propósito: quem chama já o tem
+ * em mãos (a tela buscou o evento para saber se ele existe), e pedir só a flag
+ * convidaria alguém a passar `true` de algum lugar.
+ */
+export function podeNoEvento(
+  sessao: Sessao,
+  acao: Acao,
+  evento: { albumAtivo: boolean }
+): Alcance {
+  if (!evento.albumAtivo && ACOES_DO_ALBUM.has(acao)) return "nao";
+  return pode(sessao, acao);
 }

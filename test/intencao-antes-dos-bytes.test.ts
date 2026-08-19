@@ -145,6 +145,11 @@ const eventoFalso = {
   localRaioMetros: null,
   localRevelacao: "oculto" as const,
   publicado: true,
+  // A FLAG LIGADA NO FIXTURE (v1.0, V-01). A `0014` desligou o álbum em
+  // produção; os testes da Fatia 1 continuam sendo a prova de que ele funciona
+  // no dia em que voltar, e por isso eles rodam com ela ligada. Desligar o
+  // guarda para fazer teste passar seria apagar essa prova.
+  albumAtivo: true,
   modoModeracao: "direto" as const,
   // Janela aberta: 2026 até 2028. A conferência da janela tem teste próprio.
   envioAbreEm: new Date("2026-01-01T00:00:00Z"),

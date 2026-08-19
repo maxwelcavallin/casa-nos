@@ -26,7 +26,7 @@ export const DELETE = rotaDeApi(CAMINHO, async (_pedido, contexto) => {
   const { id, acessoId } = await contexto.params;
   if (!ehUuid(id) || !ehUuid(acessoId)) return naoEncontrado();
 
-  const acesso = await autorizar(id, "evento.configurar");
+  const acesso = await autorizar(id, "dia.configurar");
   if (!acesso.ok) return acesso.resposta;
 
   const mudou = await revogarAcesso(acesso.evento.id, acessoId);

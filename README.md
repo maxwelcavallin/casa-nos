@@ -11,10 +11,48 @@ rodapé.
 
 ## O que existe hoje
 
+> **Leia esta caixa antes de qualquer coisa.**
+>
+> Esta seção está dividida em **no ar** e **construído e desligado**. A v1.0 é
+> *o site do casamento e o painel que o edita*; o álbum, o feed, o telão, a
+> moderação, o QR e a lista de convidados **estão construídos, testados e
+> desligados por dado** — não apagados.
+>
+> O interruptor é `eventos.album_ativo` (migration `0014`), e ele nasce `false`.
+> Com ele desligado, as ~25 rotas e as 10 telas da Fatia 1 respondem **404**, e
+> não 403: 403 confirmaria que existem.
+>
+> **Como religar**, um casamento de cada vez, sem deploy:
+>
+> ```sql
+> update eventos set album_ativo = true, atualizado_em = now() where slug = 'ana-e-max';
+> ```
+>
+> Duas coisas **não** voltam com o `UPDATE`, e por isso estão escritas aqui:
+> o destino da rota curta `/<slug>` (hoje leva ao site; era o álbum) e o link do
+> álbum na página pública, que **nunca existiu** e é história nova quando
+> existir.
+>
+> Um README que descreve como pronto o que não responde é o que faz alguém
+> "consertar" o guarda seis meses depois.
+
+---
+
+### No ar
+
 **Fatia 0 — a página pública.** Hero com os nomes e "save the date", data por
 extenso, contagem regressiva ao vivo, seção "Onde" (cidade, mapa da região, local
 e horário pendentes) e rodapé. Mobile primeiro — o visitante chega de um link no
 WhatsApp, no celular, com uma mão.
+
+---
+
+### Construído e desligado (Fatia 1)
+
+Tudo abaixo **responde 404 hoje**. Os ~115 testes da Fatia 1 continuam rodando,
+com `albumAtivo: true` nos fixtures — são eles a prova de que isto funciona no
+dia em que voltar. `test/album-desligado.test.ts` é a prova de que não responde
+hoje, e ele quebra o CI se alguém desligar o guarda.
 
 **Fatia 1 · F1.1 e F1.2 — o acesso e o caminho da foto.**
 
@@ -83,6 +121,19 @@ WhatsApp, no celular, com uma mão.
   é confirmada depois de o endereço público parar de responder — inclusive na
   borda.
 
+**A tela do dia** (`/painel/<id>/dia`) também está desligada: ela configura a
+janela de envio e a moderação, que são da Fatia 1. A ação dela deixou de ser
+`evento.configurar` e passou a ser **`dia.configurar`** — a primeira ficou sendo
+só "esta sessão é o casal deste evento", e é o que mantém o login funcionando
+com o álbum desligado.
+
+**A reconciliação continua agendada** (`vercel.json`, 12:00 UTC) e **não** foi
+removida: cron que some do arquivo volta esquecido. A consulta dela ganhou
+`and album_ativo`, então ela varre zero eventos e termina sem trabalho.
+
+**O relato de erro do cliente continua ligado** (`/api/interno/erro-cliente`).
+É observabilidade, e o site também falha.
+
 O que **não** existe, de propósito, está em
 [`docs/fatia-0.md`](docs/fatia-0.md), em
 [`docs/fatia-1-f1-1-f1-2.md`](docs/fatia-1-f1-1-f1-2.md), em
@@ -117,6 +168,14 @@ Em `localhost` o domínio não bate com nenhum cadastro, então o evento vem de
 `/e/ana-e-max` continua funcionando.
 
 ### O caminho inteiro, na ordem em que ele acontece
+
+> **Este roteiro é da Fatia 1, e ela está desligada.** Com `album_ativo = false`
+> (o padrão desde a migration `0014`), os passos abaixo respondem 404. Para
+> percorrê-los, ligue o álbum no evento de teste primeiro:
+>
+> ```sql
+> update eventos set album_ativo = true where slug = 'casamento-de-teste';
+> ```
 
 Com o servidor no ar e o cookie de acesso do casal em mãos (ver
 [Bootstrap](#bootstrap--é-assim-que-um-evento-nasce)):
@@ -188,6 +247,11 @@ pnpm db:migrar --status   # lista sem aplicar
 
 A migration `0001` foi executada contra um Postgres real, duas vezes seguidas,
 para provar que roda e que é idempotente.
+
+> **A `0014` NÃO É ADITIVA INOFENSIVA.** Ela acrescenta uma coluna com default
+> `false`, e o efeito é **tirar o álbum do ar** em todos os eventos. É o
+> comportamento pretendido pela v1.0, e está escrito no cabeçalho do próprio
+> arquivo. Ver a caixa em [O que existe hoje](#o-que-existe-hoje).
 
 **A numeração pula de `0007` para `0010`, e é de propósito.** O PRD reserva a
 `0008` às views de medição (§5.7) e a `0009` a `leads` (§5.8) — as duas são das

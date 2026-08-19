@@ -49,12 +49,24 @@ export const ROTAS_DE_API: RotaDeApi[] = [
    */
   { caminho: "/api/sessao/retomar", metodos: { POST: "participacao.recuperar" }, publica: true },
 
-  // H-02 — o casal configura o dia
-  { caminho: "/api/eventos/[id]/dia", metodos: { PATCH: "evento.configurar" } },
-  { caminho: "/api/eventos/[id]/acessos", metodos: { POST: "evento.configurar" } },
+  /**
+   * H-02 — o casal configura o dia. **`dia.configurar`, e não `evento.configurar`**
+   * desde a v1.0 (V-01).
+   *
+   * As duas eram a mesma ação. Elas não podiam continuar sendo: `evento.configurar`
+   * é o que as duas rotas de sessão logo acima declaram, e o conjunto do álbum
+   * precisa desligar a configuração do DIA sem desligar o LOGIN. Com a ação
+   * compartilhada, ou o casal não entra, ou a tela do dia continua aberta —
+   * não há terceira saída.
+   *
+   * É um renomeio de três linhas, e ele faz a matriz dizer a verdade: configurar
+   * o dia da festa não é a mesma coisa que provar que esta sessão é o casal.
+   */
+  { caminho: "/api/eventos/[id]/dia", metodos: { PATCH: "dia.configurar" } },
+  { caminho: "/api/eventos/[id]/acessos", metodos: { POST: "dia.configurar" } },
   {
     caminho: "/api/eventos/[id]/acessos/[acessoId]",
-    metodos: { DELETE: "evento.configurar" },
+    metodos: { DELETE: "dia.configurar" },
   },
 
   // H-06 — a intenção antes dos bytes, e a confirmação por faixa

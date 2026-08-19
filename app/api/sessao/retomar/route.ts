@@ -73,6 +73,22 @@ export const POST = rotaDeApi(CAMINHO, async pedido => {
   const evento = await buscarEventoPorId(participacao.eventoId);
   if (!evento) return respostaDeErro(410, "link nao vale mais");
 
+  /**
+   * ÁLBUM DESLIGADO (v1.0, V-01): a MESMA resposta dos outros três casos.
+   *
+   * Esta rota não passa por `autorizar()` — ela é `publica: true` e não tem
+   * evento na URL, porque quem chega aqui ainda não tem sessão. O guarda,
+   * portanto, é escrito à mão, e ele responde **410 e não 404** de propósito:
+   * 410 é o que as outras três saídas desta rota respondem, e a tela mostra a
+   * mesma frase nas quatro. Um 404 aqui seria um status a mais para o cliente
+   * distinguir, e distinguir é justamente o que este produto não quer dar a quem
+   * está adivinhando token.
+   *
+   * A tela `/r/[token]` já respondeu 404 antes disto — ela resolve o evento por
+   * leitura pura. Este é o segundo fecho, para quem chamar a rota direto.
+   */
+  if (!evento.albumAtivo) return respostaDeErro(410, "link nao vale mais");
+
   const token = await tokenDeRetomada(participacao.id);
 
   const resposta = NextResponse.json({

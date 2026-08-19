@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { DiaAoVivo } from "@/components/painel/DiaAoVivo";
-import { pode } from "@/lib/autorizacao";
+import { podeNoEvento } from "@/lib/autorizacao";
 import { buscarEventoPorId } from "@/lib/eventos";
 import { ehUuid } from "@/lib/ids";
 import { sessaoDoEvento, usuarioPseudonimo } from "@/lib/sessao";
@@ -45,7 +45,7 @@ export default async function PaginaDoDiaAoVivo({
   if (!evento) notFound();
 
   const sessao = await sessaoDoEvento(evento.id);
-  if (pode(sessao, "medicao.ver") === "nao") notFound();
+  if (podeNoEvento(sessao, "medicao.ver", evento) === "nao") notFound();
 
   return <DiaAoVivo eventoId={evento.id} usuario={usuarioPseudonimo(sessao)} />;
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { listarAcessos } from "@/lib/acessos";
-import { pode } from "@/lib/autorizacao";
+import { podeNoEvento } from "@/lib/autorizacao";
 import { TelaDoDia } from "@/components/painel/TelaDoDia";
 import { agoraNoServidor, dataPorExtenso, janelaDeEnvioPadrao, paraInputLocal } from "@/lib/datas";
 import { buscarEventoPorId } from "@/lib/eventos";
@@ -47,7 +47,13 @@ export default async function PaginaDoDia({
   if (!evento) notFound();
 
   const sessao = await sessaoDoEvento(evento.id);
-  if (pode(sessao, "evento.configurar") === "nao") notFound();
+  /**
+   * `dia.configurar` E NÃO `evento.configurar` (v1.0, V-01). A segunda virou só
+   * "esta sessão é o casal deste evento" e ficou com as duas rotas de sessão;
+   * esta é a configuração da FESTA, e ela está em `ACOES_DO_ALBUM` — com o álbum
+   * desligado, a tela responde 404.
+   */
+  if (podeNoEvento(sessao, "dia.configurar", evento) === "nao") notFound();
 
   const moderadores = await listarAcessos(evento.id, "moderador");
   const telao = await listarAcessos(evento.id, "telao");

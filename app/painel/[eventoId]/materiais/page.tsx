@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { listarAcessos } from "@/lib/acessos";
 import { MateriaisDoQr } from "@/components/painel/MateriaisDoQr";
-import { pode } from "@/lib/autorizacao";
+import { podeNoEvento } from "@/lib/autorizacao";
 import { enderecoParaLer, origemDaRequisicao } from "@/lib/enderecos";
 import { buscarEventoPorId } from "@/lib/eventos";
 import { ehUuid } from "@/lib/ids";
@@ -43,7 +43,7 @@ export default async function PaginaDeMateriais({
   if (!evento) notFound();
 
   const sessao = await sessaoDoEvento(evento.id);
-  if (pode(sessao, "evento.materiais.ver") === "nao") notFound();
+  if (podeNoEvento(sessao, "evento.materiais.ver", evento) === "nao") notFound();
 
   const cabecalhos = await headers();
   const origem = origemDaRequisicao(cabecalhos);
@@ -76,9 +76,9 @@ export default async function PaginaDeMateriais({
         origem,
         teloes: teloes.map(t => ({ id: t.id })),
         // O moderador vê os materiais e NÃO configura o evento: criar e revogar
-        // link é `evento.configurar`. A rota já recusa; a tela não oferece o que
+        // link é `dia.configurar`. A rota já recusa; a tela não oferece o que
         // a rota nega, para ninguém tocar num botão que devolve 403.
-        podeConfigurar: pode(sessao, "evento.configurar") !== "nao",
+        podeConfigurar: podeNoEvento(sessao, "dia.configurar", evento) !== "nao",
         ehDono: sessao.tipo === "casal" && sessao.acesso.dono,
       }}
     />

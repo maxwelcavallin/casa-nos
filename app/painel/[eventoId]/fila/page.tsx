@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { FilaDeAprovacao } from "@/components/painel/FilaDeAprovacao";
-import { pode } from "@/lib/autorizacao";
+import { podeNoEvento } from "@/lib/autorizacao";
 import { buscarEventoPorId } from "@/lib/eventos";
 import { ehUuid } from "@/lib/ids";
 import { sessaoDoEvento, usuarioPseudonimo } from "@/lib/sessao";
@@ -44,12 +44,12 @@ export default async function PaginaDaFila({
   if (!evento) notFound();
 
   const sessao = await sessaoDoEvento(evento.id);
-  if (pode(sessao, "midia.moderar") === "nao") notFound();
+  if (podeNoEvento(sessao, "midia.moderar", evento) === "nao") notFound();
 
   return (
     <FilaDeAprovacao
       eventoId={evento.id}
-      ehDono={pode(sessao, "medicao.ver") !== "nao"}
+      ehDono={podeNoEvento(sessao, "medicao.ver", evento) !== "nao"}
       modoInicial={evento.modoModeracao}
       usuario={usuarioPseudonimo(sessao)}
     />

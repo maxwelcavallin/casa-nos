@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ListaDeConvidados } from "@/components/painel/ListaDeConvidados";
-import { pode } from "@/lib/autorizacao";
+import { podeNoEvento } from "@/lib/autorizacao";
 import { listarConvidados } from "@/lib/convidados";
 import { agoraNoServidor } from "@/lib/datas";
 import { buscarEventoPorId } from "@/lib/eventos";
@@ -45,7 +45,7 @@ export default async function PaginaDeConvidados({
   if (!evento) notFound();
 
   const sessao = await sessaoDoEvento(evento.id);
-  if (pode(sessao, "convidados.editar") === "nao") notFound();
+  if (podeNoEvento(sessao, "convidados.editar", evento) === "nao") notFound();
 
   const convidados = await listarConvidados(evento.id);
   const agora = agoraNoServidor();

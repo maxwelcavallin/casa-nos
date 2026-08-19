@@ -64,6 +64,13 @@ export default async function PaginaDoTelao({
   const evento = await buscarEventoPorId(resolvido.eventoId);
   if (!evento) notFound();
 
+  /**
+   * ÁLBUM DESLIGADO É **404**, e não uma tela que abre e não funciona (v1.0,
+   * V-01, P2). 404 e não 403 pelo mesmo motivo de sempre: 403 confirmaria que a
+   * funcionalidade existe. Religar é `update eventos set album_ativo = true`.
+   */
+  if (!evento.albumAtivo) notFound();
+
   const cabecalhos = await headers();
   const origem = origemDaRequisicao(cabecalhos);
 

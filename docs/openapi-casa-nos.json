@@ -327,7 +327,7 @@
     "/api/eventos/{id}/dia": {
       "patch": {
         "summary": "PATCH /api/eventos/[id]/dia",
-        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts).",
+        "description": "Permissao exigida: `dia.configurar` (lib/autorizacao.ts).",
         "parameters": [
           {
             "name": "id",
@@ -445,7 +445,7 @@
     "/api/eventos/{id}/acessos": {
       "post": {
         "summary": "POST /api/eventos/[id]/acessos",
-        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts).",
+        "description": "Permissao exigida: `dia.configurar` (lib/autorizacao.ts).",
         "parameters": [
           {
             "name": "id",
@@ -563,7 +563,7 @@
     "/api/eventos/{id}/acessos/{acessoId}": {
       "delete": {
         "summary": "DELETE /api/eventos/[id]/acessos/[acessoId]",
-        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts).",
+        "description": "Permissao exigida: `dia.configurar` (lib/autorizacao.ts).",
         "parameters": [
           {
             "name": "id",

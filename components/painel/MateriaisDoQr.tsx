@@ -58,7 +58,7 @@ export type DadosDosMateriais = {
   teloes: Array<{ id: string }>;
   /**
    * `false` para o moderador: ele vê os materiais (`evento.materiais.ver`) e
-   * **não** configura o evento. Criar e revogar link é `evento.configurar`, que
+   * **não** configura o evento. Criar e revogar link é `dia.configurar`, que
    * é só do casal — a rota já recusa, e a tela não oferece o que a rota nega.
    */
   podeConfigurar: boolean;

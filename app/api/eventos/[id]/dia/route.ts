@@ -34,7 +34,7 @@ export const PATCH = rotaDeApi(CAMINHO, async (pedido, contexto) => {
   const { id } = await contexto.params;
   if (!ehUuid(id)) return naoEncontrado();
 
-  const acesso = await autorizar(id, "evento.configurar");
+  const acesso = await autorizar(id, "dia.configurar");
   if (!acesso.ok) return acesso.resposta;
 
   const corpo = await corpoJson(pedido);

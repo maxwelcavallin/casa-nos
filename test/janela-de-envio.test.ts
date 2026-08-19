@@ -110,6 +110,8 @@ const EVENTO: Evento = {
   localRaioMetros: null,
   localRevelacao: "oculto",
   publicado: true,
+  // Ligada: ver o comentário em `test/intencao-antes-dos-bytes.test.ts`.
+  albumAtivo: true,
   modoModeracao: "direto",
   envioAbreEm: null,
   envioFechaEm: null,

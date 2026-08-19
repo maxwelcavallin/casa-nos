@@ -57,6 +57,23 @@ export type Evento = {
 
   publicado: boolean;
 
+  /**
+   * O ÁLBUM É UMA CAPACIDADE DO EVENTO, e ela nasce desligada (migration 0014).
+   *
+   * Com `false`, tudo que é da Fatia 1 — feed, envio, moderação, telão, QR, link
+   * guardado, lista de convidados e a tela do dia — responde **404**, nunca 403:
+   * 403 confirmaria que existe. O código continua no repositório, compilando e
+   * coberto pelos ~115 testes da Fatia 1, que rodam com esta flag LIGADA nos
+   * fixtures — são eles a prova de que o álbum funciona no dia em que voltar.
+   *
+   * Religar é `update eventos set album_ativo = true where slug = '...'`. Sem
+   * deploy, um casamento de cada vez. O mesmo padrão de `local_revelacao`.
+   *
+   * O guarda mora em `lib/api.ts → autorizar()` e em `podeNoEvento()`
+   * (`lib/autorizacao.ts`), e `test/album-desligado.test.ts` varre as rotas.
+   */
+  albumAtivo: boolean;
+
   /* --- O dia, acrescentado pela migration 0002 (Fatia 1, H-02) --- */
 
   modoModeracao: ModoDeModeracao;
@@ -152,6 +169,7 @@ function linhaParaEvento(linha: Record<string, unknown>): Evento {
     localRevelacao: paraNivelDeRevelacao(linha.local_revelacao),
 
     publicado: paraBooleano(linha.publicado),
+    albumAtivo: paraBooleano(linha.album_ativo),
 
     modoModeracao: paraModoDeModeracao(linha.modo_moderacao),
     envioAbreEm: paraInstante(linha.envio_abre_em),
@@ -362,9 +380,16 @@ export function recortePublico(evento: Evento): EventoPublico {
  *   depois: um casamento no sábado ainda está recebendo foto no domingo, e o
  *   cron das 12:00 UTC de sábado precisa enxergá-lo.
  *
- * `excluido_em is null` e nada mais: um evento não publicado ainda pode ter
- * recebido mídia de teste do casal, e a promessa de "nenhuma foto se perde" não
- * tem cláusula de publicação.
+ * `excluido_em is null` e nada mais no que toca a publicação: um evento não
+ * publicado ainda pode ter recebido mídia de teste do casal, e a promessa de
+ * "nenhuma foto se perde" não tem cláusula de publicação.
+ *
+ * `AND ALBUM_ATIVO = TRUE` ENTROU NA v1.0, e é o que faz a rotina continuar
+ * agendada e terminar sem trabalho enquanto o álbum estiver desligado. O cron
+ * NÃO foi desligado de propósito: um agendamento que some do `vercel.json`
+ * volta esquecido, e a reconciliação é a promessa de que nenhuma foto se perde.
+ * O que muda é a consulta — ela varre zero e a rotina termina em silêncio, que é
+ * o comportamento certo para uma capacidade desligada.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export async function eventosParaReconciliar(
@@ -374,6 +399,7 @@ export async function eventosParaReconciliar(
     select id, slug
       from eventos
      where excluido_em is null
+       and album_ativo = true
        and data_evento >= (current_date - interval '1 year')
        and data_evento <= (current_date + interval '1 day')
      order by data_evento desc

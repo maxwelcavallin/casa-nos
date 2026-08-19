@@ -280,6 +280,36 @@ export async function gerarLinkGuardado(
  * "esta é a mesma pessoa noutro aparelho". Sem ele, uma troca de celular
  * apareceria como um convidado a mais no numerador.
  */
+/**
+ * O EVENTO de um link guardado — **leitura pura**, sem consumir o link.
+ *
+ * ELA EXISTE PARA `/r/[token]` PODER RESPONDER 404 COM O ÁLBUM DESLIGADO (v1.0,
+ * V-01). A página não tem evento na URL, e a irmã dela
+ * (`participacaoPorLinkGuardado`) é um `UPDATE`: chamá-la aqui marcaria a
+ * participação como `retomado` e carimbaria o último acesso **na
+ * pré-visualização do WhatsApp**, antes de a pessoa tocar no link. É o mesmo
+ * defeito de link mágico que a rota `/api/sessao/retomar` existe para evitar.
+ *
+ * Devolve só o que a página precisa decidir. Token desconhecido devolve `null`,
+ * e a página segue mostrando "este link não vale mais" — sem 404, porque um 404
+ * ali diria que o token acertou alguma coisa.
+ */
+export async function eventoDoLinkGuardado(
+  token: string,
+  exec: Executor = sql
+): Promise<{ eventoId: string } | null> {
+  const hash = await hashDeToken(token);
+  const linhas = await exec`
+    select evento_id
+      from participacoes
+     where recuperacao_hash = ${hash}
+       and excluido_em is null
+     limit 1
+  `;
+  const eventoId = linhas.length ? linhas[0].evento_id : null;
+  return typeof eventoId === "string" ? { eventoId } : null;
+}
+
 export async function participacaoPorLinkGuardado(
   token: string,
   exec: Executor = sql

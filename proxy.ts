@@ -79,7 +79,18 @@ export default async function proxy(pedido: NextRequest) {
 
   /**
    * ─────────────────────────────────────────────────────────────────────────
-   * 3. A ROTA CURTA: `casa-nos.app/<slug>` → `/e/<slug>/album`, com **307**.
+   * 3. A ROTA CURTA: `casa-nos.app/<slug>` → `/e/<slug>`, com **307**.
+   *
+   * **O DESTINO MUDOU NA v1.0 (V-01), E ISSO É DEPENDÊNCIA DO RELIGAMENTO.**
+   * Até a Fatia 1 ele era `/e/<slug>/album`. Com o álbum desligado por dado,
+   * aquele endereço responde 404 — e o convidado que lesse o QR cairia nele. O
+   * destino passou a ser o site. **Nenhum cartão foi impresso**, então o custo
+   * hoje é zero.
+   *
+   * Quando o álbum voltar, esta decisão volta à mesa: ou o proxy consulta o
+   * banco (uma ida ao Postgres em toda leitura de QR, que é justamente o que ele
+   * evita hoje), ou o destino vira uma página que decide. Fica REGISTRADO como
+   * dependência do religamento, não como esquecimento.
    *
    * É o endereço que vai impresso no cartão de mesa. `casa-nos.app/` são 13
    * caracteres; o endereço longo (`/e/<slug>/album`) come mais 11 antes do
@@ -107,7 +118,7 @@ export default async function proxy(pedido: NextRequest) {
    * ─────────────────────────────────────────────────────────────────────────
    */
   if (partes.length === 1 && ehSlug(partes[0]) && ehRotaCurta(partes[0])) {
-    const destino = new URL(`/e/${partes[0]}/album`, pedido.nextUrl);
+    const destino = new URL(`/e/${partes[0]}`, pedido.nextUrl);
     destino.search = pedido.nextUrl.search;
     return NextResponse.redirect(destino, 307);
   }
@@ -124,6 +135,19 @@ export default async function proxy(pedido: NextRequest) {
   // 404, e cunhar um cookie aqui só deixaria lixo no navegador de quem digitou
   // o endereço errado.
   if (!evento) return NextResponse.next();
+
+  /**
+   * ÁLBUM DESLIGADO: **nada a cunhar** (v1.0, V-01).
+   *
+   * O evento existe e está publicado, e mesmo assim a página do álbum responde
+   * 404. Sem esta linha, abrir o endereço deixaria um cookie de participação no
+   * navegador de quem foi para lugar nenhum — um portador de sessão criado para
+   * uma funcionalidade que não responde, com validade de meses.
+   *
+   * Este é o único lugar do produto em que o proxy consulta o banco, e ele já
+   * consultava: a flag chega no mesmo `select`, sem ida a mais.
+   */
+  if (!evento.albumAtivo) return NextResponse.next();
 
   const nome = nomeDoCookie("p", evento.id);
   const existente = pedido.cookies.get(nome)?.value;
