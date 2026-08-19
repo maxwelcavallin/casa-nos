@@ -230,8 +230,17 @@ const LIMITE_DE_FAMILIAS = 2
  * um teto que o componente ja tem produziria um `maxWidth` decorativo em volta
  * de outro — que e pior do que nao ter, porque nao da para saber qual manda.
  */
+/**
+ * O NOME QUE A v1.0 ACRESCENTA:
+ *
+ *   PainelDoSite   largura.conteudo (960) — a medida de formulario do painel
+ *
+ * Mesma razao dos anteriores: exigir que a pagina repita um teto que o
+ * componente ja tem produziria um `maxWidth` decorativo em volta de outro, e
+ * ninguem saberia qual manda.
+ */
 const COMPOSICOES =
-  /PaginaDoEvento|AlbumDoConvidado|TelaDoDia|EntrarNoPainel|PalcoTelao|MinhasFotos|ListaDeConvidados|MateriaisDoQr|TelaoDoSalao|FilaDeAprovacao|FotosQueChegaram|DiaAoVivo|RetomarAlbum/
+  /PaginaDoEvento|AlbumDoConvidado|TelaDoDia|EntrarNoPainel|PalcoTelao|MinhasFotos|ListaDeConvidados|MateriaisDoQr|TelaoDoSalao|FilaDeAprovacao|FotosQueChegaram|DiaAoVivo|RetomarAlbum|PainelDoSite/
 
 function trataLargura(fonte) {
   if (/\bmaxWidth\b/.test(fonte)) return true

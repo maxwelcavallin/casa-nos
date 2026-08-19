@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Providers } from "@/components/Providers";
 import { PaginaDoEvento } from "@/components/evento/PaginaDoEvento";
+// Todas as seções ligadas — o padrão do catálogo, e o estado de um evento em
+// que ninguém mexeu no painel (lib/secoes.ts).
+import { CHAVES_DE_SECAO } from "@/lib/secoes";
 import { HOST_MASCARADO } from "@/lib/analytics-privacidade";
 import type { EventoPublico, Indicacao } from "@/lib/eventos";
 
@@ -75,7 +78,12 @@ const AGORA = new Date("2026-08-18T12:00:00.000Z").getTime();
 function montar() {
   return render(
     <Providers>
-      <PaginaDoEvento evento={EVENTO} indicacoes={INDICACOES} agoraMs={AGORA} />
+      <PaginaDoEvento
+        evento={EVENTO}
+        indicacoes={INDICACOES}
+        agoraMs={AGORA}
+        secoes={CHAVES_DE_SECAO}
+      />
     </Providers>
   );
 }

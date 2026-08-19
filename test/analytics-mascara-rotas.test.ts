@@ -107,6 +107,12 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
       "minhas",
       "painel",
       "r",
+      /**
+       * A palavra da v1.0. `site` nomeia a SUPERFÍCIE — a casa do editor — e não
+       * nomeia ninguém: é a mesma tela para todo casal. O `[eventoId]` que vem
+       * antes dela continua mascarado, como em toda tela de painel (RN-24).
+       */
+      "site",
       "telao",
     ]);
   });

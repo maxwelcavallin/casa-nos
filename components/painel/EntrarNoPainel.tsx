@@ -58,8 +58,16 @@ export function EntrarNoPainel({ token }: { token: string | null }) {
 
         if (resposta.ok) {
           const corpo = (await resposta.json()) as { evento_id: string };
-          // Sem tela intermediária: entra direto no painel (H-02).
-          roteador.replace(`/painel/${corpo.evento_id}/dia`);
+          /**
+           * Sem tela intermediária: entra direto no painel (H-02).
+           *
+           * **O DESTINO PASSOU A SER `/site` NA v1.0 (V-02).** Era `/dia`, que
+           * configura a janela de envio e a moderação — coisas da Fatia 1, que
+           * está desligada: o casal cairia num 404. E mesmo com o álbum ligado o
+           * destino continuaria errado nesta versão, porque o que o casal vem
+           * fazer aqui é escrever o próprio site, meses antes da festa.
+           */
+          roteador.replace(`/painel/${corpo.evento_id}/site`);
           return;
         }
 

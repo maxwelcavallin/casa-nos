@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import { Providers } from "@/components/Providers";
 import { PaginaDoEvento } from "@/components/evento/PaginaDoEvento";
+// Todas as seções ligadas — o padrão do catálogo (lib/secoes.ts).
+import { CHAVES_DE_SECAO } from "@/lib/secoes";
 import type { EventoPublico, Indicacao } from "@/lib/eventos";
 
 /**
@@ -120,7 +122,12 @@ const INDICACOES: Indicacao[] = [
 function montar(evento: EventoPublico, indicacoes: Indicacao[] = []) {
   return render(
     <Providers>
-      <PaginaDoEvento evento={evento} indicacoes={indicacoes} agoraMs={AGORA} />
+      <PaginaDoEvento
+        evento={evento}
+        indicacoes={indicacoes}
+        agoraMs={AGORA}
+        secoes={CHAVES_DE_SECAO}
+      />
     </Providers>
   );
 }

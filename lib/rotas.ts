@@ -170,6 +170,25 @@ export const ROTAS_DE_API: RotaDeApi[] = [
   // H-04 — o material do QR
   { caminho: "/api/eventos/[id]/qr", metodos: { GET: "evento.materiais.ver" } },
 
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * v1.0 — O SITE E O PAINEL QUE O EDITA.
+   *
+   * **NÃO HÁ ROTA `GET` NESTE BLOCO**, e a ausência é decisão: as telas do painel
+   * do site são componentes de SERVIDOR e leem direto de `lib/`, como as sete
+   * telas de painel que já existem. Uma rota de leitura só existiria para um
+   * cliente que ainda não existe — e rota sem consumidor é superfície a proteger
+   * de graça.
+   *
+   * **A ORDEM AQUI SEGUE A REGRA DO ARQUIVO**: coleção antes de item. Hoje os
+   * caminhos de coleção têm seis segmentos e os de item têm sete, então
+   * `rotaDeApiQueCasa` não os confunde — mas a regra fica obedecida para o dia em
+   * que um caminho novo empatar o número de segmentos, que é quando o defeito
+   * aparece (405 num POST legítimo) e ninguém entende por quê.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  { caminho: "/api/eventos/[id]/site/secoes", metodos: { PATCH: "site.editar" } },
+
   // H-18 — o aparelho conta o que deu errado com ele
   { caminho: "/api/interno/erro-cliente", metodos: { POST: "interno.erro" }, publica: true },
 
@@ -255,6 +274,18 @@ export const TELAS: Tela[] = [
    * passado. `r` é palavra de superfície e não nomeia ninguém.
    */
   { caminho: "/r/[token]", superficie: "convidado", segmentosPublicos: ["r"] },
+
+  /**
+   * v1.0 — a casa do editor do site (V-02). É para onde o link do e-mail leva.
+   *
+   * `site` é palavra de superfície e não nomeia ninguém. `[eventoId]` continua
+   * mascarado, como em toda tela de painel (RN-24).
+   */
+  {
+    caminho: "/painel/[eventoId]/site",
+    superficie: "casal",
+    segmentosPublicos: ["painel", "site"],
+  },
 ];
 
 /* ------------------------------------------------------------------ *

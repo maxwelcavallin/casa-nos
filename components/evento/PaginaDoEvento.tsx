@@ -7,6 +7,7 @@ import { RodapeDoCasamento } from "@/components/evento/RodapeDoCasamento";
 import { SecaoIndicacoes } from "@/components/evento/SecaoIndicacoes";
 import { SecaoOnde } from "@/components/evento/SecaoOnde";
 import type { EventoPublico, Indicacao } from "@/lib/eventos";
+import type { ChaveDeSecao } from "@/lib/secoes";
 import { largura } from "@/lib/tokens";
 
 /**
@@ -27,15 +28,37 @@ import { largura } from "@/lib/tokens";
  * que possa ficar pendurada, e portanto não existe esqueleto — um `Skeleton`
  * aqui seria enfeite que nunca aparece. Se a Fatia 1 trouxer busca no cliente, o
  * esqueleto entra junto com ela.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * AS SEÇÕES SÃO DADO DESDE A v1.0 (V-03), e a lista chega pronta em `secoes`.
+ *
+ * **SEÇÃO DESLIGADA NÃO RENDERIZA E O CONTEÚDO DELA NÃO VIAJA NO HTML** (RV-01).
+ * As duas metades importam, e a segunda é a que se esquece: quem chama esta
+ * página **não busca** o conteúdo de uma seção desligada. "Não renderizar" não
+ * esconde nada de quem abre o código-fonte, e é a mesma regra que
+ * `recortePublico` já aplica ao nome do local que o casal ainda não divulgou.
+ *
+ * `capa` e `rodape` NÃO são condicionais: elas não podem ser desligadas
+ * (RV-06), e escrever o `if` delas aqui daria a impressão de que podem.
+ *
+ * **SEÇÃO LIGADA E VAZIA TAMBÉM NÃO RENDERIZA** (RV-02). Isso não é decidido
+ * aqui: cada componente de seção devolve `null` quando não tem o que mostrar, do
+ * jeito que `SecaoIndicacoes` já fazia. A regra ficou onde estava o
+ * comportamento, em vez de virar uma segunda lista de condições que se
+ * desatualiza da primeira.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 export function PaginaDoEvento({
   evento,
   indicacoes,
   agoraMs,
+  secoes,
 }: {
   evento: EventoPublico;
   indicacoes: Indicacao[];
   agoraMs: number;
+  /** As chaves LIGADAS, já na ordem do casal (`chavesLigadas` de lib/secoes.ts). */
+  secoes: readonly ChaveDeSecao[];
 }) {
   return (
     <>
@@ -51,8 +74,32 @@ export function PaginaDoEvento({
       >
         <Stack sx={{ gap: { xs: 6, md: 8 } }}>
           <HeroDoCasamento evento={evento} agoraMs={agoraMs} />
-          <SecaoOnde evento={evento} />
-          <SecaoIndicacoes indicacoes={indicacoes} eventoId={evento.id} />
+
+          {secoes
+            .filter(chave => chave !== "capa" && chave !== "rodape")
+            .map(chave => {
+              // A ordem do casal é a ordem desta lista. Um `switch` por chave, e
+              // não sete `&&` em sequência: com `&&` a ordem seria a do código, e
+              // reordenar no painel não teria efeito nenhum no site.
+              switch (chave) {
+                case "onde":
+                  return <SecaoOnde key={chave} evento={evento} />;
+                case "indicacoes":
+                  return (
+                    <SecaoIndicacoes
+                      key={chave}
+                      indicacoes={indicacoes}
+                      eventoId={evento.id}
+                    />
+                  );
+                default:
+                  // As três seções da `0013` entram aqui na V1.4. Até lá elas não
+                  // desenham nada — e não desenhar é o certo: a alternativa seria
+                  // um espaço em branco no site do casal.
+                  return null;
+              }
+            })}
+
           <RodapeDoCasamento evento={evento} />
         </Stack>
       </Box>

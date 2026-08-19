@@ -6,6 +6,7 @@ import { agoraNoServidor } from "@/lib/datas";
 import { listarIndicacoes, recortePublico } from "@/lib/eventos";
 import { ehSlug } from "@/lib/ids";
 import { metadadosDoEvento } from "@/lib/metadados";
+import { chavesLigadas, listarSecoes } from "@/lib/secoes";
 import { eventoPorSlug } from "@/lib/resolver-evento";
 
 /**
@@ -41,13 +42,23 @@ export default async function PaginaPorSlug({ params }: Props) {
   const evento = await eventoPorSlug(slug);
   if (!evento) notFound();
 
-  const indicacoes = await listarIndicacoes(evento.id);
+  const secoes = await listarSecoes(evento.id);
+  const ligadas = chavesLigadas(secoes);
+
+  /**
+   * **O CONTEÚDO DE SEÇÃO DESLIGADA NÃO É NEM BUSCADO** (RV-01). Não é economia
+   * de consulta: é o que faz o texto não existir no HTML. Esconder na
+   * renderização deixaria o conteúdo no código-fonte da página, e o primeiro
+   * convidado curioso leria o que o casal decidiu não contar.
+   */
+  const indicacoes = ligadas.includes("indicacoes") ? await listarIndicacoes(evento.id) : [];
 
   return (
     <PaginaDoEvento
       evento={recortePublico(evento)}
       indicacoes={indicacoes}
       agoraMs={agoraNoServidor().getTime()}
+      secoes={ligadas}
     />
   );
 }

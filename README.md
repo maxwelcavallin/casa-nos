@@ -45,6 +45,17 @@ extenso, contagem regressiva ao vivo, seção "Onde" (cidade, mapa da região, l
 e horário pendentes) e rodapé. Mobile primeiro — o visitante chega de um link no
 WhatsApp, no celular, com uma mão.
 
+**O painel do site** (`/painel/<id>/site`) — a casa do editor, e o destino do
+link do e-mail do casal. Lista as sete seções na ordem atual, com um resumo de
+uma linha de cada, marca as que estão **ligadas e vazias**, e liga, desliga e
+reordena. Desligar não apaga nada: o conteúdo continua no banco.
+
+**As seções do site são dado** (migration `0012`). O catálogo — quais existem,
+o nome de cada uma, quais não se desligam — vive em `lib/secoes.ts`, porque cada
+seção tem um componente que a desenha. **Linha ausente significa o padrão do
+catálogo**: um evento recém-criado renderiza certo sem que ninguém toque no
+painel.
+
 ---
 
 ### Construído e desligado (Fatia 1)

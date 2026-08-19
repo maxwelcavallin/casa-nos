@@ -5,6 +5,7 @@ import { PaginaDoEvento } from "@/components/evento/PaginaDoEvento";
 import { agoraNoServidor } from "@/lib/datas";
 import { listarIndicacoes, recortePublico } from "@/lib/eventos";
 import { metadadosDoEvento } from "@/lib/metadados";
+import { chavesLigadas, listarSecoes } from "@/lib/secoes";
 import { eventoDaRequisicao } from "@/lib/resolver-evento";
 
 /**
@@ -28,7 +29,16 @@ export default async function Raiz() {
   const evento = await eventoDaRequisicao();
   if (!evento) notFound();
 
-  const indicacoes = await listarIndicacoes(evento.id);
+  const secoes = await listarSecoes(evento.id);
+  const ligadas = chavesLigadas(secoes);
+
+  /**
+   * **O CONTEÚDO DE SEÇÃO DESLIGADA NÃO É NEM BUSCADO** (RV-01). Não é economia
+   * de consulta: é o que faz o texto não existir no HTML. Esconder na
+   * renderização deixaria o conteúdo no código-fonte da página, e o primeiro
+   * convidado curioso leria o que o casal decidiu não contar.
+   */
+  const indicacoes = ligadas.includes("indicacoes") ? await listarIndicacoes(evento.id) : [];
 
   return (
     <PaginaDoEvento
@@ -37,6 +47,7 @@ export default async function Raiz() {
       // O "agora" do servidor vai junto para a primeira pintura do cliente ser
       // idêntica à do servidor. Ver o comentário em ContagemRegressiva.
       agoraMs={agoraNoServidor().getTime()}
+      secoes={ligadas}
     />
   );
 }

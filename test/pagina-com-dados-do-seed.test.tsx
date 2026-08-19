@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Providers } from "@/components/Providers";
 import { PaginaDoEvento } from "@/components/evento/PaginaDoEvento";
+// Todas as seções ligadas — o padrão do catálogo (lib/secoes.ts).
+import { CHAVES_DE_SECAO } from "@/lib/secoes";
 import type { Executor } from "@/lib/db";
 import { buscarEventoPorDominio, listarIndicacoes, recortePublico } from "@/lib/eventos";
 
@@ -120,6 +122,7 @@ async function montarComOSeed() {
         evento={recortePublico(evento)}
         indicacoes={indicacoes}
         agoraMs={AGORA.getTime()}
+        secoes={CHAVES_DE_SECAO}
       />
     </Providers>
   );
