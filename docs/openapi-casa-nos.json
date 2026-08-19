@@ -6,9 +6,9 @@
     "description": "GERADO por scripts/openapi.mjs a partir de lib/rotas.ts. Nao edite a mao: a proxima geracao apaga."
   },
   "paths": {
-    "/api/sessao/link": {
+    "/api/sessao/cadastrar": {
       "post": {
-        "summary": "POST /api/sessao/link",
+        "summary": "POST /api/sessao/cadastrar",
         "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
         "responses": {
           "200": {
@@ -115,6 +115,430 @@
     "/api/sessao/entrar": {
       "post": {
         "summary": "POST /api/sessao/entrar",
+        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessao/sair": {
+      "post": {
+        "summary": "POST /api/sessao/sair",
+        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessao/recuperacao": {
+      "post": {
+        "summary": "POST /api/sessao/recuperacao",
+        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessao/senha": {
+      "post": {
+        "summary": "POST /api/sessao/senha",
+        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessao/verificacao": {
+      "post": {
+        "summary": "POST /api/sessao/verificacao",
         "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
         "responses": {
           "200": {

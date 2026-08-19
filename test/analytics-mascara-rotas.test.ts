@@ -98,6 +98,15 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
        * não vai para o GA4 em canto nenhum. O `[eventoId]` que vem antes delas
        * continua mascarado (RN-24).
        */
+      /**
+       * AS TRÊS PALAVRAS DA CONTA (19/08/2026): `cadastrar`, `recuperar` e
+       * `verificar` — elas aparecem espalhadas nesta lista porque ela é
+       * ordenada. Cada uma nomeia **qual tela foi aberta**, e todas são a mesma
+       * tela para qualquer pessoa. **O `[token]` que vem depois de `recuperar` e
+       * de `verificar` continua mascarado**, e ali isso não é preferência: ele é
+       * a credencial inteira de redefinir uma senha.
+       */
+      "cadastrar",
       "capa",
       "convidado",
       // A lista da F1.3/F1.4. As três palavras novas nomeiam SUPERFÍCIE, e
@@ -139,6 +148,7 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
       "previa",
       "programacao",
       "r",
+      "recuperar",
       "rodape",
       /**
        * A palavra da v1.0. `site` nomeia a SUPERFÍCIE — a casa do editor — e não
@@ -147,6 +157,7 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
        */
       "site",
       "telao",
+      "verificar",
     ]);
   });
 

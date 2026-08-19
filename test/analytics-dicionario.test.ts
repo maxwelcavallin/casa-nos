@@ -36,9 +36,9 @@ function eventosDeclarados(): string[] {
 }
 
 /**
- * Os 16 eventos da Fatia 1 (`metricas.md` §6), menos `sign_up` e
- * `wedding_created`, que vão para a Fatia 2 (V8) — e mais os três que já estavam
- * no ar desde a Fatia 0.
+ * Os 16 eventos da Fatia 1 (`metricas.md` §6), mais os três que já estavam no ar
+ * desde a Fatia 0, mais `site_published` (V-11) e os dois do cadastro
+ * (19/08/2026).
  *
  * `page_view` não está aqui porque ele sai do `config`, não do `enviarEvento`.
  * `couple_activated` não está porque **não é evento de GA4**: é marco derivado
@@ -71,6 +71,15 @@ const ESPERADOS = [
    * sempre, e daqui a um ano alguém gasta uma tarde procurando o que quebrou.
    */
   "site_published",
+  /**
+   * v1.0, 19/08/2026 — a conta com senha. Os dois eram, até esta data, o exemplo
+   * escrito de "nome declarado e nunca emitido": o produto não tinha cadastro
+   * público, e o casamento nascia por `pnpm db:bootstrap`, num terminal. O dono
+   * reverteu a decisão P4, e **os dois passam a ser emitidos de verdade**, no
+   * mesmo instante — um cadastro cria a conta e o casamento.
+   */
+  "sign_up",
+  "wedding_created",
 ];
 
 describe("a união de tipos é o dicionário", () => {
@@ -98,7 +107,14 @@ describe("a união de tipos é o dicionário", () => {
     // um valor que o produto não emite fica no relatório para sempre, com zero
     // ocorrências, e daqui a um ano alguém gasta uma tarde procurando o que
     // quebrou.
-    for (const nome of ["sign_up", "wedding_created", "rsvp_submitted", "purchase"]) {
+    /**
+     * `sign_up` e `wedding_created` SAÍRAM desta lista em 19/08/2026, quando o
+     * cadastro público passou a existir e a emiti-los. Os dois que sobram
+     * continuam sendo Fatia 2 e 3: valor morto tem o mesmo prazo do valor que
+     * falta — dimensão registrada com um valor que o produto não emite fica no
+     * relatório para sempre, com zero ocorrências.
+     */
+    for (const nome of ["rsvp_submitted", "purchase"]) {
       expect(eventosDeclarados()).not.toContain(nome);
     }
   });
@@ -115,6 +131,10 @@ describe("nenhum parâmetro recebe texto livre (§13.9)", () => {
       "uuid do evento. Dado de inquilino, não de pessoa, e é dele que sai a máscara da URL.",
     expected_month:
       "AAAA-MM, e passa por `mesParaOGa4` antes de sair — validado no envio, não no tipo.",
+    referring_wedding_id:
+      "uuid do casamento que indicou este. Dado de INQUILINO, não de pessoa — a " +
+      "mesma régua do `wedding_id`, e nunca o slug, que é o nome do casal escrito " +
+      "de outro jeito. Vazio quando ninguém indicou.",
   };
 
   it("todo campo `string` do dicionário está na lista, com motivo", () => {
@@ -229,11 +249,6 @@ describe("o quarto valor de `error_kind`", () => {
  * escrito no lugar onde o evento seria procurado.
  */
 describe("os silêncios da v1.0 estão escritos no dicionário", () => {
-  it("`wedding_created` não é emitido, e o documento diz por quê", () => {
-    expect(DOCUMENTO).toMatch(/`wedding_created` não é emitido/);
-    expect(DOCUMENTO).toMatch(/db:bootstrap/);
-  });
-
   it("os zeros do álbum são a flag desligada, e não instrumentação quebrada", () => {
     expect(DOCUMENTO).toMatch(/álbum continuam declarados e não são emitidos/);
     expect(DOCUMENTO).toMatch(/album_ativo/);

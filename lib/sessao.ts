@@ -219,6 +219,25 @@ export function gravarCookieDeAcesso(
 }
 
 /**
+ * Apagar o cookie de acesso — o outro lado de `gravarCookieDeAcesso`.
+ *
+ * `maxAge: 0` com o MESMO nome, caminho e atributos: um cookie só é substituído
+ * por outro que case em nome e caminho, e um `Path` diferente deixa o antigo de
+ * pé enquanto o navegador diz que apagou.
+ *
+ * **Apagar o cookie não é sair.** Quem sai revoga a linha em `evento_acessos`
+ * também (`/api/sessao/sair`): sem isso o token continua valendo trinta dias em
+ * qualquer lugar onde alguém o tenha copiado.
+ */
+export function limparCookieDeAcesso(resposta: RespostaComCookie, eventoId: string): void {
+  resposta.cookies.set({
+    name: nomeDoCookie("a", eventoId),
+    value: "",
+    ...opcoesDeCookie(0),
+  });
+}
+
+/**
  * O `user_id` pseudônimo que vai para o `config` do GA4 (`metricas.md` §8).
  *
  * `g:` para convidado, `c:` para casal. É o id interno, que é opaco e não é

@@ -37,9 +37,28 @@ export type RotaDeApi = {
 };
 
 export const ROTAS_DE_API: RotaDeApi[] = [
-  // H-02 — o casal entra
-  { caminho: "/api/sessao/link", metodos: { POST: "evento.configurar" }, publica: true },
+  /**
+   * O CASAL ENTRA — e desde 19/08/2026 ele entra com e-mail e senha.
+   *
+   * As seis são `publica: true` pelo mesmo motivo de sempre: **quem chega aqui
+   * ainda não tem sessão**. A credencial vem no corpo (senha, ou token de uso
+   * único que chegou por e-mail), cada uma tem limite de taxa por origem, e o
+   * formato do token é conferido antes de qualquer consulta.
+   *
+   * `sair` também é pública, e a palavra engana: ela resolve a sessão por conta
+   * própria e responde 204 **mesmo sem sessão nenhuma** — o resultado que a
+   * pessoa pediu, não estar mais dentro, já vale nesse caso.
+   *
+   * A rota que sumiu é a `/api/sessao/link`, o link mágico da H-02. Ela era a
+   * única porta; agora a porta é a senha, e o link de uso único sobrou só para
+   * confirmar o e-mail e para redefinir a senha.
+   */
+  { caminho: "/api/sessao/cadastrar", metodos: { POST: "evento.configurar" }, publica: true },
   { caminho: "/api/sessao/entrar", metodos: { POST: "evento.configurar" }, publica: true },
+  { caminho: "/api/sessao/sair", metodos: { POST: "evento.configurar" }, publica: true },
+  { caminho: "/api/sessao/recuperacao", metodos: { POST: "evento.configurar" }, publica: true },
+  { caminho: "/api/sessao/senha", metodos: { POST: "evento.configurar" }, publica: true },
+  { caminho: "/api/sessao/verificacao", metodos: { POST: "evento.configurar" }, publica: true },
 
   /**
    * H-22 — o link guardado vira sessão. `publica: true` como as outras duas de
@@ -304,7 +323,21 @@ export const TELAS: Tela[] = [
     // NUNCA entra aqui é o rótulo do convidado — nem no caminho, nem no título.
     segmentosPublicos: ["album", "minhas"],
   },
-  { caminho: "/entrar/[token]", superficie: "casal", segmentosPublicos: ["entrar"] },
+  /**
+   * AS TELAS DA CONTA (19/08/2026). `/entrar/[token]` saiu junto com o link
+   * mágico; no lugar dela entram a tela de entrar, a de criar conta e as duas
+   * pontas dos links de uso único.
+   *
+   * `entrar`, `cadastrar`, `recuperar` e `verificar` são palavras de SUPERFÍCIE
+   * — dizem qual tela foi aberta, e são a mesma tela para todo mundo. **O
+   * `[token]` continua mascarado**, e ali isso não é preferência: ele é a
+   * credencial inteira de redefinir uma senha.
+   */
+  { caminho: "/entrar", superficie: "casal", segmentosPublicos: ["entrar"] },
+  { caminho: "/cadastrar", superficie: "casal", segmentosPublicos: ["cadastrar"] },
+  { caminho: "/recuperar", superficie: "casal", segmentosPublicos: ["recuperar"] },
+  { caminho: "/recuperar/[token]", superficie: "casal", segmentosPublicos: ["recuperar"] },
+  { caminho: "/verificar/[token]", superficie: "casal", segmentosPublicos: ["verificar"] },
   /**
    * O telão. O `[token]` é mascarado como qualquer outro — ele é credencial ao
    * portador, e o GA4 não preenche o passado.
@@ -441,7 +474,20 @@ export const TELAS: Tela[] = [
  * segura — regra escrita não segura nada.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export const SEGMENTOS_RESERVADOS = ["api", "e", "entrar", "painel", "telao", "r"] as const;
+export const SEGMENTOS_RESERVADOS = [
+  "api",
+  "e",
+  "entrar",
+  "painel",
+  "telao",
+  "r",
+  // As três da conta (19/08/2026). Elas entram aqui NO MESMO COMMIT em que as
+  // pastas nascem: uma pasta de primeiro nível que não esteja nesta lista rouba,
+  // em silêncio, o endereço de um casamento que pode já estar impresso.
+  "cadastrar",
+  "recuperar",
+  "verificar",
+] as const;
 
 /**
  * Caminhos que a plataforma serve e que nunca chegam ao proxy como slug.

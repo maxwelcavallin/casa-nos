@@ -484,6 +484,60 @@ a pergunta "quantos sites estão no ar hoje?" se responde de verdade.
 o nome do casal escrito de outro jeito; o terceiro responde a uma pergunta que
 ninguém fez.
 
+### A conta com senha — os dois primeiros degraus da árvore
+
+`metricas.md` §6.1 declara `sign_up` e `wedding_created` desde o início e os aloca
+à Fatia 2. Eles entram aqui com a história que os emite — o cadastro público de
+19/08/2026 —, e não antes: nome declarado e nunca emitido fica no relatório com
+zero ocorrências para sempre.
+
+#### `sign_up`
+
+| Campo | Valor |
+|---|---|
+| Significa | Um casal novo criou conta |
+| Onde dispara | `components/conta/FormularioDeCadastro.tsx`, **depois** de o servidor confirmar |
+| Parâmetros | `wedding_id` (uuid) · `signup_source` (`cta_album` \| `direto` \| `indicacao` \| `desconhecido`) · `referring_wedding_id` (uuid, vazio quando não houver) |
+| Alimenta | Aquisição, e o loop de indicação com janela de 18 meses |
+| Conversão? | **Sim** |
+
+**`signup_source` é sempre `direto` nesta versão**, e a razão não é preguiça: o
+CTA do álbum, que produziria `indicacao`, está desligado por dado. O valor nasce
+declarado porque o dia em que o álbum voltar o relatório precisa distinguir os
+dois — e o GA4 não preenche o passado.
+
+**`referring_wedding_id` é uuid, e nunca slug.** O slug é o nome do casal escrito
+de outro jeito; a régua é a mesma do `wedding_id`. Ele viaja vazio quando ninguém
+indicou — e vazio, não ausente: dimensão que às vezes não viaja é dimensão que o
+relatório conta errado.
+
+**`days_since_lead` não é emitido**, embora `metricas.md` o declare. Ele exigiria
+casar o e-mail do cadastro com a tabela `leads`, e `leads` guarda WhatsApp, não
+e-mail — o cruzamento seria um palpite. Fica como pergunta para quem escreve
+métrica, e não como número inventado.
+
+#### `wedding_created`
+
+| Campo | Valor |
+|---|---|
+| Significa | O casal criou o casamento. É o começo da ativação dele |
+| Onde dispara | o mesmo cadastro, no mesmo instante |
+| Parâmetros | `wedding_id` (uuid) |
+| Alimenta | Ativação do casal |
+| Conversão? | **Sim** |
+
+**Por que dois eventos para um único toque:** as perguntas são duas. Aquisição
+pergunta quantas contas nasceram; ativação pergunta quantos casamentos saíram do
+zero. Hoje os números são iguais porque um cadastro cria os dois — e o dia em que
+existir conta sem casamento, ou casamento criado por outro caminho, o relatório
+já sabe contar os dois separadamente sem que ninguém precise reinstrumentar nada.
+
+**O casamento nasce fora do ar**, então `wedding_created` **não** significa site
+publicado. Quem responde isso é `site_published`, e a distância entre os dois
+números é exatamente o funil que a v1.0 existe para medir.
+
+---
+
 ### Os silêncios da v1.0 — o que o produto decidiu **não** medir
 
 Esta seção existe porque a pergunta "por que este evento tem zero ocorrências?"
@@ -491,12 +545,12 @@ custa uma tarde a quem a faz, e três parágrafos a quem responde antes. **Nome
 declarado sem emissão é dívida de relatório**, e a única defesa é escrever, no
 mesmo lugar onde o evento seria procurado, que ele não vai aparecer.
 
-**`wedding_created` não é emitido, e não está declarado.** Nesta versão o evento
-nasce por `pnpm db:bootstrap`, num terminal — não há navegador, não há tela, e
-não há cadastro público (decisão P4 do `prd.md`, que segue valendo). Um evento de
-GA4 emitido por script seria um número que descreve o dono do produto rodando um
-comando, e não um casal chegando. **Ninguém deve procurá-lo no relatório nem
-"consertar" a ausência**; ele volta com o cadastro público, que é Fatia 2.
+**`wedding_created` e `sign_up` DEIXARAM DE SER SILÊNCIO EM 19/08/2026.** Eles
+eram o exemplo escrito desta seção: o produto não tinha cadastro público, o
+casamento nascia por `pnpm db:bootstrap` num terminal, e um evento de GA4 emitido
+por script seria um número descrevendo o dono rodando um comando. O dono reverteu
+a decisão P4 — existe cadastro público, e os dois são emitidos de verdade. A ficha
+de cada um está mais abaixo.
 
 **Os eventos do álbum continuam declarados e não são emitidos.** Os treze eventos
 da Fatia 1 — `media_upload_*`, `album_opened`, `guest_identified`,

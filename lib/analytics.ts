@@ -77,6 +77,47 @@ export type EventosDeAnalytics = {
     wedding_id: string;
   };
 
+  /* -------- v1.0 · a conta com senha (19/08/2026) -------- */
+
+  /**
+   * UM CASAL NOVO CRIOU CONTA (`metricas.md` §6.1, evento reservado do GA4).
+   *
+   * **ELE PASSA A SER EMITIDO EM 19/08/2026**, e até essa data ele era o exemplo
+   * escrito de "nome declarado e nunca emitido" — o produto não tinha cadastro
+   * público, e o evento nascia por `pnpm db:bootstrap`, num terminal. O dono
+   * reverteu a decisão P4; o dicionário acompanha a realidade, e não o contrário.
+   *
+   * `signup_source` responde a pergunta que a árvore de aquisição faz primeiro:
+   * de onde vem casal novo. Nesta versão a resposta é sempre `direto` — o CTA do
+   * álbum, que produziria `indicacao`, está desligado por dado. O valor nasce
+   * declarado porque o dia em que o álbum voltar, o relatório precisa distinguir
+   * os dois, e o GA4 não preenche o passado.
+   */
+  sign_up: {
+    wedding_id: string;
+    signup_source: "cta_album" | "direto" | "indicacao" | "desconhecido";
+    /**
+     * O casamento que indicou este, quando houver — **uuid, e nunca o slug**: o
+     * slug é o nome do casal escrito de outro jeito. Vazio quando ninguém
+     * indicou, e não ausente: dimensão que às vezes não viaja é dimensão que o
+     * relatório conta errado.
+     */
+    referring_wedding_id: string;
+  };
+
+  /**
+   * O CASAL CRIOU O CASAMENTO. É o começo da ativação dele.
+   *
+   * Sai no mesmo instante do `sign_up` nesta versão, porque um cadastro cria os
+   * dois — e continua sendo um evento separado porque as perguntas são
+   * separadas: aquisição pergunta quantas contas nasceram, ativação pergunta
+   * quantos casamentos saíram do zero. O dia em que existir conta sem casamento,
+   * ou casamento sem cadastro, o relatório já sabe contar os dois.
+   */
+  wedding_created: {
+    wedding_id: string;
+  };
+
   /* ---------------- Fatia 1 · F1.2 — o envio ---------------- */
 
   /**

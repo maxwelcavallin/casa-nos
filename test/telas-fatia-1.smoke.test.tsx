@@ -5,7 +5,6 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AlbumDoConvidado } from "@/components/album/AlbumDoConvidado";
-import { EntrarNoPainel } from "@/components/painel/EntrarNoPainel";
 import { Providers } from "@/components/Providers";
 import { TelaDoDia, type DadosDoDia } from "@/components/painel/TelaDoDia";
 
@@ -26,10 +25,13 @@ import { TelaDoDia, type DadosDoDia } from "@/components/painel/TelaDoDia";
  */
 
 /**
- * O roteador do App Router não existe fora de uma página do Next, e
- * `EntrarNoPainel` usa `replace` para entrar no painel sem tela intermediária.
- * O que este arquivo verifica dali é o TEXTO do caminho triste, não a navegação
- * do caminho feliz — a navegação é responsabilidade do Next.
+ * O roteador do App Router não existe fora de uma página do Next, e as telas do
+ * álbum navegam. A navegação em si é responsabilidade do Next; o que este
+ * arquivo verifica é o texto.
+ *
+ * **A TELA DE ENTRAR SAIU DAQUI EM 19/08/2026**: o link mágico foi substituído
+ * por e-mail e senha, e as telas de conta têm arquivo próprio
+ * (`test/conta.test.tsx`).
  */
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: () => {}, push: () => {}, refresh: () => {} }),
@@ -333,35 +335,5 @@ describe("Painel — o dia", () => {
     for (const rotulo of ["Começa", "Termina", "Quantas pessoas foram"]) {
       expect(screen.getAllByLabelText(rotulo).length).toBeGreaterThan(0);
     }
-  });
-});
-
-/* ------------------------------------------------------------------ *
- * Entrar
- * ------------------------------------------------------------------ */
-
-describe("Entrar — link expirado nunca é tela de erro", () => {
-  it("sem token: a mensagem com saída, e o botão que manda outro", () => {
-    render(
-      <Providers>
-        <EntrarNoPainel token={null} />
-      </Providers>
-    );
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Este link expirou");
-    expect(
-      screen.getByText(
-        "Os links de acesso valem 30 minutos e servem uma vez. A gente manda outro agora."
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mandar um link novo" })).toBeInTheDocument();
-  });
-
-  it("não usa a palavra 'erro' em lugar nenhum", () => {
-    const { container } = render(
-      <Providers>
-        <EntrarNoPainel token={null} />
-      </Providers>
-    );
-    expect(container.textContent?.toLowerCase()).not.toContain("erro");
   });
 });
