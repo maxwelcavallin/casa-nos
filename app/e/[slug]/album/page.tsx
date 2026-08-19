@@ -5,7 +5,8 @@ import { AlbumDoConvidado } from "@/components/album/AlbumDoConvidado";
 import { agoraNoServidor } from "@/lib/datas";
 import { eventoPorSlug } from "@/lib/resolver-evento";
 import { ehSlug } from "@/lib/ids";
-import { estadoDoEnvio } from "@/lib/janela";
+import { estadoDoEnvio, quandoAbre } from "@/lib/janela";
+import { diasDesdeOEvento } from "@/lib/medida-do-dia";
 import { garantirParticipacao, participacaoPorToken } from "@/lib/participacoes";
 import { tokenDeParticipacao, usuarioPseudonimo } from "@/lib/sessao";
 
@@ -90,15 +91,23 @@ export default async function PaginaDoAlbum({
       ? await participacaoPorToken(evento.id, token)
       : await garantirParticipacao(evento.id, token);
 
-  const estado = estadoDoEnvio(evento, agoraNoServidor(), participacao !== null);
+  const agora = agoraNoServidor();
+  const estado = estadoDoEnvio(evento, agora, participacao !== null);
 
   return (
     <AlbumDoConvidado
       eventoId={evento.id}
+      slug={evento.slug}
       nomeCasal={evento.nomeCasal}
       participacaoId={participacao?.id ?? null}
       faixaLenta={participacao?.faixaLenta ?? false}
       estadoDoEnvio={estado}
+      // A abertura da janela vem do SERVIDOR, calculada no fuso do evento: a
+      // frase "As fotos abrem em 21 de agosto" precisa dizer a mesma data aqui,
+      // em "as minhas fotos" e no painel do dia, e três telas fazendo a conta
+      // sozinhas é como uma delas anuncia o dia errado depois das 21h.
+      abertura={quandoAbre(evento)}
+      diasDesdeOEvento={diasDesdeOEvento(evento, agora)}
       usuario={usuarioPseudonimo(
         participacao ? { tipo: "convidado", participacao } : { tipo: "anonimo" }
       )}

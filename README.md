@@ -30,10 +30,41 @@ WhatsApp, no celular, com uma mão.
   retoma sozinha quando o convidado reabre o link.
 - **Erro de produção vira linha no banco** e alerta por e-mail ao dono.
 
+**Fatia 1 · F1.3 — a pessoa, e a escolha dela.**
+
+- **A lista de convidados** (`/painel/<id>/convidados`): o casal cola os nomes,
+  `Família Silva, 4` vira um slot com quatro pessoas, e as linhas que a máquina
+  não entendeu voltam com o motivo. É o denominador da métrica que decide o
+  produto.
+- **Os dois botões de envio SÃO a escolha de visibilidade**: `Mandar para a
+  festa` e `Mandar só para os noivos`, com a mesma altura, a mesma largura e
+  nenhum empurrão visual — a razão entre os cliques é o instrumento da hipótese
+  central.
+- **O nome é perguntado depois**, com o envio já correndo, e pode ser ignorado.
+  A busca é local: funciona sem rede.
+- **O envio termina em "as minhas fotos"** (`/e/<slug>/album/minhas`), onde cada
+  foto responde a duas perguntas ao mesmo tempo — *quem vê isso?* e *já chegou?*
+  — e a visibilidade volta atrás sem prazo.
+
+**Fatia 1 · F1.4 — a prova pública.**
+
+- **O feed da festa**, com rajada agrupada num cartão, paginação por cursor e
+  sondagem barata a cada 5 s **só com a aba visível**. Novidade não empurra a
+  tela: aparece um botão no topo.
+- **O código para imprimir** (`/painel/<id>/materiais`): três formatos, com a
+  origem por superfície (`?o=mesa`, `?o=cartaz`, `?o=telao`), gerados por um
+  codificador de QR próprio e verificado contra os valores publicados da
+  especificação.
+- **O telão** (`/telao/<token>`): abre por link próprio, roda em silêncio, e
+  **nunca projeta um erro na parede**. Perdeu a rede, perdeu o servidor: ele
+  continua com o que já tem.
+
 O que **não** existe, de propósito, está em
-[`docs/fatia-0.md`](docs/fatia-0.md) e em
-[`docs/fatia-1-f1-1-f1-2.md`](docs/fatia-1-f1-1-f1-2.md) — inclusive o feed, o
-telão e "as minhas fotos", que são as sub-fatias seguintes.
+[`docs/fatia-0.md`](docs/fatia-0.md), em
+[`docs/fatia-1-f1-1-f1-2.md`](docs/fatia-1-f1-1-f1-2.md) e em
+[`docs/fatia-1-f1-3-f1-4.md`](docs/fatia-1-f1-3-f1-4.md) — inclusive a fila de
+aprovação, o painel de mídias, a reconciliação e o CTA do loop, que são as
+sub-fatias seguintes.
 
 ---
 
@@ -62,6 +93,35 @@ Em `localhost` o domínio não bate com nenhum cadastro, então o evento vem de
 `EVENTO_SLUG_PADRAO` (use `ana-e-max`). Sem essa variável, `/` responde 404 e
 `/e/ana-e-max` continua funcionando.
 
+### O caminho inteiro, na ordem em que ele acontece
+
+Com o servidor no ar e o cookie de acesso do casal em mãos (ver
+[Bootstrap](#bootstrap--é-assim-que-um-evento-nasce)):
+
+| # | Onde | O que conferir |
+|---|---|---|
+| 1 | `/painel/<eventoId>/convidados` | Cole `Ana Paula Ribeiro`, `Família Silva, 4`, `, 4` e `Casal Lima, 2 pessoas`. **Duas linhas entram, duas voltam com o motivo** e o texto delas continua na caixa. Cole a mesma lista de novo: nada duplica |
+| 2 | `/painel/<eventoId>/materiais` | Baixe os três. Abra o `.svg` e **leia o código com a câmera do celular** — é o critério de aceite da H-04, e ele é humano. Gere o **link do telão** e guarde: ele aparece uma vez |
+| 3 | `/telao/<token>` | Abre direto na arte do vazio: nome, QR grande, "Aponte a câmera". **Nunca branco, nunca logo girando** |
+| 4 | `/e/ana-e-max/album` | O botão de mandar está lá antes de o feed carregar. Escolha fotos: a folha abre com **os dois botões**, do mesmo tamanho |
+| 5 | ainda no passo 4 | Toque em um dos dois. Você cai em `/e/ana-e-max/album/minhas` **com a pergunta do nome já aberta**, e o envio correndo por baixo |
+| 6 | `/e/ana-e-max/album/minhas` | Cada foto tem o selo de **quem vê** (canto inferior esquerdo) e, enquanto sobe, o de **já chegou** (canto superior direito). Toque numa foto → `Mudar quem vê` |
+| 7 | de volta ao telão | A foto aparece na parede em até 15 s, com fusão de 600 ms |
+| 8 | ainda no passo 6 | Tire a foto do feed (`Só para os noivos`). Ela some da parede na sondagem seguinte |
+
+**Para ver os estados que dependem de data**, mexa na janela em
+`/painel/<eventoId>/dia`:
+
+- janela **abrindo amanhã** → o álbum mostra `Você chegou antes da festa`, com a
+  data, e **sem botão de mandar**;
+- janela **já fechada** → `Os envios deste casamento foram encerrados.`, também
+  sem botão. O feed continua visível nos dois.
+
+**Para ver o telão sem rede:** abra o `/telao/<token>`, deixe algumas fotos
+entrarem no buffer e desligue o wifi. Ele **continua girando as fotos que já
+tem**, sem nenhum aviso — que é a especificação, e é a parte difícil de acreditar
+sem ver.
+
 ---
 
 ## Variáveis de ambiente
@@ -76,6 +136,7 @@ painel da Vercel e no do Neon.
 | `EVENTO_SLUG_PADRAO` | só fora de produção | `/` responde 404 em localhost e no preview |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | não | o GA4 não carrega — nenhum script, nenhum cookie |
 | `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | para o envio | a rota de intenção responde 503 **e a linha de intenção fica gravada** — o servidor sabe que a foto existe, e a reconciliação vai procurá-la |
+| `R2_PUBLIC_BASE` | para **ver** as fotos | a grade renderiza os tiles sem imagem e nada quebra: as telas abrem, o botão de mandar funciona e o envio acontece. Ver [ADR 0005](docs/adr/0005-leitura-de-midia-por-base-publica.md) |
 | `BREVO_API_KEY`, `BREVO_REMETENTE` | para o link do casal | nenhum e-mail sai; a tela não mente dizendo que mandou. Entre pelo cookie que o bootstrap imprime |
 | `ALERTA_EMAIL` | não | o alerta de taxa de erro não sai; o registro em `eventos_de_erro` continua |
 | `CRON_SEGREDO` | F1.6 | a sessão de cron nunca é reconhecida — o lado seguro de errar |
@@ -266,7 +327,14 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/analytics-mascara-rotas.test.ts` | nenhuma rota manda identificador legível ao GA4 — inclusive as que ainda não existem |
 | `test/r2-assinatura.test.ts` | o layout das chaves no R2 (mudar depois é migração de blob) |
 | `test/observabilidade-sem-pii.test.ts` | o registro de erro não guarda nome, e-mail nem telefone |
-| `test/telas-fatia-1.smoke.test.tsx` | as telas novas montadas, com o texto exato e o atalho de teclado |
+| `test/telas-fatia-1.smoke.test.tsx` | as telas da F1.1 e da F1.2 montadas, com o texto exato e o atalho de teclado |
+| `test/qr.test.ts` | o codificador de QR contra os valores publicados da especificação, **e o caminho de volta**: a matriz é lida e o que sai é o que entrou |
+| `test/convidados.test.ts` | a caixa de colar: a vírgula da direita, as linhas recusadas, o teto de 300, a reimportação que não duplica |
+| `test/minhas-e-visibilidade.test.ts` | as duas perguntas em campos separados; **um** caminho de escrita para `midias.visibilidade`; palavra terminal e os dois tetos de caracteres |
+| `test/feed.test.ts` | os quatro filtros do feed, o telão com o **mesmo** recorte, o agrupamento no banco e o cursor |
+| `test/telao.test.ts` | cinco variantes e nenhuma a mais, cores de estado desligadas, o palco pintando o próprio chão, e as nove proibições da parede varridas no código |
+| `test/medida-do-dia.test.ts` + `.brasilia.test.ts` | `days_since_event` e a data anunciada, nos **dois** fusos |
+| `test/telas-f1-3-f1-4.smoke.test.tsx` | as quatro telas novas montadas, com o texto exato do `gtm.md` |
 | `test/openapi.test.ts` | o contrato gerado bate com `lib/rotas.ts` |
 | `pnpm contrato` (no `build`) | `docs/openapi-casa-nos.json` regenerado no mesmo commit da rota |
 
@@ -324,6 +392,7 @@ em [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-m
 
 - [`docs/fatia-0.md`](docs/fatia-0.md) — o que ficou de fora, de propósito
 - [`docs/fatia-1-f1-1-f1-2.md`](docs/fatia-1-f1-1-f1-2.md) — o que entrou na F1.1 e na F1.2, o que ficou de fora e por quê, e o que faltou nos documentos
+- [`docs/fatia-1-f1-3-f1-4.md`](docs/fatia-1-f1-3-f1-4.md) — a F1.3 e a F1.4: o QR escrito à mão, o telão que não pode contar que quebrou, e o que **não** foi provado sobre o feed com 6.000 itens
 - [`docs/fila-local.md`](docs/fila-local.md) — **o contrato do registro no IndexedDB**. Leia antes de mexer na fila
 - [`docs/analytics.md`](docs/analytics.md) — dicionário de eventos GA4
 - [`docs/openapi-casa-nos.json`](docs/openapi-casa-nos.json) — contrato da API, **gerado**: não edite a mão
@@ -331,6 +400,7 @@ em [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-m
 - [`docs/adr/0002-mapa-sem-chave-de-api.md`](docs/adr/0002-mapa-sem-chave-de-api.md)
 - [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-mascarada-e-consentimento-negado.md)
 - [`docs/adr/0004-erro-em-tabela-do-proprio-banco.md`](docs/adr/0004-erro-em-tabela-do-proprio-banco.md)
+- [`docs/adr/0005-leitura-de-midia-por-base-publica.md`](docs/adr/0005-leitura-de-midia-por-base-publica.md) — **como a mídia é lida**, e a postura de privacidade que isso assume
 
 ---
 

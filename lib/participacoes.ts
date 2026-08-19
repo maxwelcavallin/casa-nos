@@ -110,6 +110,83 @@ export async function garantirParticipacao(
   return linhaParaParticipacao(linhas[0]);
 }
 
+/** Teto do rótulo digitado. Acima disso não é nome, é texto. */
+export const MAXIMO_DO_ROTULO = 120;
+
+export type Identificacao =
+  /** Escolheu um nome da lista. `convidado_id` grava o slot. */
+  | { modo: "lista"; convidadoId: string; rotulo: string }
+  /** Digitou. `rotulo` grava o que ele escreveu, e nada mais. */
+  | { modo: "avulso"; rotulo: string }
+  /** Chegou pelo link guardado (H-22). O rótulo vem da participação anterior. */
+  | { modo: "retomado"; rotulo: string | null };
+
+/**
+ * O NOME É RÓTULO, E ELE É PERGUNTADO DEPOIS (H-09).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * QUATRO COISAS QUE ESTA FUNÇÃO **NÃO** FAZ, e cada ausência é um critério de
+ * aceite:
+ *
+ * 1. **Não bloqueia nada.** Ela roda com o envio já correndo. Se falhar, as
+ *    fotos continuam subindo e a folha diz *"Guardamos as suas fotos. O nome a
+ *    gente tenta de novo."* — nunca desfaz o envio (RN-02).
+ * 2. **Não impede repetição.** Uma entrada da lista pode ser reivindicada
+ *    quantas vezes for (RN-23). Não existe "alguém já é você", não existe
+ *    numeração automática, não existe "Ana 2". Em casamento, duas Anas Silva
+ *    acontecem — e bloquear cria um beco sem saída no meio da festa.
+ * 3. **Não move mídia.** Trocar o nome depois muda o rótulo da participação, e
+ *    as fotos continuam onde estão. A identidade é o TOKEN (RN-01); o nome
+ *    pendura nela.
+ * 4. **Não agrupa por nome.** Duas participações com o mesmo rótulo continuam
+ *    sendo duas participações, e nenhuma consulta deste produto as junta.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * O `convidado_id` é validado contra o EVENTO antes de gravar: um id de slot de
+ * outro casamento, mandado à mão, criaria uma junção entre inquilinos que a
+ * medição leria como participação real (RN-25).
+ */
+export async function identificarParticipacao(
+  eventoId: string,
+  participacaoId: string,
+  identificacao: Identificacao,
+  exec: Executor = sql
+): Promise<Participacao | null> {
+  let convidadoId: string | null = null;
+
+  if (identificacao.modo === "lista") {
+    const slot = await exec`
+      select id from convidados
+       where id = ${identificacao.convidadoId}
+         and evento_id = ${eventoId}
+         and excluido_em is null
+       limit 1
+    `;
+    // Slot de outro evento, ou excluído: NÃO vira erro. O rótulo digitado
+    // continua valendo e o modo cai para `avulso` — o produto não devolve uma
+    // tela de erro por causa de um dado secundário, e a foto já está subindo.
+    if (slot.length) convidadoId = identificacao.convidadoId;
+  }
+
+  const modo: ModoDeIdentificacao =
+    identificacao.modo === "lista" && convidadoId === null ? "avulso" : identificacao.modo;
+
+  const rotulo = (identificacao.rotulo ?? "").trim().slice(0, MAXIMO_DO_ROTULO) || null;
+
+  const linhas = await exec`
+    update participacoes
+       set convidado_id       = ${convidadoId},
+           rotulo             = ${rotulo},
+           modo_identificacao = ${modo},
+           atualizado_em      = now()
+     where id = ${participacaoId}
+       and evento_id = ${eventoId}
+       and excluido_em is null
+    returning *
+  `;
+  return linhas.length ? linhaParaParticipacao(linhas[0]) : null;
+}
+
 /**
  * Quantos arquivos esta participação registrou nos últimos N minutos.
  *

@@ -253,6 +253,107 @@ três valores, e inventar um quarto criaria dimensão fora do dicionário.
 sem rede — de novo, o caso que importa — não manda nada. O número oficial de
 perda é SQL (RN-14).
 
+### Os cinco da F1.3 e da F1.4 — a pessoa, a escolha e o casal
+
+Do mesmo dicionário de `metricas.md` §6. Cada um nasce junto com a história que
+o emite; o fechamento (registro das dimensões, filtro do telão, conferência no
+DebugView) continua sendo a H-17, na F1.6.
+
+#### `guest_identified`
+
+| Campo | Valor |
+|---|---|
+| Significa | O convidado disse quem é. É o primeiro degrau em que ele deixa de ser anônimo para o produto |
+| Onde dispara | `components/album/MinhasFotos.tsx`, ao salvar o rótulo |
+| Parâmetros | `wedding_id` · `identification_mode` (`lista` \| `avulso` \| `retomado`) |
+| Alimenta | Ativação do convidado; denominador de todos os degraus seguintes |
+| Conversão? | **Sim** |
+
+**O modo vem do SERVIDOR, não do que a tela pediu.** Um `convidado_id` que não é
+deste evento cai para `avulso` na rota — mandar o modo pedido faria a dimensão
+contar um `lista` que não existe, e o erro E3 de `metricas.md` §1.2 (a fração de
+avulsos, que diz se P é confiável) mediria menos do que a realidade.
+
+**O nome nunca viaja.** Nem em parâmetro, nem em título, nem em URL. Rótulo de
+convidado é PII de **terceiro** — ele nem escolheu estar ali.
+
+#### `media_visibility_changed`
+
+| Campo | Valor |
+|---|---|
+| Significa | O convidado **mexeu** no seletor, saindo do valor com que a foto nasceu |
+| Onde dispara | `components/album/MinhasFotos.tsx`, depois de a troca confirmar |
+| Parâmetros | `wedding_id` · `media_visibility_from` · `media_visibility` (o valor novo) |
+| Alimenta | **Hipótese S1** |
+| Conversão? | Não |
+
+**É este evento, e não a distribuição, que carrega sinal de demanda.** A
+distribuição diz o que as pessoas apertaram; este diz que alguém voltou e decidiu
+de novo. **Gatilho escrito:** abaixo de 10% de mídias com o seletor mexido, a
+escolha de visibilidade sai do posicionamento.
+
+Ele **não** dispara quando o valor pedido é igual ao atual: a rota devolve
+`mudou: false` e a tela não emite nada.
+
+#### `album_opened`
+
+| Campo | Valor |
+|---|---|
+| Significa | Alguém abriu o feed do casamento ou o próprio álbum |
+| Onde dispara | `AlbumDoConvidado` e `MinhasFotos`, uma vez por montagem |
+| Parâmetros | `wedding_id` · `album_kind` (`feed` \| `minhas`) · `days_since_event` (número, **pode ser negativo**) |
+| Alimenta | Permanência (S2); uso do feed |
+| Conversão? | Não |
+
+`days_since_event` é o que responde "voltou depois de 30 dias?" sem um segundo
+evento. A conta é de **calendário no fuso do evento** (`lib/medida-do-dia.ts`):
+feita sobre `new Date(dataEvento)` ela daria meia-noite em UTC, e toda a festa —
+que acontece depois das 21h — seria contada como o dia seguinte.
+
+O disparo é guardado por um `ref`: o efeito do React roda duas vezes em
+desenvolvimento, e sem a marca cada abertura valeria dois.
+
+#### `guest_list_imported`
+
+| Campo | Valor |
+|---|---|
+| Significa | O casal carregou a lista de convidados |
+| Onde dispara | `components/painel/ListaDeConvidados.tsx`, ao concluir a importação |
+| Parâmetros | `wedding_id` · `guest_count` (número) · `import_mode` (`colado` \| `manual`) |
+| Alimenta | Ativação do casal; qualidade do denominador |
+| Conversão? | Não |
+
+`guest_count` conta **slots**, não pessoas. "Família Silva, 4" é um slot com
+quatro pessoas: a North Star conta slots, e somar as duas grandezas produz um
+percentual que não significa nada. `planilha` existe no dicionário e é da Fatia 2.
+
+#### `qr_material_downloaded`
+
+| Campo | Valor |
+|---|---|
+| Significa | O casal baixou o material do QR para imprimir |
+| Onde dispara | `components/painel/MateriaisDoQr.tsx`, depois de o arquivo sair |
+| Parâmetros | `wedding_id` · `material_kind` (`mesa` \| `cartaz` \| `telao`) |
+| Alimenta | Ativação do casal |
+| Conversão? | **Sim** |
+
+**É a última coisa que precisa acontecer antes de a festa funcionar.** Se isto
+não acontecer, a participação será zero por um motivo que não é do produto — e é
+o único evento desta fatia cuja ausência invalida a leitura de todos os outros.
+
+Ele dispara **depois** de o arquivo ser gerado, e não ao tocar no botão: uma
+falha de geração não pode contar como material baixado.
+
+### O telão não emite nada além do `page_view`
+
+`/telao/[token]` carrega o GA4 com `surface = telao` e **nenhum evento próprio**
+(H-12). Ele não conta foto exibida, não conta ciclo, não conta erro — e o erro
+dele é justamente o que a tela não pode mostrar.
+
+**Quem descobre que o telão parou não é o GA4.** É `evento_acessos.ultimo_uso_em`,
+carimbado a cada sondagem bem-sucedida (no máximo uma vez por minuto). A parede
+fica muda; o banco fala.
+
 ### As duas dimensões novas no `page_view`
 
 `surface` (`convidado` \| `casal` \| `telao`) e `qr_source` (`mesa` \| `telao` \|

@@ -163,6 +163,56 @@ describe("toda rota nova aparece na matriz de permissão", () => {
     expect(desconhecidas).toEqual([]);
   });
 
+  /**
+   * A ORDEM DA LISTA DECIDE QUAL ROTA RESPONDE, e é a única coisa neste arquivo
+   * que depende de ordem.
+   *
+   * `rotaDeApiQueCasa` compara segmento a segmento e `[param]` casa com
+   * **qualquer** coisa — inclusive com uma palavra literal. Declarada depois de
+   * `/midias/[midiaId]`, a rota `/midias/intencao` seria resolvida como se
+   * `intencao` fosse um id de mídia: o middleware exigiria o método da outra
+   * rota e responderia **405 a um `POST` legítimo do envio**, no caminho mais
+   * quente do produto.
+   *
+   * O Next resolve o estático antes do dinâmico; aqui quem resolve é a ordem, e
+   * é por isso que ela precisa de teste.
+   */
+  it("caminho literal ganha do `[param]` — a ordem da lista está certa", () => {
+    const casos: Array<[string, string]> = [
+      // pedido real                                     rota que tem de responder
+      ["/api/eventos/e1/midias/intencao", "/api/eventos/[id]/midias/intencao"],
+      ["/api/eventos/e1/midias/m1", "/api/eventos/[id]/midias/[midiaId]"],
+      [
+        "/api/eventos/e1/midias/m1/confirmacao",
+        "/api/eventos/[id]/midias/[midiaId]/confirmacao",
+      ],
+      [
+        "/api/eventos/e1/midias/m1/visibilidade",
+        "/api/eventos/[id]/midias/[midiaId]/visibilidade",
+      ],
+      ["/api/eventos/e1/convidados", "/api/eventos/[id]/convidados"],
+      ["/api/eventos/e1/convidados/publico", "/api/eventos/[id]/convidados/publico"],
+      ["/api/eventos/e1/convidados/c1", "/api/eventos/[id]/convidados/[convidadoId]"],
+      ["/api/eventos/e1/feed", "/api/eventos/[id]/feed"],
+      ["/api/eventos/e1/feed/novidades", "/api/eventos/[id]/feed/novidades"],
+      ["/api/eventos/e1/participacoes/atual", "/api/eventos/[id]/participacoes/atual"],
+    ];
+
+    const erradas = casos
+      .map(([pedido, esperado]) => ({
+        pedido,
+        esperado,
+        achado: rotaDeApiQueCasa(pedido)?.caminho ?? "nenhuma",
+      }))
+      .filter(r => r.achado !== r.esperado);
+
+    expect(
+      erradas,
+      "Estes pedidos foram resolvidos para a rota errada. Mova a declaração do " +
+        "caminho literal para ANTES da que tem `[param]` em lib/rotas.ts."
+    ).toEqual([]);
+  });
+
   it("todo método exportado pelo arquivo está declarado", () => {
     /**
      * O caso concreto: alguém acrescenta `export const DELETE` num arquivo de

@@ -132,9 +132,21 @@ describe("estado do envio", () => {
     expect(estadoDoEnvio(EVENTO, durante, true)).toBe("aberto");
   });
 
-  it("antes e depois, fora da janela", () => {
+  /**
+   * ANTES E DEPOIS SÃO **ESTADOS DIFERENTES**, e a separação nasceu de um
+   * defeito real da F1.2.
+   *
+   * Até aqui os dois instantes opostos devolviam o mesmo valor, e a tela dizia
+   * *"Os envios deste casamento foram encerrados"* para quem chegou na
+   * antevéspera. Falso e desanimador ao mesmo tempo — e para quem tinha feito a
+   * coisa certa, porque chegar cedo é o comportamento que o produto quer.
+   *
+   * Este teste existe para que "unificar os dois de novo" seja uma falha de CI e
+   * não um refinamento que parece limpeza.
+   */
+  it("antes da janela é um estado próprio, e não o mesmo de depois", () => {
     expect(estadoDoEnvio(EVENTO, new Date("2027-08-01T12:00:00.000Z"), true)).toBe(
-      "fora_da_janela"
+      "antes_da_janela"
     );
     expect(estadoDoEnvio(EVENTO, new Date("2027-09-01T12:00:00.000Z"), true)).toBe(
       "fora_da_janela"

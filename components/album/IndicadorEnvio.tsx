@@ -6,6 +6,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { WifiOff } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import type { EstadoDaFila } from "@/lib/fila/motor";
 
@@ -64,6 +65,9 @@ function textoDaSituacao(estado: EstadoDaFila): string | null {
   }
 }
 
+/** Quanto tempo o "Tudo aqui" ocupa o slot antes de se recolher (§16.6). */
+const MS_DO_CONCLUIDO = 4000;
+
 export function IndicadorEnvio({
   estado,
   acao,
@@ -72,11 +76,58 @@ export function IndicadorEnvio({
   /** Só o portal cativo tem ação. É o único estado em que há o que fazer. */
   acao?: AcaoDoIndicador;
 }) {
+  /**
+   * `concluido` ("Tudo aqui") é **transição para a prioridade 4, não uma quinta
+   * prioridade** (decisão R10).
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * Ele aparece **só** quando a última pendência termina com a tela aberta, é
+   * anunciado uma vez, e o slot se recolhe sozinho em 4 s, sem exigir ação.
+   *
+   * Ele **nunca** aparece ao abrir a tela já sem pendência: quem garante isso é
+   * o motor, que só entra em `concluido` saindo de `enviando` — a fila que abre
+   * vazia fica em `parada`, e `parada` não tem texto.
+   *
+   * E ele **não sobrevive a recarga**: o estado é de memória, e recarregar a
+   * página devolve `parada`. Isso é a especificação, não uma limitação — um
+   * "Tudo aqui" que reaparecesse a cada recarga viraria mobília, que é
+   * exatamente o que a prioridade 4 existe para evitar.
+   *
+   * Ele existe porque o resumo do topo **abriu um assunto** ("N ainda têm versão
+   * maior") e sumir em silêncio seria fechar esse assunto sem responder. É a
+   * mesma regra do aviso de retomada: **o produto fala quando o estado muda, não
+   * continuamente.**
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  const concluido = estado.situacao === "concluido";
+
+  /**
+   * O RECOLHIMENTO ZERA POR **REMONTAGEM**, e não por um `setState` no efeito.
+   *
+   * Quem monta este componente passa `key={estado.situacao}` (ver `ResumoDoTopo`
+   * e `BarraDeEnvio`): quando a fila sai de `concluido`, o componente é
+   * remontado e `recolhido` volta a `false` sozinho. Um efeito que fizesse esse
+   * reset chamaria `setState` no próprio corpo — cascata de renderização, e o
+   * lint recusa com razão.
+   *
+   * O que a `key` compra além da regra: o **segundo** "Tudo aqui" da noite volta
+   * a aparecer. Sem remontagem, o booleano ficaria marcado desde o primeiro, e o
+   * convidado que mandasse mais fotos não receberia a resposta — o resumo do topo
+   * teria aberto um assunto e fechado em silêncio.
+   */
+  const [recolhido, setRecolhido] = useState(false);
+
+  useEffect(() => {
+    if (!concluido) return;
+    const temporizador = window.setTimeout(() => setRecolhido(true), MS_DO_CONCLUIDO);
+    return () => window.clearTimeout(temporizador);
+  }, [concluido]);
+
   const texto = textoDaSituacao(estado);
   if (!texto) return null;
+  if (concluido && recolhido) return null;
 
   const espera = estado.situacao === "sem_rede" || estado.situacao === "portal_cativo";
-  const concluido = estado.situacao === "concluido";
 
   return (
     <Box

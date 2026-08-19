@@ -117,6 +117,89 @@ export type EventosDeAnalytics = {
     pending_count: number;
     oldest_pending_seconds: number;
   };
+
+  /* ---------------- Fatia 1 · F1.3 — a pessoa e a escolha dela ------------ */
+
+  /**
+   * O convidado disse quem é. **É o primeiro degrau em que ele deixa de ser
+   * anônimo para o produto** (`metricas.md` §6.2).
+   *
+   * `identification_mode` é o parâmetro que decide se P é confiável: acima de
+   * 10% de `avulso`, o denominador está errado e o problema é a lista de
+   * convidados, não o fluxo (erro E3 de `metricas.md` §1.2).
+   *
+   * **O NOME NUNCA VIAJA AQUI** (RN-24, `metricas.md` §8). Nem em parâmetro, nem
+   * em título, nem em URL. Rótulo de convidado é PII de **terceiro** — ele nem
+   * escolheu estar ali —, e PII no GA4 viola os termos e pode zerar a
+   * propriedade. O que sai é o modo, que é uma de três palavras fechadas.
+   */
+  guest_identified: {
+    wedding_id: string;
+    identification_mode: "lista" | "avulso" | "retomado";
+  };
+
+  /**
+   * O convidado **mexeu** no seletor de visibilidade, saindo do valor com que a
+   * foto nasceu.
+   *
+   * É ESTE EVENTO, E NÃO A DISTRIBUIÇÃO, QUE CARREGA SINAL DE DEMANDA
+   * (`metricas.md` §6, hipótese S1). A distribuição diz o que as pessoas
+   * apertaram; este diz que alguém voltou e decidiu de novo — que é a única
+   * evidência de que a escolha de visibilidade importa para o convidado.
+   *
+   * **Gatilho escrito:** abaixo de 10% de mídias com o seletor mexido, a escolha
+   * de visibilidade sai do posicionamento.
+   */
+  media_visibility_changed: {
+    wedding_id: string;
+    media_visibility_from: Visibilidade;
+    /** O valor NOVO. */
+    media_visibility: Visibilidade;
+  };
+
+  /**
+   * Alguém abriu o feed do casamento ou o próprio álbum.
+   *
+   * `days_since_event` **pode ser negativo** — a véspera é −1 — e é assim que a
+   * permanência (S2) é medida sem um segundo evento: "voltou depois de 30 dias"
+   * é este evento com `days_since_event >= 30` (`metricas.md` §6, tabela de
+   * eventos descartados).
+   */
+  album_opened: {
+    wedding_id: string;
+    album_kind: "feed" | "minhas";
+    days_since_event: number;
+  };
+
+  /* ---------------- Fatia 1 · F1.3 e F1.4 — o casal ---------------------- */
+
+  /**
+   * O casal carregou a lista de convidados.
+   *
+   * Sem ela, a identificação do convidado não tem o modo `lista` e **P não tem
+   * denominador** (`metricas.md` §1.1). `guest_count` conta SLOTS, não pessoas:
+   * é o denominador da North Star, e somar as duas grandezas produziria um
+   * percentual que não significa nada.
+   */
+  guest_list_imported: {
+    wedding_id: string;
+    guest_count: number;
+    /** `planilha` existe no dicionário e é da Fatia 2. Aqui só há estes dois. */
+    import_mode: "colado" | "manual";
+  };
+
+  /**
+   * O casal baixou o material do QR para imprimir.
+   *
+   * **É a última coisa que precisa acontecer antes de a festa funcionar**
+   * (`metricas.md` §6.3). Se isto não acontecer, a participação será zero por um
+   * motivo que não é do produto — e é o único evento desta fatia cuja ausência
+   * invalida a leitura de todos os outros.
+   */
+  qr_material_downloaded: {
+    wedding_id: string;
+    material_kind: "mesa" | "cartaz" | "telao";
+  };
 };
 
 /**

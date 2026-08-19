@@ -80,6 +80,51 @@ export function extensaoDe(tipoArquivo: string | null): string {
 /** 24 h (PRD §3.2, P10). Ver o comentário em `assinarPut`. */
 export const VALIDADE_DA_URL_SEGUNDOS = 24 * 60 * 60;
 
+/* ------------------------------------------------------------------ *
+ * A LEITURA — o caminho de volta, e a decisão que o PRD não tinha tomado
+ * ------------------------------------------------------------------ */
+
+/**
+ * A URL pública de uma faixa. `null` sem `R2_PUBLIC_BASE` configurada.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ESTA É UMA DECISÃO DE ARQUITETURA, E ELA ESTÁ ESCRITA EM `docs/adr/0005`.
+ * Resumo, porque quem lê este arquivo precisa saber sem abrir outro:
+ *
+ * O PRD fixa o layout das chaves e nada diz sobre como a mídia é **lida**. As
+ * duas saídas eram assinar cada `GET` numa rota nossa, ou servir o balde por um
+ * domínio público. A primeira custa **uma invocação de função por miniatura** —
+ * e o teto da H-11 é abrir o álbum com 6.000 itens em 3 segundos num Android de
+ * 3 anos em 4G. Seis mil invocações por abertura de álbum não chegam perto
+ * disso, e nenhuma borda consegue cachear uma URL assinada que muda a cada
+ * pedido.
+ *
+ * O que sustenta a escolha é a chave: `e/<evento_id>/m/<midia_id>/p.jpg`, com
+ * dois uuid v4. Adivinhar um é 122 bits de busca; a URL do álbum já é uma
+ * credencial ao portador (B14) e o link do telão também. **O que muda de
+ * postura é isto, e está declarado:** quem tiver a URL exata de uma foto a vê
+ * sem sessão, inclusive uma foto `noivos`. Uma foto `noivos` nunca é listada
+ * para ninguém além de quem enviou e do casal — mas a URL dela, se vazar, abre.
+ *
+ * O ORIGINAL FICA DE FORA. `urlPublica` recusa a faixa `original` de propósito:
+ * ele é o arquivo do casal, carrega EXIF (inclusive GPS, RN-18) e nunca é
+ * servido numa grade. O download dele é a H-20 (F1.7) e vai por rota assinada,
+ * com sessão. Se alguém quiser "só reaproveitar" esta função para o original, o
+ * `throw` está aqui para impedir.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function urlPublica(
+  eventoId: string,
+  midiaId: string,
+  faixa: "miniatura" | "previa",
+  tipoArquivo: string | null = null
+): string | null {
+  const base = (process.env.R2_PUBLIC_BASE ?? "").replace(/\/+$/, "");
+  if (!base) return null;
+  const chaves = chavesDaMidia(eventoId, midiaId, tipoArquivo);
+  return `${base}/${chaves[faixa]}`;
+}
+
 export type ConfiguracaoR2 = {
   contaOuEndpoint: string;
   balde: string;

@@ -65,12 +65,25 @@ export type Recusada = { ok: false; resposta: NextResponse<CorpoDeErro> };
  */
 export async function autorizar(
   eventoId: string,
-  acao: Acao
+  acao: Acao,
+  /**
+   * O token do telão, quando a requisição vier dele.
+   *
+   * O TELÃO É O ÚNICO PORTADOR SEM COOKIE (H-12): o computador do projetor abre
+   * um link e não é autenticado por ninguém. Ele manda o token no cabeçalho
+   * `x-telao` — e **não** na consulta, porque consulta cai em log de acesso, em
+   * `Referer` e no histórico do navegador, e este token é uma credencial ao
+   * portador que vale a festa inteira.
+   *
+   * Quem passa isto é a rota, lendo o cabeçalho. A resolução continua sendo de
+   * `lib/sessao.ts`; aqui é só o transporte.
+   */
+  opcoes: { tokenDoTelao?: string | null } = {}
 ): Promise<Autorizada | Recusada> {
   const evento = await buscarEventoPorId(eventoId);
   if (!evento) return { ok: false, resposta: naoEncontrado() };
 
-  const sessao = await sessaoDoEvento(evento.id);
+  const sessao = await sessaoDoEvento(evento.id, { tokenDoTelao: opcoes.tokenDoTelao });
   const alcance = pode(sessao, acao);
   if (alcance === "nao") {
     // 403 e não 404: o evento existe e o portador chegou até ele. O que falta é

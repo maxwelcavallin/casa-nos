@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AlbumDoConvidado } from "@/components/album/AlbumDoConvidado";
 import { EntrarNoPainel } from "@/components/painel/EntrarNoPainel";
@@ -38,15 +38,51 @@ vi.mock("next/navigation", () => ({
 const EVENTO = "11111111-1111-4111-8111-111111111111";
 const PARTICIPACAO = "22222222-2222-4222-8222-222222222222";
 
+/**
+ * O FEED AGORA É REAL, E O TESTE PRECISA DIZER O QUE ELE DEVOLVE.
+ *
+ * A F1.4 ligou a grade do feed (H-11): o álbum busca `/api/eventos/[id]/feed` na
+ * montagem. Sem uma resposta, o `catch` do gancho acende a mensagem de erro — e
+ * os testes de estado vazio passariam a testar o estado de erro, em verde,
+ * dizendo o contrário do que verificam.
+ *
+ * Aqui o feed responde **vazio**, que é o estado real do álbum até a primeira
+ * foto chegar — e é o estado que o PRD chama de "a tela mais importante do
+ * produto".
+ */
+function responderFeedVazio() {
+  return vi.fn(async (entrada: RequestInfo | URL) => {
+    const url = String(entrada);
+    const corpo = url.includes("/novidades")
+      ? { quantas: 0, ate: new Date(0).toISOString() }
+      : { itens: [], cursor: null };
+    return new Response(JSON.stringify(corpo), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+}
+
+beforeEach(() => {
+  vi.stubGlobal("fetch", responderFeedVazio());
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 function montarAlbum(sobrepor: Partial<React.ComponentProps<typeof AlbumDoConvidado>> = {}) {
   return render(
     <Providers>
       <AlbumDoConvidado
         eventoId={EVENTO}
+        slug="ana-e-max"
         nomeCasal="Ana Flávia e Maxwel"
         participacaoId={PARTICIPACAO}
         faixaLenta={false}
         estadoDoEnvio="aberto"
+        abertura={{ dia: "21 de agosto", hora: null }}
+        diasDesdeOEvento={0}
         usuario={`g:${PARTICIPACAO}`}
         {...sobrepor}
       />
@@ -91,9 +127,9 @@ describe("Álbum — o botão de enviar não espera nada", () => {
     );
   });
 
-  it("o estado vazio fala com a voz da marca e NÃO nomeia o que não existe", () => {
+  it("o estado vazio fala com a voz da marca e NÃO nomeia o que não existe", async () => {
     montarAlbum();
-    expect(screen.getByText("Seja a primeira foto da festa")).toBeInTheDocument();
+    expect(await screen.findByText("Seja a primeira foto da festa")).toBeInTheDocument();
     expect(
       screen.getByText("O que você mandar aparece aqui e no telão, em segundos.")
     ).toBeInTheDocument();
@@ -104,23 +140,66 @@ describe("Álbum — o botão de enviar não espera nada", () => {
     }
   });
 
-  it("fora da janela: a frase específica, e o botão some", () => {
+  it("fora da janela: a frase específica, e o botão some", async () => {
     montarAlbum({ estadoDoEnvio: "fora_da_janela" });
-    expect(screen.getByText("Os envios deste casamento foram encerrados.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Os envios deste casamento foram encerrados.")
+    ).toBeInTheDocument();
     expect(screen.getByText("As fotos que chegaram continuam aqui.")).toBeInTheDocument();
+    // O botão SOME; ele não fica desabilitado. Botão desabilitado sem
+    // explicação é a pessoa achando que o celular dela é o problema.
     expect(screen.queryByRole("button", { name: "Mandar minhas fotos" })).not.toBeInTheDocument();
   });
 
-  it("aparelho novo bloqueado: outra frase, e o feed continua visível", () => {
+  /**
+   * A PRECEDÊNCIA DA JANELA (`gtm.md` §5.1): quando ela não está aberta, a
+   * mensagem da janela **substitui** o estado vazio.
+   *
+   * `Seja a primeira foto da festa` sem botão é pior que um vazio — convida para
+   * uma ação que não existe. E os dois instantes opostos têm textos opostos: quem
+   * chegou cedo fez a coisa certa, e o texto dele termina numa ação.
+   */
+  it("antes da janela: o convite some, e o texto termina numa ação", async () => {
+    montarAlbum({
+      estadoDoEnvio: "antes_da_janela",
+      abertura: { dia: "21 de agosto", hora: null },
+    });
+    expect(await screen.findByText("Você chegou antes da festa")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "As fotos abrem em 21 de agosto. Este link é o mesmo no dia: guarde e volte."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Seja a primeira foto da festa")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Os envios deste casamento foram encerrados.")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mandar minhas fotos" })).not.toBeInTheDocument();
+  });
+
+  it("antes da janela, com hora configurada, o horário aparece", async () => {
+    montarAlbum({
+      estadoDoEnvio: "antes_da_janela",
+      abertura: { dia: "21 de agosto", hora: "18:00" },
+    });
+    expect(
+      await screen.findByText(
+        "As fotos abrem em 21 de agosto, às 18:00. Este link é o mesmo no dia: guarde e volte."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("aparelho novo bloqueado: outra frase, e o feed continua visível", async () => {
     montarAlbum({ estadoDoEnvio: "aparelho_novo_bloqueado" });
     expect(
-      screen.getByText("Este álbum não está mais recebendo fotos novas.")
+      await screen.findByText("Este álbum não está mais recebendo fotos novas.")
     ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Fotos da festa" })).toBeInTheDocument();
   });
 
-  it("nenhuma tela do convidado usa a palavra proibida", () => {
+  it("nenhuma tela do convidado usa a palavra proibida", async () => {
     const { container } = montarAlbum();
+    await screen.findByText("Seja a primeira foto da festa");
     // "Falhou" não entra em estado nenhum: não falhou, adiou.
     expect(container.textContent?.toLowerCase()).not.toContain("falhou");
     // E nada de jargão de fila para o convidado (RN-07).
@@ -136,7 +215,7 @@ describe("Álbum — o botão de enviar não espera nada", () => {
 });
 
 describe("o bloco de convite tem altura DERIVADA da grade", () => {
-  it("as duas réguas de linha existem no DOM", () => {
+  it("as duas réguas de linha existem no DOM", async () => {
     /**
      * A correção do `lead-design`: 216 px é a altura de duas linhas **enquanto**
      * a grade tiver três colunas de 104. Num aparelho estreito ela cai para duas
@@ -148,6 +227,7 @@ describe("o bloco de convite tem altura DERIVADA da grade", () => {
      * mesma grade, com proporção 1:1, e o navegador calcula a altura.
      */
     const { container } = montarAlbum();
+    await screen.findByText("Seja a primeira foto da festa");
     expect(container.querySelectorAll("[data-regua-da-grade]")).toHaveLength(2);
   });
 

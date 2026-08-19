@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-import { acessoPorToken, type Acesso } from "@/lib/acessos";
+import { acessoDeTelaoPorToken, acessoPorToken, type Acesso } from "@/lib/acessos";
 import { sql, type Executor } from "@/lib/db";
 import { participacaoPorToken, type Participacao } from "@/lib/participacoes";
 import {
@@ -106,6 +106,36 @@ export async function sessaoDoEvento(
 }
 
 /**
+ * A sessão do TELÃO, resolvida só pelo token (H-12).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ELA EXISTE PORQUE `/telao/[token]` NÃO TEM EVENTO NA URL, e por isso ela é a
+ * única resolução deste arquivo que descobre o inquilino em vez de recebê-lo.
+ * Continua sendo **este** arquivo que faz isso, e não a página: o dia em que a
+ * regra de expiração ou de revogação mudar, ela muda num lugar só.
+ *
+ * O token chega da URL, não de cookie, e é de propósito: o computador do
+ * projetor não é autenticado por ninguém e não guarda estado. E a validação de
+ * formato acontece **antes** da consulta, pelo mesmo motivo de `ehUuid`
+ * (`dados.md` §3) — um token torto vindo de um link quebrado em duas linhas pelo
+ * cliente de e-mail tem que custar zero ida ao banco.
+ *
+ * Devolve o `eventoId` junto porque quem chama precisa dele para tudo o mais, e
+ * obrigá-lo a cavar dentro de `sessao.acesso` seria convidar a próxima pessoa a
+ * pegar o id de outro lugar.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export async function sessaoDoTelao(
+  token: string | null | undefined,
+  exec: Executor = sql
+): Promise<{ sessao: Sessao; eventoId: string } | null> {
+  if (!ehTokenDeAcesso(token)) return null;
+  const acesso = await acessoDeTelaoPorToken(token, exec);
+  if (!acesso) return null;
+  return { sessao: { tipo: "telao", acesso }, eventoId: acesso.eventoId };
+}
+
+/**
  * A sessão do cron, que não tem cookie e não tem pessoa.
  *
  * Segredo de cabeçalho, comparado em tempo constante-ish: a comparação por
@@ -207,4 +237,21 @@ export function usuarioPseudonimo(sessao: Sessao): string | null {
  */
 export function participacaoDaSessao(sessao: Sessao): Participacao | null {
   return sessao.tipo === "convidado" ? sessao.participacao : null;
+}
+
+/**
+ * O acesso por trás desta sessão (casal, moderador ou telão), se houver.
+ *
+ * IRMÃ DE `participacaoDaSessao`, E PELO MESMO MOTIVO: `test/autorizacao-matriz`
+ * varre `app/api/**` atrás de `sessao.tipo === "telao"` e quebra o CI. Sem este
+ * ajudante, a rota do telão precisaria de um `if` só para o TypeScript estreitar
+ * o tipo — e a catraca ganharia a primeira exceção, que é como uma catraca
+ * começa a ser desligada.
+ *
+ * Devolve `null` para convidado, anônimo e cron.
+ */
+export function acessoDaSessao(sessao: Sessao): Acesso | null {
+  return sessao.tipo === "casal" || sessao.tipo === "moderador" || sessao.tipo === "telao"
+    ? sessao.acesso
+    : null;
 }

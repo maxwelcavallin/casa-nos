@@ -131,7 +131,24 @@ const FAMILIA_DE_FONTE_AVULSA = /\bfontFamily\s*:/g
  * errado passa. O que ela garante e que o padrao certo — guarda dentro do `try`,
  * desligamento no `finally` — seja o caminho de menor atrito.
  */
-const DESLIGA_CARREGANDO = /\bset(?:Carregando|Salvando|Enviando|Buscando)\s*\(\s*false\s*\)/g
+/**
+ * DUAS FORMAS, E A SEGUNDA NASCEU NA F1.3.
+ *
+ * A primeira e o `setCarregando(false)` de sempre. A segunda e
+ * `carregando: false` dentro de um objeto de estado — que e a forma que os
+ * ganchos de busca desta fatia usam (`usar-feed.ts`, `usar-minhas.ts`), porque
+ * eles guardam itens, cursor, erro e carregando numa variavel so.
+ *
+ * SEM A SEGUNDA, A CATRACA FICARIA CEGA JUSTAMENTE ONDE O DEFEITO MORA: as duas
+ * telas novas do convidado buscam do jeito novo, e um `return` de guarda antes
+ * do `finally` ali deixa o album em esqueleto para sempre — sem erro, sem nada
+ * no console, e ninguem abre chamado porque parece "lento".
+ *
+ * Uma catraca que so olha a forma antiga continua marcando zero enquanto o
+ * codigo novo desvia. Zero por nao estar olhando e o pior numero possivel.
+ */
+const DESLIGA_CARREGANDO =
+  /\bset(?:Carregando|Salvando|Enviando|Buscando)\s*\(\s*false\s*\)|\bcarregando\s*:\s*false\b/g
 
 /** Remove o CORPO de cada `finally { ... }`, contando chaves. */
 function semBlocosFinally(fonte) {
@@ -200,7 +217,21 @@ const LIMITE_DE_FAMILIAS = 2
  * agora porque a decisao ja esta escrita, e porque o custo de esquecer e alguem
  * "consertar" a tela do telao no dia da festa.
  */
-const COMPOSICOES = /PaginaDoEvento|AlbumDoConvidado|TelaDoDia|EntrarNoPainel|PalcoTelao/
+/**
+ * OS QUATRO NOMES QUE A F1.3/F1.4 ACRESCENTA, e onde esta o teto de cada um:
+ *
+ *   MinhasFotos        largura.app (1120)      — album, a mesma casca do feed
+ *   ListaDeConvidados  largura.conteudo (960)  — medida de formulario do painel
+ *   MateriaisDoQr      largura.app (1120)      — grade de tres cartoes
+ *   TelaoDoSalao       delega ao PalcoTelao    — a excecao escrita da §17.4
+ *
+ * A regra da casa credita as tres formas de tratar largura porque o que importa
+ * e o RESULTADO, nao a existencia do prefixo `sm:`. Exigir que a pagina repita
+ * um teto que o componente ja tem produziria um `maxWidth` decorativo em volta
+ * de outro — que e pior do que nao ter, porque nao da para saber qual manda.
+ */
+const COMPOSICOES =
+  /PaginaDoEvento|AlbumDoConvidado|TelaDoDia|EntrarNoPainel|PalcoTelao|MinhasFotos|ListaDeConvidados|MateriaisDoQr|TelaoDoSalao/
 
 function trataLargura(fonte) {
   if (/\bmaxWidth\b/.test(fonte)) return true

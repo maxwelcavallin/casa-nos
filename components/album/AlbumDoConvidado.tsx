@@ -2,110 +2,276 @@
 
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
-import { ConviteDaGrade } from "@/components/album/GradeMidias";
-import { IndicadorEnvio } from "@/components/album/IndicadorEnvio";
+import { AtalhoParaMandar, BarraDeEnvio } from "@/components/album/BarraDeEnvio";
+import { CardMidia } from "@/components/album/CardMidia";
+import { EnvioIndisponivel } from "@/components/album/EnvioIndisponivel";
+import { FolhaDeEnvio, type PreviaLocal } from "@/components/album/FolhaDeEnvio";
+import {
+  ConviteDaGrade,
+  EsqueletoDaGrade,
+  GradeMidias,
+} from "@/components/album/GradeMidias";
 import { RegistrarServiceWorker } from "@/components/album/RegistrarServiceWorker";
+import { EstadoVazio } from "@/components/EstadoVazio";
+import { enviarEvento } from "@/lib/analytics";
+import { ehVideo } from "@/lib/fila/maquina";
 import { useFila } from "@/lib/fila/usar-fila";
-import type { EstadoDoEnvio } from "@/lib/janela";
+import type { EstadoDoEnvio, QuandoAbre } from "@/lib/janela";
+import type { Visibilidade } from "@/lib/midias";
 import { largura, toque } from "@/lib/tokens";
+import { useFeed } from "@/lib/usar-feed";
 
 /**
- * O ÁLBUM DO CONVIDADO (H-05).
+ * O ÁLBUM DO CONVIDADO — o feed da festa (H-05, H-11) e a porta do envio (H-10).
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * A PROMESSA DESTA TELA, e o que no código a sustenta:
  *
- * **"O botão de enviar não espera o feed."** Ele não é renderizado depois de
- * nada, não depende de estado remoto e não tem `carregando`. Não é que ele
- * carregue rápido — é que **não existe caminho de código** em que ele dependa da
- * rede. Com a rota do feed devolvendo erro, ele continua funcional, porque ele
- * nunca soube que existia uma rota de feed.
+ * **"O botão de enviar não espera o feed."** Ele vive na `BarraDeEnvio`, que não
+ * é renderizada depois de nada, não depende de estado remoto e não tem
+ * `carregando`. Não é que ele carregue rápido — é que **não existe caminho de
+ * código** em que ele dependa da rede. Com a rota do feed devolvendo erro, ele
+ * continua funcional, porque ele nunca soube que existia uma rota de feed.
  *
  * **"Chegar ao botão custa no máximo dois passos de teclado."** `Tab` revela o
  * link de salto, que é o primeiro focável da página; `Enter` leva à região
- * "Mandar fotos", e o foco pousa nela. Com 6.000 cards na grade, continuam sendo
- * dois. O texto do salto repete as palavras do botão *verbatim* — prometer
- * "enviar foto" e aterrissar em "mandar minhas fotos" faria quem não vê a tela
- * ouvir uma promessa e chegar noutra, sem poder conferir.
+ * *Mandar fotos*. Com 6.000 cards na grade, continuam sendo dois.
  * ─────────────────────────────────────────────────────────────────────────────
  *
- * LARGURA TRATADA por teto centralizado: `largura.app` (1120) com `mx: "auto"`,
- * como manda a §17.1 do design system para as telas de álbum.
+ * O FEED É INFRAESTRUTURA, NÃO ENFEITE (`escopo-core.md` §3.4): é ele que
+ * mantém a aba aberta, e no iOS a fila só drena com a aba aberta. Por isso ele
+ * está aqui, e por isso o erro dele **não** derruba o botão.
  *
- * O QUE NÃO ESTÁ AQUI, DE PROPÓSITO: a grade de fotos da festa. O feed é a H-11
- * (F1.4) e ainda não tem rota; a região "Fotos da festa" existe, nomeada, e
- * mostra o estado vazio — que é o estado real do álbum até a primeira foto
- * chegar. Está registrado em `docs/fatia-1-f1-1-f1-2.md`, com o lugar em que
- * volta.
+ * LARGURA TRATADA por teto centralizado: `largura.app` (1120) com `mx: "auto"`.
  */
 
 export type PropriedadesDoAlbum = {
   eventoId: string;
+  slug: string;
   nomeCasal: string;
   participacaoId: string | null;
   faixaLenta: boolean;
   estadoDoEnvio: EstadoDoEnvio;
+  abertura: QuandoAbre;
+  /** Negativo antes da festa. Vai no `album_opened` (`metricas.md` §6). */
+  diasDesdeOEvento: number;
   usuario: string | null;
 };
 
 export function AlbumDoConvidado({
   eventoId,
+  slug,
   nomeCasal,
   participacaoId,
   faixaLenta,
   estadoDoEnvio,
+  abertura,
+  diasDesdeOEvento,
   usuario,
 }: PropriedadesDoAlbum) {
-  const { estado, enfileirar } = useFila(
+  const roteador = useRouter();
+  const { estado: estadoDaFila, enfileirar } = useFila(
     { eventoId, participacaoId, faixaLenta },
     eventoId
   );
-  const entrada = useRef<HTMLInputElement>(null);
-  const [avisoDeVideo, setAvisoDeVideo] = useState<string | null>(null);
-
   const podeEnviar = estadoDoEnvio === "aberto" && participacaoId !== null;
 
-  async function aoEscolher(evento: React.ChangeEvent<HTMLInputElement>) {
-    const arquivos = Array.from(evento.target.files ?? []);
-    // O campo é zerado ANTES de qualquer espera: sem isso, escolher a mesma foto
-    // duas vezes seguidas não dispara `change` na segunda, e a pessoa acha que o
-    // produto ignorou o toque dela.
-    evento.target.value = "";
-    if (arquivos.length === 0) return;
+  const idDaGrade = useId();
+  const { estado: feed, carregarMais, mostrarNovas } = useFeed(
+    eventoId,
+    participacaoId !== null
+  );
 
-    const resultado = await enfileirar(
-      arquivos.map(arquivo => ({
+  /**
+   * `album_opened` dispara **uma vez por montagem**, e a marca é o `ref`.
+   *
+   * Sem ela, o efeito do React em desenvolvimento roda duas vezes e a abertura
+   * de página valeria dois — e a permanência (S2) é justamente uma contagem de
+   * aberturas. Um denominador inflado por modo de desenvolvimento é o tipo de
+   * erro que ninguém percebe até comparar com o SQL.
+   */
+  const jaMediu = useRef(false);
+  useEffect(() => {
+    if (jaMediu.current) return;
+    jaMediu.current = true;
+    enviarEvento("album_opened", {
+      wedding_id: eventoId,
+      album_kind: "feed",
+      days_since_event: diasDesdeOEvento,
+    });
+  }, [eventoId, diasDesdeOEvento]);
+
+  /* ---------------- A escolha, e a folha dos dois botões ---------------- */
+
+  const [escolhidos, setEscolhidos] = useState<File[]>([]);
+  const [videosRecusados, setVideosRecusados] = useState(0);
+  const [folhaAberta, setFolhaAberta] = useState(false);
+
+  /**
+   * As miniaturas locais, por `URL.createObjectURL`. **Antes de qualquer rede.**
+   *
+   * É o que faz a folha abrir com as fotos dentro no instante em que o seletor
+   * do sistema fecha — não há esqueleto porque não há espera de rede para
+   * esconder.
+   */
+  const previas: PreviaLocal[] = useMemo(
+    () =>
+      escolhidos.map((arquivo, indice) => ({
+        chave: `${indice}:${arquivo.name}:${arquivo.size}`,
+        url: typeof URL.createObjectURL === "function" ? URL.createObjectURL(arquivo) : null,
+      })),
+    [escolhidos]
+  );
+
+  useEffect(() => {
+    // Cada `createObjectURL` segura o arquivo inteiro na memória até ser
+    // revogado. Com 30 fotos de 4 MB isso são 120 MB presos num celular que já
+    // está com dificuldade — e o navegador não os libera sozinho enquanto a aba
+    // viver.
+    return () => {
+      for (const previa of previas) if (previa.url) URL.revokeObjectURL(previa.url);
+    };
+  }, [previas]);
+
+  function aoEscolherArquivos(arquivos: File[]) {
+    /**
+     * VÍDEO É RECUSADO NO APARELHO (RN-12), e as fotos do mesmo lote seguem.
+     *
+     * Aqui, e não no servidor: o vídeo de 200 MB não pode nem começar a subir no
+     * uplink do salão. A rota tem a mesma recusa (422), mas ela é a segunda
+     * tranca — quando a primeira funciona, o vídeo nunca sai do celular.
+     */
+    const fotos = arquivos.filter(arquivo => !ehVideo(arquivo.type));
+    setVideosRecusados(arquivos.length - fotos.length);
+    setEscolhidos(fotos);
+    setFolhaAberta(true);
+  }
+
+  async function aoEscolherVisibilidade(visibilidade: Visibilidade) {
+    setFolhaAberta(false);
+    await enfileirar(
+      escolhidos.map(arquivo => ({
         arquivo,
         nome: arquivo.name,
         tipoArquivo: arquivo.type,
         bytes: arquivo.size,
       })),
-      // Visibilidade padrão nesta sub-fatia. A escolha entre "Mandar para a
-      // festa" e "Mandar só para os noivos" É o botão de enviar (H-10, F1.3), e
-      // ela grava exatamente este campo — nenhum contrato muda quando ela
-      // chegar.
-      "feed"
+      visibilidade
     );
+    setEscolhidos([]);
+    setVideosRecusados(0);
 
-    // Vídeo é recusado NO APARELHO (RN-12), e as fotos do mesmo lote seguem
-    // normalmente. A frase é específica: nunca "arquivo inválido", que culparia
-    // quem escolheu.
-    if (resultado.videosRecusados > 0) {
-      setAvisoDeVideo(
-        resultado.enfileirados > 0
-          ? `Por enquanto só foto. Mandamos as ${resultado.enfileirados} fotos deste lote e o vídeo ficou de fora.`
-          : "Por enquanto só foto. Escolha as fotos e a gente manda."
-      );
-    } else {
-      setAvisoDeVideo(null);
-    }
+    /**
+     * **O ENVIO TERMINA EM "AS MINHAS FOTOS"** (H-08, decisão V6/E1).
+     *
+     * Não existe tela intermediária de confirmação e não existe passo a mais: é
+     * a mesma confirmação, com outro conteúdo. A pergunta do nome (H-09) abre
+     * **lá**, com o envio já correndo — nunca aqui, antes dele.
+     *
+     * `push` e não `replace`: a volta do navegador leva ao feed, que é de onde
+     * ela veio e onde a festa está acontecendo.
+     */
+    roteador.push(`/e/${slug}/album/minhas`);
   }
+
+  /* ---------------- A área de conteúdo ---------------- */
+
+  const conteudo = (() => {
+    /**
+     * A PRECEDÊNCIA DA JANELA, e ela é dura (`gtm.md` §5.1): quando a janela não
+     * está aberta, a mensagem da janela **substitui** o estado vazio.
+     *
+     * `Seja a primeira foto da festa` sem botão é pior que um vazio — convida
+     * para uma ação que não existe. O feed continua visível abaixo, se houver
+     * algo: as fotos que já chegaram continuam sendo o conteúdo da tela.
+     */
+    const semEnvio = estadoDoEnvio !== "aberto";
+
+    if (feed.carregando) return <EsqueletoDaGrade />;
+
+    if (feed.erro) {
+      return (
+        <Stack sx={{ gap: 2, py: 4 }}>
+          <Typography variant="body1">{feed.erro}</Typography>
+          <Button
+            variant="outlined"
+            onClick={() => void mostrarNovas()}
+            sx={{ alignSelf: "flex-start", minHeight: toque.confortavel }}
+          >
+            Tentar de novo
+          </Button>
+        </Stack>
+      );
+    }
+
+    if (feed.itens.length === 0) {
+      if (semEnvio) {
+        return <EnvioIndisponivel estado={estadoDoEnvio} abertura={abertura} />;
+      }
+      return (
+        <ConviteDaGrade>
+          <EstadoVazio
+            densidade="convite"
+            titulo="Seja a primeira foto da festa"
+            corpo="O que você mandar aparece aqui e no telão, em segundos."
+            apoio="Não precisa instalar nada."
+          />
+        </ConviteDaGrade>
+      );
+    }
+
+    return (
+      <Stack sx={{ gap: 2 }}>
+        {semEnvio ? <EnvioIndisponivel estado={estadoDoEnvio} abertura={abertura} /> : null}
+
+        {/* NOVIDADE NÃO EMPURRA A TELA: um botão no topo, e quem decide quando
+            as fotos entram é quem está olhando. */}
+        {feed.novas > 0 ? (
+          <Button
+            variant="contained"
+            onClick={() => void mostrarNovas()}
+            sx={{ alignSelf: "center", minHeight: toque.minimo }}
+          >
+            {feed.novas === 1 ? "1 foto nova" : `${feed.novas} fotos novas`}
+          </Button>
+        ) : null}
+
+        <GradeMidias>
+          {feed.itens.map(item => (
+            <CardMidia
+              key={item.id}
+              miniatura={item.miniatura}
+              // NENHUM SELO, EM EIXO NENHUM (RN-32e): "quem vê?" e "já chegou?"
+              // não variam aqui, e marcar estado numa grade em que ele nunca
+              // varia é ruído em 6.000 cards.
+              noLote={item.noLote}
+              rotulo={item.rotulo}
+            />
+          ))}
+        </GradeMidias>
+
+        {feed.cursor ? (
+          <Button
+            variant="text"
+            onClick={() => void carregarMais()}
+            sx={{ alignSelf: "center", minHeight: toque.confortavel }}
+          >
+            Ver mais fotos
+          </Button>
+        ) : (
+          <Typography variant="caption" sx={{ color: "text.secondary", textAlign: "center" }}>
+            Você chegou ao começo da festa.
+          </Typography>
+        )}
+      </Stack>
+    );
+  })();
 
   return (
     <>
@@ -122,120 +288,48 @@ export function AlbumDoConvidado({
           minHeight: "100dvh",
         }}
       >
-        {/* O primeiro focável da página. Invisível até receber foco — e aí ele
-            precisa aparecer, senão quem enxerga e navega por teclado perde o
-            cursor. */}
-        <Box
-          component="a"
-          href="#mandar-fotos"
-          sx={{
-            position: "absolute",
-            left: -9999,
-            top: 0,
-            zIndex: 10,
-            p: 1,
-            bgcolor: "background.paper",
-            "&:focus": { left: 8, top: 8 },
-          }}
-        >
-          Pular para mandar minhas fotos
-        </Box>
+        <AtalhoParaMandar />
 
         <Stack component="header" sx={{ py: 3, gap: 0.5 }}>
           <Typography variant="h4" component="h1">
             {nomeCasal}
           </Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          {/* A região da grade herda o nome DESTE texto por `aria-labelledby`.
+              Uma string por nome, e nenhuma para desalinhar com o tempo: se o
+              título mudar, o nome que o leitor de tela anuncia muda junto. */}
+          <Typography id={idDaGrade} variant="caption" sx={{ color: "text.secondary" }}>
             Fotos da festa
           </Typography>
         </Stack>
 
-        <Box component="section" aria-label="Fotos da festa">
-          <ConviteDaGrade>
-            <Typography variant="h3" component="h2">
-              Seja a primeira foto da festa
-            </Typography>
-            <Typography variant="body1">
-              O que você mandar aparece aqui e no telão, em segundos.
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              Não precisa instalar nada.
-            </Typography>
-          </ConviteDaGrade>
+        <Box
+          component="section"
+          role="region"
+          aria-labelledby={idDaGrade}
+          aria-busy={feed.carregando}
+        >
+          {conteudo}
         </Box>
-
-        {avisoDeVideo ? (
-          <Typography
-            role="status"
-            variant="body2"
-            sx={{ mt: 2, p: 2, bgcolor: "warning.light", borderRadius: 1 }}
-          >
-            {avisoDeVideo}
-          </Typography>
-        ) : null}
       </Box>
 
-      {/* A BARRA FIXA NO RODAPÉ, EM TODOS OS ESTADOS. É a montagem que faz a
-          regra "o mesmo botão, no mesmo lugar, do mesmo tamanho" ser verdadeira
-          por construção: se o botão morasse dentro do bloco de convite, ele
-          teria de mudar de lugar quando a primeira foto chegasse — no exato
-          instante em que o convidado decide se manda ou não. */}
-      <Paper
-        elevation={0}
-        square
-        sx={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderTop: 1,
-          borderColor: "divider",
-          pb: "env(safe-area-inset-bottom)",
+      <BarraDeEnvio
+        estadoDaFila={estadoDaFila}
+        aoEscolherArquivos={podeEnviar ? aoEscolherArquivos : null}
+      />
+
+      <FolhaDeEnvio
+        aberta={folhaAberta}
+        aoFechar={() => {
+          // Fechar a folha NÃO cancela nada — mas também não escolhe: sem toque
+          // em um dos dois botões, não há envio.
+          setFolhaAberta(false);
+          setEscolhidos([]);
+          setVideosRecusados(0);
         }}
-      >
-        <IndicadorEnvio estado={estado} />
-        <Box
-          id="mandar-fotos"
-          component="section"
-          aria-label="Mandar fotos"
-          tabIndex={-1}
-          sx={{ maxWidth: largura.app, mx: "auto", px: { xs: 2, sm: 3 }, py: 1.5 }}
-        >
-          {podeEnviar ? (
-            <>
-              <input
-                ref={entrada}
-                type="file"
-                accept="image/*"
-                multiple
-                hidden
-                onChange={aoEscolher}
-              />
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={() => entrada.current?.click()}
-                sx={{ minHeight: toque.confortavel }}
-              >
-                Mandar minhas fotos
-              </Button>
-            </>
-          ) : (
-            <Stack sx={{ gap: 0.5 }}>
-              <Typography variant="body1">
-                {estadoDoEnvio === "aparelho_novo_bloqueado"
-                  ? "Este álbum não está mais recebendo fotos novas."
-                  : "Os envios deste casamento foram encerrados."}
-              </Typography>
-              {estadoDoEnvio === "fora_da_janela" ? (
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  As fotos que chegaram continuam aqui.
-                </Typography>
-              ) : null}
-            </Stack>
-          )}
-        </Box>
-      </Paper>
+        previas={previas}
+        videosRecusados={videosRecusados}
+        aoEscolher={visibilidade => void aoEscolherVisibilidade(visibilidade)}
+      />
     </>
   );
 }

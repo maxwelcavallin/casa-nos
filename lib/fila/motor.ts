@@ -106,12 +106,34 @@ export type Ferramentas = {
   aoMudar?: (estado: EstadoDaFila) => void;
 };
 
+/**
+ * A TRAVA DE DRENAGEM, POR EVENTO E POR ABA — e ela nasceu na F1.3.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ATÉ A F1.2 EXISTIA UMA TELA SÓ, e a trava local de cada motor bastava. A F1.3
+ * acrescenta a segunda: tocar num dos dois botões de envio leva a "as minhas
+ * fotos" (H-08), e a navegação **monta um segundo motor sobre o mesmo
+ * IndexedDB** enquanto a drenagem disparada na tela anterior ainda está
+ * correndo. Dois motores, dois `PUT` do mesmo arquivo, o mesmo uplink de salão
+ * pagando duas vezes — no aparelho que já está com dificuldade.
+ *
+ * Nada se perde sem ela (a confirmação é idempotente e a chave no R2 é a mesma),
+ * mas o que se gasta é justamente o recurso escasso da noite. A trava é de
+ * módulo porque o escopo do problema é o módulo: uma aba, um evento, um motor
+ * drenando por vez.
+ *
+ * ELA NÃO ATRAVESSA ABAS. Duas abas do mesmo álbum continuam podendo drenar em
+ * paralelo — para isso seria preciso um cadeado no próprio IndexedDB, e o custo
+ * disso não se justifica por um caso que quase não acontece e que já é seguro.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const DRENANDO = new Set<string>();
+
 export function criarMotor(ferramentas: Ferramentas, contexto: ContextoDaFila) {
   const { armazem, rede, agora, medir } = ferramentas;
   let faixaLenta = contexto.faixaLenta;
   let situacao: EstadoDaFila["situacao"] = "parada";
   let retomados = 0;
-  let rodando = false;
 
   async function itensVivos(): Promise<ItemDaFila[]> {
     const todos = await armazem.listar(contexto.eventoId);
@@ -408,8 +430,11 @@ export function criarMotor(ferramentas: Ferramentas, contexto: ContextoDaFila) {
    * o mesmo arquivo três vezes.
    */
   async function drenar(): Promise<EstadoDaFila> {
-    if (rodando) return anunciar();
-    rodando = true;
+    // A trava é por EVENTO e vale para todos os motores desta aba — ver o
+    // comentário de `DRENANDO`. Ela substitui a trava local que existia aqui: um
+    // booleano por motor não vê o motor que a outra tela acabou de criar.
+    if (DRENANDO.has(contexto.eventoId)) return anunciar();
+    DRENANDO.add(contexto.eventoId);
     try {
       const vivos = await itensVivos();
       if (vivos.length === 0) return anunciar();
@@ -437,7 +462,7 @@ export function criarMotor(ferramentas: Ferramentas, contexto: ContextoDaFila) {
 
       return anunciar();
     } finally {
-      rodando = false;
+      DRENANDO.delete(contexto.eventoId);
     }
   }
 

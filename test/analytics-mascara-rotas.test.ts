@@ -88,9 +88,16 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
     expect([...segmentosPublicos()].sort()).toEqual([
       "album",
       "convidado",
+      // A lista da F1.3/F1.4. As três palavras novas nomeiam SUPERFÍCIE, e
+      // nenhuma delas nomeia gente: `minhas` é a mesma tela para todo mundo,
+      // `convidados` é a tela de colar nomes (e não um nome), e `materiais` é o
+      // cartão impresso. O rótulo do convidado continua fora de tudo.
+      "convidados",
       "dia",
       "entrar",
       "feed",
+      "materiais",
+      "minhas",
       "painel",
       "telao",
     ]);

@@ -82,6 +82,43 @@ export async function acessoPorToken(
   return linhas.length ? linhaParaAcesso(linhas[0]) : null;
 }
 
+/**
+ * O acesso de TELÃO deste token, sem saber de qual evento ele é (H-12).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ELA É A ÚNICA CONSULTA DO PRODUTO QUE PROCURA UM TOKEN SEM FILTRO DE
+ * INQUILINO, e a exceção precisa estar escrita, porque ela contraria a RN-25.
+ *
+ * O motivo é a forma da rota: `/telao/[token]` **não tem evento na URL**. O
+ * computador ligado ao projetor recebe um link e mais nada — não há cookie, não
+ * há domínio próprio, não há sessão anterior. O token É o endereço.
+ *
+ * O QUE MANTÉM A REGRA DE PÉ apesar disso: o `evento_id` sai **desta linha**, e
+ * não de nada que o cliente mande. A partir daqui todo o resto do produto volta
+ * a filtrar por ele. Além disso o filtro `tipo = 'telao'` é obrigatório na
+ * cláusula: sem ele, o token de um moderador aberto nesta rota viraria uma
+ * sessão de telão, e o telão é a superfície sem interação nenhuma — o downgrade
+ * pareceria inofensivo e daria a um moderador uma tela que ele não deveria abrir
+ * assim.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export async function acessoDeTelaoPorToken(
+  token: string,
+  exec: Executor = sql
+): Promise<Acesso | null> {
+  const hash = await hashDeToken(token);
+  const linhas = await exec`
+    select *
+      from evento_acessos
+     where token_hash = ${hash}
+       and tipo = 'telao'
+       and revogado_em is null
+       and (expira_em is null or expira_em > now())
+     limit 1
+  `;
+  return linhas.length ? linhaParaAcesso(linhas[0]) : null;
+}
+
 export async function listarAcessos(
   eventoId: string,
   tipo: TipoDeAcesso | null = null,
@@ -168,11 +205,37 @@ export async function revogarAcesso(
   return linhas.length;
 }
 
+/**
+ * "Este acesso deu sinal de vida agora."
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ELE É O ÚNICO JEITO DE ALGUÉM DESCOBRIR QUE O TELÃO CONGELOU (H-12).
+ *
+ * A tela do telão **não pode** contar que algo deu errado: erro projetado num
+ * casamento é incidente, não estado. A consequência é dura e está escrita no
+ * desenho: **o telão quebrado e o telão funcionando são visualmente
+ * indistinguíveis da pista de dança.**
+ *
+ * Então a evidência mora aqui. O telão carimba este campo a cada sondagem
+ * bem-sucedida, e a distância entre `ultimo_uso_em` e agora é a resposta para
+ * "o telão ainda está falando com a gente?" — uma pergunta que se faz no painel
+ * (H-19, F1.6), na tela do dono, e nunca na parede.
+ *
+ * O CARIMBO É LIMITADO A UM POR MINUTO, na própria cláusula. Sem isso, uma
+ * sondagem de 5 s por 6 horas seriam 4.320 escritas numa linha só, e a coluna
+ * que existe para diagnóstico viraria a escrita mais quente da festa.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 export async function carimbarUso(
   acessoId: string,
   exec: Executor = sql
 ): Promise<void> {
-  await exec`update evento_acessos set ultimo_uso_em = now() where id = ${acessoId}`;
+  await exec`
+    update evento_acessos
+       set ultimo_uso_em = now()
+     where id = ${acessoId}
+       and (ultimo_uso_em is null or ultimo_uso_em < now() - interval '1 minute')
+  `;
 }
 
 /* ------------------------------------------------------------------ *

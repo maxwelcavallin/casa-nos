@@ -282,6 +282,15 @@ export const largura = {
   conteudo: 960,
   /** Feed e álbum, quando existirem. */
   app: 1120,
+  /**
+   * A folha, quando ela deixa de ser folha (design system §16.5).
+   *
+   * Acima de `sm` as cinco folhas viram `Dialog` centralizado de 480 — bottom
+   * sheet num monitor é um erro de origem. O número é do design system; ele
+   * ganhou assento aqui porque **cinco** folhas o usam, e cinco cópias de um 480
+   * solto é como um valor de sistema vira cinco valores parecidos.
+   */
+  dialogo: 480,
 } as const;
 
 /**

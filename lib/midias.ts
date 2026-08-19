@@ -342,6 +342,140 @@ export async function confirmarFaixa(
   return { midia: linhaParaMidia(existente[0]), mudou: false };
 }
 
+/* ------------------------------------------------------------------ *
+ * H-10 — a visibilidade, e ela volta atrás para sempre
+ * ------------------------------------------------------------------ */
+
+export type TrocaDeVisibilidade = {
+  midia: Midia;
+  /** O valor ANTERIOR. Vira `media_visibility_from` no GA4 (`metricas.md` §6). */
+  de: Visibilidade;
+  /** `false` quando o valor já era esse. A tela não dispara evento nem toast. */
+  mudou: boolean;
+};
+
+/**
+ * Troca a visibilidade de UMA mídia. **Só a participação que enviou.**
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ESTA É A ÚNICA FUNÇÃO DO PRODUTO QUE ESCREVE `midias.visibilidade`, e isso é a
+ * decisão de modelagem mais importante do PRD (§3.2, P2).
+ *
+ * O casal nunca escreve nesta coluna. Quando ele tira algo do feed, escreve
+ * `midias.aprovacao = 'recusada'` — outra coluna, outro caminho. É o que
+ * transforma "o casal nunca promove `noivos` para o feed" numa
+ * **impossibilidade estrutural** em vez de um `if` que alguém remove daqui a um
+ * ano sem entender o que estava segurando.
+ *
+ * A matriz (`lib/autorizacao.ts`) é a SEGUNDA tranca, não a primeira. As duas
+ * existem porque a primeira depende de ninguém escrever um
+ * `update midias set visibilidade` novo, e a segunda depende de ninguém mexer na
+ * matriz. `test/autorizacao-matriz.test.ts` e `test/visibilidade.test.ts`
+ * guardam uma cada.
+ *
+ * `participacao_id` ENTRA NA CLÁUSULA, e não é redundância com a matriz: a
+ * matriz diz que o alcance é `proprias`, e é aqui que `proprias` vira SQL. Sem
+ * esta linha, um convidado trocaria a visibilidade da foto de outro — e o outro
+ * descobriria pelo telão.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export async function trocarVisibilidade(
+  eventoId: string,
+  midiaId: string,
+  participacaoId: string,
+  novaVisibilidade: Visibilidade,
+  exec: Executor = sql
+): Promise<TrocaDeVisibilidade | null> {
+  const antes = await exec`
+    select * from midias
+     where id = ${midiaId}
+       and evento_id = ${eventoId}
+       and participacao_id = ${participacaoId}
+       and excluida_em is null
+     limit 1
+  `;
+  if (!antes.length) return null;
+
+  const anterior = linhaParaMidia(antes[0]);
+  if (anterior.visibilidade === novaVisibilidade) {
+    return { midia: anterior, de: anterior.visibilidade, mudou: false };
+  }
+
+  const depois = await exec`
+    update midias
+       set visibilidade = ${novaVisibilidade},
+           -- visibilidade_alterada e o instrumento da hipotese S1: ela mede a
+           -- fracao de midias em que o convidado MEXEU, que e o sinal de
+           -- demanda (metricas.md §3). Ela nunca volta a false: mexer e
+           -- desmexer continua sendo ter mexido.
+           visibilidade_alterada = true
+     where id = ${midiaId}
+       and evento_id = ${eventoId}
+       and participacao_id = ${participacaoId}
+       and excluida_em is null
+    returning *
+  `;
+  if (!depois.length) return null;
+
+  return {
+    midia: linhaParaMidia(depois[0]),
+    de: anterior.visibilidade,
+    mudou: true,
+  };
+}
+
+export type QuemExcluiu = "convidado" | "casal";
+
+/**
+ * Apaga uma mídia. **Exclusão lógica**, com 30 dias de carência para o objeto
+ * no R2 (RN-20).
+ *
+ * DOIS CAMINHOS, E ELES NÃO SÃO O MESMO (PRD §7): quem enviou apaga a própria
+ * (`escopo` = `proprias`, e `participacaoId` entra na cláusula); o casal apaga
+ * qualquer uma (`escopo` = `todas`, e a cláusula é só o evento). O moderador
+ * **não** apaga — ele foi designado para decidir o que aparece na parede, não o
+ * que o casal guarda.
+ *
+ * O CONTADOR CAI NA MESMA INSTRUÇÃO (decisão P13). Um `update` separado daria o
+ * mesmo resultado no caminho feliz e um número errado permanente no dia em que a
+ * segunda instrução não rodasse — e o painel mostraria ao casal um número maior
+ * que a realidade, que é o lado errado de errar aqui.
+ */
+export async function excluirMidia(
+  eventoId: string,
+  midiaId: string,
+  por: QuemExcluiu,
+  participacaoId: string | null,
+  exec: Executor = sql
+): Promise<Midia | null> {
+  const linhas = await exec`
+    with alvo as (
+      update midias
+         set excluida_em = now(), excluida_por = ${por}
+       where id = ${midiaId}
+         and evento_id = ${eventoId}
+         and (${participacaoId === null} or participacao_id = ${participacaoId ?? null}::uuid)
+         and excluida_em is null
+      returning *
+    ), contador as (
+      update evento_contadores c
+         set midias_armazenadas  = greatest(
+               c.midias_armazenadas - (select count(*) from alvo where estado = 'armazenada'), 0),
+             originais_pendentes = greatest(
+               c.originais_pendentes - (
+                 select count(*) from alvo
+                  where previa_armazenada_em is not null
+                    and original_armazenada_em is null), 0),
+             atualizado_em = now()
+       where c.evento_id = ${eventoId}
+         and exists (select 1 from alvo)
+      returning c.evento_id
+    )
+    select * from alvo
+  `;
+  return linhas.length ? linhaParaMidia(linhas[0]) : null;
+}
+
 /** Uma tentativa a mais neste item — o que a fila relata ao retentar (H-07). */
 export async function contarTentativa(
   eventoId: string,

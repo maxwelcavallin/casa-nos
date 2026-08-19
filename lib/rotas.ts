@@ -56,6 +56,49 @@ export const ROTAS_DE_API: RotaDeApi[] = [
     metodos: { POST: "midia.enviar" },
   },
 
+  // H-10 — a visibilidade volta atrás, e apagar é um toque
+  {
+    caminho: "/api/eventos/[id]/midias/[midiaId]/visibilidade",
+    metodos: { PATCH: "midia.visibilidade.editar" },
+  },
+  { caminho: "/api/eventos/[id]/midias/[midiaId]", metodos: { DELETE: "midia.excluir" } },
+
+  /**
+   * H-03 e H-09 — a lista de convidados.
+   *
+   * A ORDEM DESTAS DUAS LINHAS IMPORTA, e este é o único lugar do arquivo em que
+   * ela importa: `rotaDeApiQueCasa` compara segmento a segmento e `[convidadoId]`
+   * casa com qualquer coisa — inclusive com a palavra `publico`. Declarada
+   * depois, a rota pública seria resolvida como a de escrita, e o middleware
+   * responderia 405 a um `GET` legítimo do álbum. O Next resolve o estático
+   * antes do dinâmico; aqui quem resolve é a ordem.
+   */
+  { caminho: "/api/eventos/[id]/convidados/publico", metodos: { GET: "convidados.ver.publico" } },
+  { caminho: "/api/eventos/[id]/convidados", metodos: { POST: "convidados.editar" } },
+  {
+    caminho: "/api/eventos/[id]/convidados/[convidadoId]",
+    metodos: { PATCH: "convidados.editar", DELETE: "convidados.editar" },
+  },
+
+  // H-09 — o nome é rótulo, e ele é da própria participação
+  {
+    caminho: "/api/eventos/[id]/participacoes/atual",
+    metodos: { PATCH: "participacao.renomear" },
+  },
+
+  // H-08 — "as minhas fotos"
+  { caminho: "/api/eventos/[id]/minhas", metodos: { GET: "album.minhas.ver" } },
+
+  // H-11 — o feed, e a sondagem barata
+  { caminho: "/api/eventos/[id]/feed/novidades", metodos: { GET: "feed.ver" } },
+  { caminho: "/api/eventos/[id]/feed", metodos: { GET: "feed.ver" } },
+
+  // H-12 — o telão. Leitura pura, com token no cabeçalho.
+  { caminho: "/api/eventos/[id]/telao", metodos: { GET: "feed.ver" } },
+
+  // H-04 — o material do QR
+  { caminho: "/api/eventos/[id]/qr", metodos: { GET: "evento.materiais.ver" } },
+
   // H-18 — o aparelho conta o que deu errado com ele
   { caminho: "/api/interno/erro-cliente", metodos: { POST: "interno.erro" }, publica: true },
 ];
@@ -75,8 +118,36 @@ export const TELAS: Tela[] = [
   { caminho: "/", superficie: "convidado", segmentosPublicos: [] },
   { caminho: "/e/[slug]", superficie: "convidado", segmentosPublicos: [] },
   { caminho: "/e/[slug]/album", superficie: "convidado", segmentosPublicos: ["album"] },
+  {
+    caminho: "/e/[slug]/album/minhas",
+    superficie: "convidado",
+    // `minhas` é palavra de superfície, não de gente: ela diz de qual tela é o
+    // `page_view`, e "as minhas fotos" é a mesma tela para todo mundo. O que
+    // NUNCA entra aqui é o rótulo do convidado — nem no caminho, nem no título.
+    segmentosPublicos: ["album", "minhas"],
+  },
   { caminho: "/entrar/[token]", superficie: "casal", segmentosPublicos: ["entrar"] },
+  /**
+   * O telão. O `[token]` é mascarado como qualquer outro — ele é credencial ao
+   * portador, e o GA4 não preenche o passado.
+   *
+   * `surface = telao` é o que faz o filtro de dados do GA4 excluir esta tela de
+   * todo relatório (`metricas.md` §13.8). Sem ele, o computador que fica seis
+   * horas com a página aberta domina a contagem de sessões e contamina toda
+   * média do casamento.
+   */
+  { caminho: "/telao/[token]", superficie: "telao", segmentosPublicos: ["telao"] },
   { caminho: "/painel/[eventoId]/dia", superficie: "casal", segmentosPublicos: ["painel", "dia"] },
+  {
+    caminho: "/painel/[eventoId]/convidados",
+    superficie: "casal",
+    segmentosPublicos: ["painel", "convidados"],
+  },
+  {
+    caminho: "/painel/[eventoId]/materiais",
+    superficie: "casal",
+    segmentosPublicos: ["painel", "materiais"],
+  },
 ];
 
 /**

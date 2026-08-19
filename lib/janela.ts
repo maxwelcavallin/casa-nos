@@ -1,4 +1,4 @@
-import { janelaDeEnvioPadrao } from "@/lib/datas";
+import { dataCurtaPorExtenso, janelaDeEnvioPadrao, partesLocais } from "@/lib/datas";
 import type { Evento } from "@/lib/eventos";
 
 /**
@@ -27,10 +27,38 @@ import type { Evento } from "@/lib/eventos";
 export type EstadoDoEnvio =
   /** Aceita foto. */
   | "aberto"
-  /** Fora da janela, ou encerrado pelo casal. O feed continua visível. */
+  /**
+   * A JANELA AINDA NÃO ABRIU — e este é um estado próprio, não um caso do
+   * "fora da janela".
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * ELE NASCEU DE UM DEFEITO REAL DA F1.2, e a separação é a correção.
+   *
+   * Até aqui os dois instantes opostos — antevéspera e D+8 — devolviam o mesmo
+   * valor, e a tela dizia *"Os envios deste casamento foram encerrados"* para
+   * quem chegou **cedo**: falso e desanimador ao mesmo tempo. Quem lê o código
+   * na antevéspera, ou o casal testando o QR uma semana antes, fez a coisa
+   * certa; a tela dizia que ele fez a errada.
+   *
+   * A distinção é de DADO e não de texto: com um valor só, a tela seria
+   * obrigada a recalcular a janela para decidir a frase — e a lógica de janela
+   * mora aqui, num lugar só, justamente porque três telas precisam concordar
+   * com ela (H-05, H-06, H-07).
+   *
+   * `gtm.md` §5.1: *"quando a janela não está aberta, a mensagem da janela
+   * substitui o estado vazio, nos dois sentidos"*. Ver `EnvioIndisponivel`.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  | "antes_da_janela"
+  /** A janela fechou, ou o casal encerrou. O feed continua visível. */
   | "fora_da_janela"
   /** A janela está aberta, mas este aparelho é novo e o casal fechou a porta. */
   | "aparelho_novo_bloqueado";
+
+/** `true` quando o botão de mandar não existe na tela. Ele SOME, nunca desabilita. */
+export function envioIndisponivel(estado: EstadoDoEnvio): boolean {
+  return estado !== "aberto";
+}
 
 export type Janela = { abre: Date; fecha: Date };
 
@@ -58,10 +86,16 @@ export function estadoDoEnvio(
 ): EstadoDoEnvio {
   const { abre, fecha } = janelaDoEvento(evento);
 
+  /**
+   * O interruptor do casal encerra, e encerrar é sempre "depois" — mesmo antes
+   * de a janela abrir. Um casal que apertou "encerrar" na antevéspera não quer
+   * que a tela prometa uma abertura para dali a dois dias.
+   */
   if (evento.enviosEncerradosEm && evento.enviosEncerradosEm <= agora) {
     return "fora_da_janela";
   }
-  if (agora < abre || agora > fecha) return "fora_da_janela";
+  if (agora < abre) return "antes_da_janela";
+  if (agora > fecha) return "fora_da_janela";
 
   // A ordem importa: quem já tem participação continua enviando mesmo com a
   // porta fechada. Trocar a ordem destas duas transformaria o bloqueio de
@@ -91,4 +125,36 @@ export function durante(
 ): boolean {
   if (!evento.inicioFestaEm || !evento.fimFestaEm) return false;
   return instante >= evento.inicioFestaEm && instante <= evento.fimFestaEm;
+}
+
+/* ------------------------------------------------------------------ *
+ * As frases da janela — o dado, não o texto
+ * ------------------------------------------------------------------ */
+
+export type QuandoAbre = {
+  /** `"21 de agosto"`, no fuso do evento. */
+  dia: string;
+  /** `"18:00"`, ou `null` quando a janela abre à meia-noite. */
+  hora: string | null;
+};
+
+/**
+ * Quando a janela abre e quando ela fecha, já escritos como o convidado lê.
+ *
+ * ISTO NÃO É COPY — é o dado que a copy interpola, e ele mora aqui pelo mesmo
+ * motivo que `estadoDoEnvio`: três telas (o álbum, "as minhas fotos" e o painel
+ * do dia) precisam dizer a **mesma** data, calculada do mesmo jeito, no fuso do
+ * evento. Uma delas fazendo a conta sozinha é a que vai anunciar o dia errado
+ * entre 21h e meia-noite — e ninguém compara três telas lado a lado.
+ */
+export function quandoAbre(evento: Evento): QuandoAbre {
+  const { abre } = janelaDoEvento(evento);
+  const { dia, hora } = partesLocais(abre, evento.fuso);
+  return { dia: dataCurtaPorExtenso(dia), hora };
+}
+
+export function quandoFecha(evento: Evento): QuandoAbre {
+  const { fecha } = janelaDoEvento(evento);
+  const { dia, hora } = partesLocais(fecha, evento.fuso);
+  return { dia: dataCurtaPorExtenso(dia), hora };
 }

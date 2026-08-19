@@ -79,6 +79,54 @@ export function dataPorExtenso(dia: string): string {
   return `${diaDaSemana}, ${d} de ${MESES[mes - 1]} de ${ano}`;
 }
 
+/**
+ * `"2027-08-21"` → `"21 de agosto"`.
+ *
+ * SEM O ANO, de propósito: é a forma curta das frases de janela do `gtm.md`
+ * (*"As fotos abrem em 21 de agosto."*), e ela é sempre lida a poucos dias do
+ * evento — o ano ali seria ruído. A forma com ano continua sendo
+ * `dataPorExtenso`, e as duas existem separadas para ninguém "unificar".
+ */
+export function dataCurtaPorExtenso(dia: string): string {
+  const [, mes, d] = partesDoDia(dia);
+  return `${d} de ${MESES[mes - 1]}`;
+}
+
+/**
+ * Um instante → o dia e a hora **no fuso do evento**.
+ *
+ * POR QUE ELA EXISTE: a janela de envio é `timestamptz`, e as frases que o
+ * convidado lê falam de dia e de hora locais ("As fotos abrem em 21 de agosto,
+ * às 18:00"). O caminho errado é `instante.toISOString().slice(0,10)`, que
+ * devolve o dia em UTC — 21h de Brasília em diante isso é o dia seguinte, e a
+ * frase anunciaria a abertura um dia depois da abertura.
+ *
+ * A hora volta `null` quando é exatamente meia-noite: é isso que faz a frase
+ * curta (*"As fotos abrem em 21 de agosto."*) e a frase com hora
+ * (*"...às 18:00."*) serem escolhidas por dado, e não por um `if` na tela.
+ */
+export function partesLocais(
+  instante: Date,
+  fuso: string = FUSO
+): { dia: string; hora: string | null } {
+  const formatador = new Intl.DateTimeFormat("en-CA", {
+    timeZone: fuso,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const p: Record<string, string> = {};
+  for (const parte of formatador.formatToParts(instante)) {
+    if (parte.type !== "literal") p[parte.type] = parte.value;
+  }
+  const hh = String(Number(p.hour) % 24).padStart(2, "0");
+  const hora = hh === "00" && p.minute === "00" ? null : `${hh}:${p.minute}`;
+  return { dia: `${p.year}-${p.month}-${p.day}`, hora };
+}
+
 /** `"16:00:00"` → `"16h"`; `"16:30:00"` → `"16h30"`. */
 export function horaParaExibir(hora: string): string {
   if (!ehHoraPura(hora)) throw new Error(`Hora inválida: ${hora}`);
