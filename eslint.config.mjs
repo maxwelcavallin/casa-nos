@@ -104,6 +104,31 @@ const configuracao = [
     },
   },
 
+  /**
+   * TEXTO PURO, E A CATRACA QUE O SEGURA (v1.0, V-14).
+   *
+   * Todo texto do casal é texto puro: parágrafo é linha em branco, e colar
+   * `<b>oi</b>` do WhatsApp mostra o `<b>oi</b>` escrito. **Não existe
+   * `dangerouslySetInnerHTML` em ponto nenhum deste produto — e por isso não
+   * existe sanitização: o que não é interpretado não precisa ser limpo.**
+   *
+   * O par é que importa. Uma tela que interpreta HTML transforma toda a ausência
+   * de sanitização do produto — que hoje é decisão coerente — num buraco, e o
+   * caminho até lá é curto: alguém quer negrito na história do casal e resolve
+   * em uma linha. Como regra escrita, isso já está no README; aqui vira erro de
+   * lint, que é o que quebra o `pnpm verificar`.
+   *
+   * A regra vale em `app/` e `components/`, que é onde HTML se renderiza. Um
+   * teste que varresse o disco pegaria a mesma coisa mais tarde e com mensagem
+   * pior — o lint acusa no editor, antes do commit.
+   */
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+    rules: {
+      "react/no-danger": "error",
+    },
+  },
+
   // Scripts de manutenção rodam no Node, fora do bundle: `console` é a interface
   // deles, e eles não passam pelo tsconfig do app.
   {

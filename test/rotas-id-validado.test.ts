@@ -29,7 +29,54 @@ const PASTAS = [path.join(RAIZ, "app")];
  * chegam tortos com a mesma facilidade de um uuid — cliente de e-mail quebra URL
  * longa em duas linhas.
  */
-const VERIFICADORES = /ehUuid|ehIdNumerico|ehSlug|ehTokenDeAcesso/;
+const VERIFICADORES = /ehUuid|ehIdNumerico|ehSlug|ehTokenDeAcesso|ehChaveDeSecao/;
+
+/**
+ * O VERIFICADOR CERTO PARA CADA PARÂMETRO (v1.0, V-14).
+ *
+ * A varredura acima pergunta "esta rota valida alguma coisa?". Ela passa numa
+ * rota com dois parâmetros que valida só o primeiro — e foi exatamente esse o
+ * risco que a v1.0 criou: `/painel/[eventoId]/site/[secao]` tem um uuid e uma
+ * palavra, o `ehUuid` do `[eventoId]` satisfaria a varredura sozinho, e o
+ * `[secao]` iria ao catálogo sem passar por lista de permitidos.
+ *
+ * Por isso a régua aqui é por NOME de parâmetro. Parâmetro novo cujo nome não
+ * esteja neste mapa **reprova**, e essa é a parte que importa: a decisão de como
+ * validá-lo passa a ser tomada num commit que alguém lê, e não esquecida numa
+ * rota que já estava verde.
+ */
+const VERIFICADOR_DO_PARAMETRO: Record<string, RegExp> = {
+  // Todo id de entidade deste produto é uuid.
+  id: /ehUuid/,
+  eventoId: /ehUuid/,
+  acessoId: /ehUuid/,
+  convidadoId: /ehUuid/,
+  participacaoId: /ehUuid/,
+  midiaId: /ehUuid/,
+  fotoId: /ehUuid/,
+  indicacaoId: /ehUuid/,
+  perguntaId: /ehUuid/,
+  itemId: /ehUuid/,
+
+  // A chave humana do inquilino, e a única que aparece na URL do convidado.
+  slug: /ehSlug/,
+
+  // Credencial ao portador, 64 hexadecimais, que chega quebrada de cliente de
+  // e-mail com a mesma facilidade de um uuid.
+  token: /ehTokenDeAcesso/,
+
+  /**
+   * A palavra da seção (V-04 a V-09, V-18). Ela **não é id**: é uma das oito
+   * chaves do catálogo, e o verificador dela é uma lista de permitidos derivada
+   * do próprio catálogo. `ehUuid` aqui seria verde e errado.
+   */
+  secao: /ehChaveDeSecao/,
+};
+
+/** `[eventoId]` e `[secao]` de um caminho de arquivo, na ordem em que aparecem. */
+function parametrosDe(relativo: string): string[] {
+  return [...relativo.matchAll(/\[(\w+)\]/g)].map(a => a[1]);
+}
 
 /**
  * Parâmetros que não são id de entidade e portanto não têm o que validar aqui.
@@ -118,6 +165,46 @@ describe("rotas com [param] na URL", () => {
       "Nestas rotas a consulta aparece antes do verificador. Validar depois de " +
         "consultar não evita nada — o erro do Postgres já aconteceu:\n" +
         foraDeOrdem.map(r => `  - ${r}`).join("\n")
+    ).toEqual([]);
+  });
+
+  it("cada parâmetro é validado pelo verificador do seu tipo, e não pelo do vizinho", () => {
+    const faltando: string[] = [];
+    const desconhecidos: string[] = [];
+    let conferidos = 0;
+
+    for (const rota of rotas) {
+      if (rota.relativo in SEM_ID_DE_ENTIDADE) continue;
+      for (const parametro of parametrosDe(rota.relativo)) {
+        conferidos++;
+        const verificador = VERIFICADOR_DO_PARAMETRO[parametro];
+        if (!verificador) {
+          desconhecidos.push(`${rota.relativo} → [${parametro}]`);
+          continue;
+        }
+        if (!verificador.test(rota.fonte)) {
+          faltando.push(`${rota.relativo} → [${parametro}]`);
+        }
+      }
+    }
+
+    // Sem esta linha o teste fica verde por não ter conferido nada — que é como
+    // um varredor quebrado se disfarça de suíte passando.
+    expect(conferidos, "Nenhum [param] extraído dos caminhos").toBeGreaterThan(20);
+
+    expect(
+      desconhecidos,
+      "Estes parâmetros não estão em VERIFICADOR_DO_PARAMETRO: " +
+        desconhecidos.join(", ") +
+        ". Declare o verificador do parâmetro novo — um parâmetro que ninguém " +
+        "declarou é um parâmetro que a varredura acima dá por validado porque a " +
+        "rota valida OUTRA coisa."
+    ).toEqual([]);
+
+    expect(
+      faltando,
+      "Estes parâmetros chegam ao banco sem o verificador do próprio tipo: " +
+        faltando.join(", ")
     ).toEqual([]);
   });
 

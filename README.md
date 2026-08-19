@@ -550,9 +550,9 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | Catraca | O que segura |
 |---|---|
 | `tsc --noEmit` | tipos, incluindo os nomes de evento do GA4 (evento inexistente não compila) |
-| ESLint | `#hex`/`rgb()` em `app/` e `components/`; import de `components/ui`; `any` |
+| ESLint | `#hex`/`rgb()` em `app/` e `components/`; import de `components/ui`; `any`; **`dangerouslySetInnerHTML` em `app/` e `components/`** (V-14 — o produto é texto puro, e por isso não sanitiza nada: uma tela que interpretasse HTML transformaria essa coerência num buraco) |
 | `test/rotas.smoke.test.tsx` | toda página carrega e a página monta nos estados que tem |
-| `test/rotas-id-validado.test.ts` | toda rota com `[param]` valida o formato **antes** de consultar |
+| `test/rotas-id-validado.test.ts` | toda rota com `[param]` valida o formato **antes** de consultar — e, desde a V-14, **cada parâmetro pelo verificador do próprio tipo**: `[secao]` por `ehChaveDeSecao`, não pelo `ehUuid` do `[eventoId]` que está ao lado |
 | `test/eventos-escopo.test.ts` | inquilino A não lê o B; o que o casal escondeu não sai do servidor |
 | `test/datas.test.ts` | data e fuso, **rodando com `TZ=UTC`** |
 | `test/sql-instrucoes.test.ts` | o separador de instruções do runner de migration |
@@ -605,6 +605,7 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/galeria-v19.test.ts` | a legenda (80, texto puro, espaço normalizado antes de medir); a ordem recusada **inteira** quando um item é ruim; e as duas derivadas saindo do balde — **a miniatura antes da prévia**, e o balde recusando não apagando nada |
 | `test/galeria-exclusao-rota.test.ts` | **quando a linha é marcada, o objeto já saiu** — a asserção é sobre o estado do banco no instante em que o R2 é chamado, não sobre a ordem das linhas no arquivo. Mais o 502 com a linha viva, e o **409 com os dois números** na décima terceira foto |
 | `test/galeria-editor.test.tsx` | dois toques rápidos em subir/descer: a lista move na hora, **um** pedido no ar, e o último descreve a tela. Mais a legenda salvando por botão e a caixa de apagar dizendo a consequência |
+| `test/seed-plano.test.ts` | **o segundo `pnpm db:seed` não escreve coluna nenhuma** — e o seed não republica um site que o casal tirou do ar, nem reinsere indicação que já existe |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
 
