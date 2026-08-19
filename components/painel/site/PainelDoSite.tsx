@@ -14,6 +14,10 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { useState } from "react";
 
 import { FaixaVisaoDono } from "@/components/painel/FaixaVisaoDono";
+import {
+  PublicacaoDoSite,
+  type DadosDaPublicacao,
+} from "@/components/painel/site/PublicacaoDoSite";
 import type { ChaveDeSecao } from "@/lib/secoes";
 import { largura, toque } from "@/lib/tokens";
 
@@ -73,6 +77,13 @@ export type DadosDoPainelDoSite = {
   publicado: boolean;
   ehDono: boolean;
   secoes: LinhaDeSecao[];
+  /**
+   * O bloco de publicar/tirar do ar (V-11). Ele mora nesta tela, e não numa
+   * própria: publicar é a última coisa que o casal faz depois de olhar a lista
+   * de seções, e uma tela separada poria um clique entre a conferência e a
+   * decisão.
+   */
+  publicacao: DadosDaPublicacao;
 };
 
 export function PainelDoSite({ dados }: { dados: DadosDoPainelDoSite }) {
@@ -184,6 +195,8 @@ export function PainelDoSite({ dados }: { dados: DadosDoPainelDoSite }) {
               {dados.publicado ? " · no ar" : " · ainda não publicado"}
             </Typography>
           </Stack>
+
+          <PublicacaoDoSite dados={dados.publicacao} />
 
           {erro ? (
             /**
@@ -310,9 +323,13 @@ export function PainelDoSite({ dados }: { dados: DadosDoPainelDoSite }) {
             </Stack>
           </Card>
 
+          {/* O endereço saiu daqui na V-11: ele é do bloco de publicação, que o
+              mostra por extenso, com o domínio quando houver, e com botão de
+              copiar. Escrito nos dois lugares, um dos dois ficaria desatualizado
+              — e seria este, que não sabe se existe domínio. */}
           <Typography variant="caption" sx={{ color: "text.secondary" }}>
             Seção desligada some do site e o conteúdo dela continua guardado —
-            religar traz tudo de volta. O endereço de vocês é /e/{dados.slug}.
+            religar traz tudo de volta.
           </Typography>
         </Stack>
       </Box>

@@ -95,6 +95,50 @@ export function enderecoParaLer(origem: string, slug: string): string {
 }
 
 /* ------------------------------------------------------------------ *
+ * O ENDEREÇO DO SITE — o que o casal manda para os convidados
+ * ------------------------------------------------------------------ */
+
+/**
+ * O endereço do SITE do casamento (v1.0, V-11).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * **NÃO É O ENDEREÇO DO ÁLBUM.** As funções acima montam `casa-nos.app/<slug>`,
+ * que é o QR do cartão de mesa e leva ao álbum. Este é o link que o casal cola
+ * no convite e no grupo do WhatsApp, e ele leva à página do casamento.
+ *
+ * Confundir os dois seria mandar 150 pessoas ao envio de fotos meses antes da
+ * festa — daí duas funções com nomes que não se parecem, e não um parâmetro.
+ *
+ * **O DOMÍNIO GANHA DO `/e/<slug>` quando existir.** É o endereço que o casal
+ * pagou e escolheu; o `/e/<slug>` é a forma de o site existir enquanto o DNS não
+ * aponta. Mostrar o segundo a quem já tem o primeiro é ensinar o casal a
+ * divulgar o endereço errado.
+ *
+ * A origem vem dos cabeçalhos (`origemDaRequisicao`) e não de variável de
+ * ambiente, pelo mesmo motivo do QR: o mesmo código serve produção e a
+ * pré-visualização da plataforma, e um endereço copiado na pré-visualização
+ * precisa abrir a pré-visualização.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function enderecoDoSite(
+  origem: string,
+  slug: string,
+  dominio: string | null = null
+): string {
+  if (dominio) return `https://${dominio}`;
+  return `${origem}/e/${slug}`;
+}
+
+/** O mesmo endereço sem o `https://`, para ser lido na tela e digitado. */
+export function enderecoDoSiteParaLer(
+  origem: string,
+  slug: string,
+  dominio: string | null = null
+): string {
+  return enderecoDoSite(origem, slug, dominio).replace(/^https?:\/\//, "");
+}
+
+/* ------------------------------------------------------------------ *
  * A conferência dos 24 caracteres — avisa, e nunca recusa
  * ------------------------------------------------------------------ */
 

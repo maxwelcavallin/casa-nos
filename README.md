@@ -75,6 +75,20 @@ receber, e não um deslocado alguns pixels.
 Ela **não emite `page_view`**: a prévia é do casal, e oito aberturas numa noite
 contaminariam a medição de um site que ainda não tem um único convidado.
 
+**Publicar e tirar do ar** (V-11), no mesmo painel do site. O bloco mostra o
+endereço — o domínio do casal quando houver, o `/e/<slug>` da origem atual quando
+não —, com botão de copiar. Publicar é um toque; **tirar do ar pede confirmação
+que diz a consequência** ("o endereço para de responder: quem abrir o link vai
+ver uma página de endereço não encontrado") e diz também que **nada é apagado**.
+Publicar emite `site_published` **só na transição** de fora do ar para no ar, e
+quem decide isso é a mesma instrução SQL que grava a coluna — dois toques não
+geram dois eventos.
+
+> **Este texto de confirmação tem data de validade, e isso está escrito no
+> código.** Quando a galeria existir (V-18), a foto vai morar no prefixo público
+> do balde e despublicar o site **não** vai tirar o arquivo do ar: quem já tiver
+> a URL de uma foto continua abrindo. V-19 tem o critério de emendar a frase.
+
 Todo texto do casal é **texto puro**: parágrafo é linha em branco, e colar
 `<b>oi</b>` do WhatsApp mostra o `<b>oi</b>` escrito. Não existe
 `dangerouslySetInnerHTML` em ponto nenhum deste produto — e por isso não existe
@@ -373,7 +387,7 @@ O que o dono muda sem tocar em código, e sem deploy:
 | Divulgar o nome do local | `localNome` + `localNomePublicado: true` | `pnpm db:seed` |
 | Trocar a região pelo endereço exato | `localRevelacao: "exato"` + `localEndereco` | `pnpm db:seed` |
 | Acrescentar hotéis e dicas | `indicacoes: [...]` | `pnpm db:seed` |
-| Tirar o site do ar | `publicado: false` | `pnpm db:seed` |
+| Tirar o site do ar | — | **o botão em `/painel/<id>/site`** (V-11). O JSON continua tendo `publicado`, mas o seed não é mais o caminho |
 
 ---
 
@@ -496,13 +510,14 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/moderacao.test.ts` | a fila filtra `feed`, aprova em lote numa instrução, e o álbum do convidado não conhece a palavra "aprovação" |
 | `test/leads.test.ts` | a origem do lead vem da URL e nunca do corpo; o WhatsApp não sai para o GA4; `cta_surface = feed` não é emitido |
 | `test/reconciliacao.test.ts` | a adoção usa a data do OBJETO, é idempotente, e original sem prévia vira marca — não perda |
-| `test/analytics-dicionario.test.ts` | a união tem exatamente os 16 eventos da fatia, todos documentados, e **nenhum parâmetro aceita texto livre** |
+| `test/analytics-dicionario.test.ts` | a união tem exatamente os 16 eventos da Fatia 1 mais `site_published`, todos documentados, e **nenhum parâmetro aceita texto livre** |
 | `test/medicao.test.ts` + `.brasilia.test.ts` | as sete linhas nos dois fusos; `numeric` vira número na fronteira; a linha que falha não derruba as outras seis |
 | `test/telas-f1-5-f1-7.smoke.test.tsx` | fila, painel e dia ao vivo montados, com o texto exato — e o CTA **não existindo** antes do primeiro envio |
 | `test/contadores-vs-verdade.test.ts` | **banco real**: o agregado do casal contra `count(*)` depois de centenas de operações |
 | `test/perda-vs-verdade.test.ts` | **banco real**: a consulta de perda diz 0 hoje e diz 3 depois de D+7 — a prova de que ela não está cega |
 | `test/previa.test.ts` | a prévia funciona **sem `publicado`**, obedece as flags, e o conteúdo de seção desligada não é nem buscado |
 | `test/site-secoes.test.tsx` | **nenhuma das três telas do site remonta o conteúdo por conta própria**, e só a prévia desliga a medição |
+| `test/publicacao.test.ts` | dois toques não geram dois eventos; tirar do ar não apaga nada; o casamento A não publica o B; a frase da confirmação está escrita |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
 

@@ -64,6 +64,13 @@ const ESPERADOS = [
   "guest_list_imported",
   "qr_material_downloaded",
   "media_moderated",
+  /**
+   * v1.0, V-11 — o site vai ao ar. É o primeiro evento do produto que não é da
+   * Fatia 1, e ele entra com a história que o emite, não antes: um nome
+   * declarado e nunca emitido fica no relatório com zero ocorrências para
+   * sempre, e daqui a um ano alguém gasta uma tarde procurando o que quebrou.
+   */
+  "site_published",
 ];
 
 describe("a união de tipos é o dicionário", () => {

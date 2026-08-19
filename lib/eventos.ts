@@ -272,6 +272,38 @@ export async function buscarEventoPorDominio(
 }
 
 /**
+ * O domínio deste casamento, se houver — o caminho inverso de
+ * `buscarEventoPorDominio` (v1.0, V-11).
+ *
+ * PARA QUE SERVE: o painel precisa dizer ao casal **onde o site dele mora**. Com
+ * domínio cadastrado, o endereço é `anaemax.com.br`; sem ele, é o `/e/<slug>` da
+ * origem atual. Mostrar sempre o `/e/<slug>` para um casal que já apontou o DNS
+ * seria mandá-lo divulgar o endereço errado — funciona, mas não é o dele.
+ *
+ * `principal desc` primeiro: um casamento tem mais de um domínio desde o
+ * primeiro dia (o do casal, o mesmo com `www`, o de pré-visualização), e o que
+ * se escreve num convite é um só. O empate cai no mais antigo, que é o que foi
+ * cadastrado junto com o evento.
+ *
+ * `excluido_em is null` como em toda consulta: domínio retirado não volta a ser
+ * o endereço anunciado.
+ */
+export async function dominioPrincipal(
+  eventoId: string,
+  exec: Executor = sql
+): Promise<string | null> {
+  const linhas = await exec`
+    select dominio
+      from evento_dominios
+     where evento_id = ${eventoId}
+       and excluido_em is null
+     order by principal desc, criado_em asc
+     limit 1
+  `;
+  return linhas.length ? paraTexto(linhas[0].dominio) : null;
+}
+
+/**
  * Indicações de hospedagem e dicas de UM evento.
  *
  * O `evento_id` vem sempre do evento já resolvido pelo servidor, nunca de

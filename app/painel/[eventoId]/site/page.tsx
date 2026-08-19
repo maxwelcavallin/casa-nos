@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { PainelDoSite, type LinhaDeSecao } from "@/components/painel/site/PainelDoSite";
@@ -8,7 +9,12 @@ import {
   listarPerguntas,
   listarProgramacao,
 } from "@/lib/conteudo-do-site";
-import { buscarEventoPorId } from "@/lib/eventos";
+import {
+  enderecoDoSite,
+  enderecoDoSiteParaLer,
+  origemDaRequisicao,
+} from "@/lib/enderecos";
+import { buscarEventoPorId, dominioPrincipal } from "@/lib/eventos";
 import { ehUuid } from "@/lib/ids";
 import { listarIndicacoesDoPainel } from "@/lib/indicacoes";
 import { resumirSecao, type ContagemDoConteudo } from "@/lib/resumo-do-site";
@@ -64,13 +70,28 @@ export default async function PaginaDoSite({
    * `listarIndicacoesDoPainel` e `listarPerguntas` incluem, pelo mesmo motivo, o
    * que o site não mostra: indicação não publicada e pergunta sem resposta.
    */
-  const [secoes, indicacoes, historia, programacao, perguntas] = await Promise.all([
-    listarSecoes(evento.id),
-    listarIndicacoesDoPainel(evento.id),
-    buscarHistoria(evento.id),
-    listarProgramacao(evento.id),
-    listarPerguntas(evento.id),
-  ]);
+  const [secoes, indicacoes, historia, programacao, perguntas, dominio] =
+    await Promise.all([
+      listarSecoes(evento.id),
+      listarIndicacoesDoPainel(evento.id),
+      buscarHistoria(evento.id),
+      listarProgramacao(evento.id),
+      listarPerguntas(evento.id),
+      // V-11: o domínio do casal, quando houver. Sem ele o endereço mostrado é o
+      // `/e/<slug>` da origem atual — que continua valendo depois que o domínio
+      // entrar, e por isso não é um endereço "de mentira".
+      dominioPrincipal(evento.id),
+    ]);
+
+  /**
+   * A ORIGEM VEM DOS CABEÇALHOS, não de variável de ambiente (V-11).
+   *
+   * O mesmo código serve produção e a pré-visualização da plataforma, e um
+   * endereço copiado na pré-visualização precisa abrir a pré-visualização —
+   * senão o casal testa o link e cai no site de produção sem entender por quê. É
+   * a mesma decisão que `enderecoParaQr` já tomava para o material do QR.
+   */
+  const origem = origemDaRequisicao(await headers());
 
   const conteudo: ContagemDoConteudo = {
     indicacoes: indicacoes.length,
@@ -111,6 +132,13 @@ export default async function PaginaDoSite({
         // na v1.0. Sai do próprio acesso, como na tela do dia.
         ehDono: sessao.tipo === "casal" && sessao.acesso.dono,
         secoes: linhas,
+        publicacao: {
+          eventoId: evento.id,
+          publicado: evento.publicado,
+          endereco: enderecoDoSite(origem, evento.slug, dominio),
+          enderecoParaLer: enderecoDoSiteParaLer(origem, evento.slug, dominio),
+          temDominio: dominio !== null,
+        },
       }}
     />
   );

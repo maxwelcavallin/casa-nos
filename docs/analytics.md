@@ -446,6 +446,44 @@ registrar um mês que foi recusado. `expected_month` ainda passa por
 `mesParaOGa4` antes de sair — é a última barreira contra texto livre numa
 dimensão (§13.9).
 
+### O primeiro da v1.0 — o site vai ao ar
+
+`metricas.md` §6.1 declara `site_published` desde o início e o aloca à Fatia 2.
+Ele entra aqui com a história que o emite (V-11), e não antes: nome declarado e
+nunca emitido fica no relatório com zero ocorrências para sempre, e daqui a um
+ano alguém gasta uma tarde procurando o que quebrou.
+
+#### `site_published`
+
+| Campo | Valor |
+|---|---|
+| Significa | O site do casal ficou acessível num link |
+| Onde dispara | `components/painel/site/PublicacaoDoSite.tsx`, **depois** de o servidor confirmar a transição |
+| Parâmetros | `wedding_id` (string, uuid) |
+| Alimenta | Aquisição. É o primeiro degrau da árvore |
+| Conversão? | Não |
+
+**Só na transição de `false` para `true`, e nunca a cada salvamento.** Quem
+decide isso não é a tela: é a mesma instrução SQL que grava a coluna, que devolve
+`mudou` (`lib/publicacao.ts`). Sob toque duplo num celular com rede lenta — que
+é a condição em que este botão é apertado — dois `PATCH` chegam ao servidor, e
+só o primeiro encontra o valor diferente.
+
+**A trava mora no banco de propósito.** Uma trava no cliente (`if (!publicado)`)
+parece resolver e não resolve: os dois toques leem o mesmo estado de React antes
+de qualquer resposta chegar. E o GA4 **não desconta evento duplicado** — o número
+de sites publicados é o primeiro degrau da árvore de aquisição, e dobrá-lo é
+irreversível.
+
+**Tirar do ar não emite nada.** Não há `site_unpublished` em `metricas.md`, e
+inventá-lo aqui seria escrever métrica no meio de uma história — trabalho que não
+é desta camada. O estado atual está no Postgres (`eventos.publicado`), que é onde
+a pergunta "quantos sites estão no ar hoje?" se responde de verdade.
+
+**O que ele não carrega:** slug, domínio, número de seções. Os dois primeiros são
+o nome do casal escrito de outro jeito; o terceiro responde a uma pergunta que
+ninguém fez.
+
 ### O quarto valor de `error_kind`, e a ressalva que ele carrega
 
 `media_upload_retried` passou a ter **quatro** valores: `rede`, `portal`,

@@ -187,6 +187,12 @@ export const ROTAS_DE_API: RotaDeApi[] = [
    * aparece (405 num POST legítimo) e ninguém entende por quê.
    * ─────────────────────────────────────────────────────────────────────────
    */
+  /**
+   * V-11 — publicar e tirar do ar. **`site.publicar`, e não `site.editar`**: é o
+   * único ato deste bloco cuja consequência é o endereço passar a responder, e é
+   * o primeiro que se restringe quando existir um quarto tipo de acesso.
+   */
+  { caminho: "/api/eventos/[id]/site/publicacao", metodos: { PATCH: "site.publicar" } },
   { caminho: "/api/eventos/[id]/site/secoes", metodos: { PATCH: "site.editar" } },
   // A capa e o "onde e quando" — as duas escrevem colunas de `eventos`.
   { caminho: "/api/eventos/[id]/site/evento", metodos: { PATCH: "site.editar" } },

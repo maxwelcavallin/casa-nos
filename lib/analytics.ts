@@ -52,6 +52,31 @@ export type EventosDeAnalytics = {
     recommendation_position: number;
   };
 
+  /* ---------------- v1.0 · V-11 — o site vai ao ar ---------------- */
+
+  /**
+   * O site do casal ficou acessível num link (`metricas.md` §6.1).
+   *
+   * **SÓ NA TRANSIÇÃO DE `false` PARA `true`, E NUNCA A CADA SALVAMENTO.** Quem
+   * decide isso não é a tela: é a mesma instrução SQL que grava a coluna, que
+   * devolve `mudou` (ver `lib/publicacao.ts`). Sob toque duplo num celular com
+   * rede lenta — que é a condição em que este botão é apertado — dois `PATCH`
+   * chegam, e só o primeiro encontra o valor diferente.
+   *
+   * A trava mora no banco de propósito. Uma trava no cliente (`if (!publicado)`)
+   * parece resolver e não resolve: os dois toques leem o mesmo estado de React
+   * antes de qualquer resposta chegar. E o GA4 **não desconta evento duplicado**
+   * — o número de sites publicados é o primeiro degrau da árvore de aquisição, e
+   * dobrá-lo é irreversível.
+   *
+   * Não carrega mais nada além do `wedding_id`. Nem slug, nem domínio, nem
+   * quantas seções o site tem: as duas primeiras são o nome do casal escrito de
+   * outro jeito, e a terceira responde a uma pergunta que ninguém fez.
+   */
+  site_published: {
+    wedding_id: string;
+  };
+
   /* ---------------- Fatia 1 · F1.2 — o envio ---------------- */
 
   /**
