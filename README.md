@@ -56,6 +56,18 @@ nome do local, a flag que o divulga, e os três níveis de revelação do mapa) 
 **onde ficar e dicas** (hotéis e dicas, com link só `http`/`https`, teto de 20 e
 exclusão lógica).
 
+**As três seções novas** (migration `0013`): **a nossa história** (título
+opcional e 1.200 caracteres de texto puro), **a programação do dia** (até 12
+momentos, com horário opcional — nulo significa "sem horário anunciado", e o
+site mostra um travessão, nunca `--:--`) e **perguntas frequentes** (até 15
+pares; **pergunta sem resposta não aparece no site**, e é isso que permite
+sugeri-las sem publicar nada em branco).
+
+Todo texto do casal é **texto puro**: parágrafo é linha em branco, e colar
+`<b>oi</b>` do WhatsApp mostra o `<b>oi</b>` escrito. Não existe
+`dangerouslySetInnerHTML` em ponto nenhum deste produto — e por isso não existe
+sanitização: o que não é interpretado não precisa ser limpo.
+
 **Este é o ponto em que o `db/seed/*.json` deixa de ser necessário** para mudar o
 conteúdo do site. Ele continua existindo para o evento nascer com conteúdo
 inicial — ver [Seed](#seed--é-assim-que-o-dono-edita-o-site), cujo título ainda

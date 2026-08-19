@@ -161,6 +161,9 @@ export function secaoDoCatalogo(chave: ChaveDeSecao): SecaoDoCatalogo {
 export const SECOES_COM_EDITOR: ReadonlySet<ChaveDeSecao> = new Set<ChaveDeSecao>([
   "capa",
   "onde",
+  "programacao",
+  "historia",
+  "perguntas",
   "indicacoes",
 ]);
 

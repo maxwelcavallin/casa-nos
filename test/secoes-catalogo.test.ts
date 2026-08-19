@@ -136,23 +136,19 @@ describe("toda chave do catálogo tem componente e editor", () => {
      * esqueceu" — diferença que uma soma de conjuntos não conta.
      */
     /**
-     * **CATRACA EM MODO CONTAGEM** (`qualidade.md` §2), com a lista escrita.
+     * **A CATRACA CHEGOU A ZERO E VIROU PROIBIÇÃO** (`qualidade.md` §2).
      *
-     * Estas três seções existem no catálogo desde a `0012` porque a ordem
-     * precisa conhecê-las e porque o `CHECK` já as aceita — mas o conteúdo delas
-     * é a migration `0013`, e os editores são a V1.4. Enquanto isso, elas
-     * aparecem no painel marcadas como "falta preencher", **sem link**, e o
-     * endereço delas responde 404.
+     * Ela nasceu na V1.2 em modo contagem, com `programacao`, `historia` e
+     * `perguntas` na lista: as três existiam no catálogo (a ordem precisa
+     * conhecê-las e o `CHECK` já as aceitava) e ainda não tinham editor. A V1.4
+     * escreveu os três, e a lista esvaziou.
      *
-     * Catraca que nasce proibindo trabalho existente é desligada no primeiro
-     * dia. Esta nasce com a dívida escrita e vira proibição quando a lista
-     * esvaziar — o que é o critério de término da V1.4.
+     * Ela fica aqui, vazia e escrita, em vez de sumir: uma seção nova no
+     * catálogo agora **quebra o CI** até alguém escrever o editor dela ou
+     * declarar em `SECOES_SEM_CONTEUDO` por que ela não precisa de um. Sem isso,
+     * a seção nova viraria um nome no painel que não abre nada.
      */
-    const PENDENTES: ReadonlySet<string> = new Set([
-      "programacao",
-      "historia",
-      "perguntas",
-    ]);
+    const PENDENTES: ReadonlySet<string> = new Set([]);
 
     const cobertas = new Set([...SECOES_COM_EDITOR, ...SECOES_SEM_CONTEUDO]);
     const descobertas = CHAVES_DE_SECAO.filter(

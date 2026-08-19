@@ -83,6 +83,9 @@ function montar() {
         indicacoes={INDICACOES}
         agoraMs={AGORA}
         secoes={CHAVES_DE_SECAO}
+        historia={null}
+        programacao={[]}
+        perguntas={[]}
       />
     </Providers>
   );

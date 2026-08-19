@@ -455,6 +455,29 @@ describe("o guarda está no lugar certo, e é 404", () => {
     ).toEqual([]);
   });
 
+  it("**nenhuma rota do painel do site entrou no conjunto por engano**", () => {
+    /**
+     * A v1.0 INTEIRA responderia 404 se `site.editar` caísse no conjunto — e o
+     * sintoma seria "o painel parou de funcionar", sem ninguém ligar a causa ao
+     * desligamento do álbum. Esta varredura é por CAMINHO, e não por ação: ela
+     * pega também o caso em que alguém declara uma rota nova de `/site/` com
+     * uma ação do álbum copiada de outra linha.
+     */
+    const doSite = ROTAS_DE_API.filter(r => r.caminho.includes("/site/"));
+    expect(doSite.length, "sumiram as rotas do painel do site").toBeGreaterThanOrEqual(8);
+
+    const capturadas = doSite
+      .filter(r => Object.values(r.metodos).some(a => ACOES_DO_ALBUM.has(a as Acao)))
+      .map(r => r.caminho);
+
+    expect(
+      capturadas,
+      "Estas rotas da v1.0 estão declaradas com uma ação do álbum:\n" +
+        capturadas.map(c => `  - ${c}`).join("\n") +
+        "\n\nCom o álbum desligado elas responderiam 404, e o painel inteiro pararia."
+    ).toEqual([]);
+  });
+
   it("a flag não interfere nas ações de fora do conjunto", async () => {
     const { autorizar } = await import("@/lib/api");
     // `evento.configurar` é o login. Com o álbum desligado ele precisa continuar

@@ -123,6 +123,9 @@ async function montarComOSeed() {
         indicacoes={indicacoes}
         agoraMs={AGORA.getTime()}
         secoes={CHAVES_DE_SECAO}
+        historia={null}
+        programacao={[]}
+        perguntas={[]}
       />
     </Providers>
   );

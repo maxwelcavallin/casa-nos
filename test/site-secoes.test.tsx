@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { PaginaDoEvento } from "@/components/evento/PaginaDoEvento";
 import { Providers } from "@/components/Providers";
+import type { Historia, Momento, Pergunta } from "@/lib/conteudo-do-site";
 import type { EventoPublico, Indicacao } from "@/lib/eventos";
 import { CHAVES_DE_SECAO, type ChaveDeSecao } from "@/lib/secoes";
 
@@ -58,7 +59,29 @@ const INDICACOES: Indicacao[] = [
   },
 ];
 
-function montar(secoes: readonly ChaveDeSecao[], indicacoes: Indicacao[] = INDICACOES) {
+const HISTORIA: Historia = {
+  titulo: "Como tudo começou",
+  texto: "Primeiro parágrafo do segredo.\n\nSegundo parágrafo.",
+};
+
+const PROGRAMACAO: Momento[] = [
+  { id: "m1", hora: "16:00", titulo: "Cerimônia secreta", descricao: null, ordem: 1 },
+  { id: "m2", hora: null, titulo: "A festa até o fim", descricao: null, ordem: 2 },
+];
+
+const PERGUNTAS: Pergunta[] = [
+  { id: "p1", pergunta: "Qual é o traje?", resposta: "Esporte fino secreto.", ordem: 1 },
+];
+
+function montar(
+  secoes: readonly ChaveDeSecao[],
+  indicacoes: Indicacao[] = INDICACOES,
+  {
+    historia = HISTORIA,
+    programacao = PROGRAMACAO,
+    perguntas = PERGUNTAS,
+  }: { historia?: Historia | null; programacao?: Momento[]; perguntas?: Pergunta[] } = {}
+) {
   return render(
     <Providers>
       <PaginaDoEvento
@@ -66,6 +89,9 @@ function montar(secoes: readonly ChaveDeSecao[], indicacoes: Indicacao[] = INDIC
         indicacoes={indicacoes}
         agoraMs={AGORA}
         secoes={secoes}
+        historia={historia}
+        programacao={programacao}
+        perguntas={perguntas}
       />
     </Providers>
   );
@@ -112,6 +138,72 @@ describe("seção desligada some do site", () => {
   });
 });
 
+describe("as três seções novas (V-07, V-08, V-09)", () => {
+  it("a história renderiza com um parágrafo por linha em branco", () => {
+    const { container } = montar(CHAVES_DE_SECAO);
+    expect(screen.getByText("Como tudo começou")).toBeInTheDocument();
+    expect(screen.getByText("Primeiro parágrafo do segredo.")).toBeInTheDocument();
+    expect(screen.getByText("Segundo parágrafo.")).toBeInTheDocument();
+    // Dois parágrafos, e não um texto com quebra: a linha em branco separou.
+    expect(container.innerHTML).not.toContain(
+      "Primeiro parágrafo do segredo.\n\nSegundo"
+    );
+  });
+
+  it("**HTML colado do WhatsApp aparece escrito, e não como marcação** (RV-07)", () => {
+    /**
+     * O caso concreto: a noiva copia um trecho já formatado de outro lugar e
+     * cola no editor. Sem o escape, `<script>` no texto do casal vira XSS
+     * armazenado numa página que 150 pessoas abrem.
+     */
+    const { container } = montar(CHAVES_DE_SECAO, INDICACOES, {
+      historia: { titulo: null, texto: "<b>oi</b> e <script>alert(1)</script>" },
+    });
+    expect(screen.getByText("<b>oi</b> e <script>alert(1)</script>")).toBeInTheDocument();
+    expect(container.querySelector("script")).toBeNull();
+    expect(container.querySelector("b")).toBeNull();
+  });
+
+  it("história sem texto: a seção some (RV-02)", () => {
+    const { container } = montar(CHAVES_DE_SECAO, INDICACOES, { historia: null });
+    expect(container.innerHTML).not.toContain("A nossa história");
+  });
+
+  it("**momento sem hora mostra travessão, e nunca `--:--` nem `00:00`**", () => {
+    const { container } = montar(CHAVES_DE_SECAO);
+    expect(screen.getByText("A festa até o fim")).toBeInTheDocument();
+    expect(screen.getByText("Cerimônia secreta")).toBeInTheDocument();
+    // `16:00` é exibido como `16h` por `lib/datas.ts`.
+    expect(screen.getByText("16h")).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain("--:--");
+    expect(container.innerHTML).not.toContain("00:00");
+    expect(container.innerHTML).not.toContain("0h<");
+  });
+
+  it("programação vazia: a seção some (RV-02)", () => {
+    const { container } = montar(CHAVES_DE_SECAO, INDICACOES, { programacao: [] });
+    expect(container.innerHTML).not.toContain("Cerimônia secreta");
+  });
+
+  it("as perguntas respondidas aparecem", () => {
+    montar(CHAVES_DE_SECAO);
+    expect(screen.getByText("Qual é o traje?")).toBeInTheDocument();
+    expect(screen.getByText("Esporte fino secreto.")).toBeInTheDocument();
+  });
+
+  it("nenhuma pergunta respondida: a seção some (RV-02)", () => {
+    const { container } = montar(CHAVES_DE_SECAO, INDICACOES, { perguntas: [] });
+    expect(container.innerHTML).not.toContain("Perguntas frequentes");
+  });
+
+  it("desligar as três tira o conteúdo delas do HTML (RV-01)", () => {
+    const { container } = montar(["capa", "onde", "indicacoes", "rodape"]);
+    expect(container.innerHTML).not.toContain("Primeiro parágrafo do segredo.");
+    expect(container.innerHTML).not.toContain("Cerimônia secreta");
+    expect(container.innerHTML).not.toContain("Esporte fino secreto.");
+  });
+});
+
 describe("a ordem do casal é a ordem do site", () => {
   it("trocar a ordem das seções troca a ordem no HTML", () => {
     /**
@@ -139,11 +231,27 @@ describe("a página não BUSCA o conteúdo de seção desligada", () => {
    */
   const PAGINAS = ["app/page.tsx", "app/e/[slug]/page.tsx"];
 
-  it("as duas páginas públicas condicionam a busca das indicações", () => {
-    const semCondicao = PAGINAS.filter(relativo => {
+  it("**as quatro buscas de conteúdo são condicionadas à seção estar ligada**", () => {
+    /**
+     * Uma busca por seção, e cada uma atrás do seu `ligadas.includes(...)`. No
+     * dia em que uma seção nova esquecer a condição, o conteúdo dela passa a
+     * viajar no HTML mesmo desligada — e nada na tela acusa, porque o componente
+     * continua não desenhando.
+     */
+    const BUSCAS: Array<[string, RegExp]> = [
+      ["indicacoes", /ligadas\.includes\("indicacoes"\)\s*\?\s*listarIndicacoes/],
+      ["historia", /ligadas\.includes\("historia"\)\s*\?\s*buscarHistoria/],
+      ["programacao", /ligadas\.includes\("programacao"\)\s*\?\s*listarProgramacao/],
+      ["perguntas", /ligadas\.includes\("perguntas"\)\s*\?\s*\n?\s*listarPerguntas/],
+    ];
+
+    const semCondicao: string[] = [];
+    for (const relativo of PAGINAS) {
       const fonte = fs.readFileSync(path.join(RAIZ, relativo), "utf8");
-      return !/ligadas\.includes\("indicacoes"\)\s*\?\s*await listarIndicacoes/.test(fonte);
-    });
+      for (const [secao, padrao] of BUSCAS) {
+        if (!padrao.test(fonte)) semCondicao.push(`${relativo} → ${secao}`);
+      }
+    }
 
     expect(
       semCondicao,
@@ -151,6 +259,20 @@ describe("a página não BUSCA o conteúdo de seção desligada", () => {
         semCondicao.map(p => `  - ${p}`).join("\n") +
         "\n\nO corte é no servidor, antes da consulta — não na renderização."
     ).toEqual([]);
+  });
+
+  it("**as perguntas são filtradas no SERVIDOR, e não no componente**", () => {
+    /**
+     * `perguntasRespondidas` roda na página. Filtrar dentro de `SecaoPerguntas`
+     * daria o mesmo resultado na tela e deixaria o texto das perguntas sugeridas
+     * e não respondidas no código-fonte — que é exatamente o que torna seguro
+     * sugerir as cinco (V-16).
+     */
+    const semFiltro = PAGINAS.filter(relativo => {
+      const fonte = fs.readFileSync(path.join(RAIZ, relativo), "utf8");
+      return !/\.then\(perguntasRespondidas\)/.test(fonte);
+    });
+    expect(semFiltro).toEqual([]);
   });
 
   it("as duas páginas resolvem as seções antes de montar", () => {

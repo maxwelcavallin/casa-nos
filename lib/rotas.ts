@@ -196,6 +196,19 @@ export const ROTAS_DE_API: RotaDeApi[] = [
     caminho: "/api/eventos/[id]/site/indicacoes/[indicacaoId]",
     metodos: { PATCH: "site.editar", DELETE: "site.editar" },
   },
+  // Uma linha por evento: `PATCH`, e não `POST` — o casal não cria histórias,
+  // ele escreve a dele.
+  { caminho: "/api/eventos/[id]/site/historia", metodos: { PATCH: "site.editar" } },
+  { caminho: "/api/eventos/[id]/site/programacao", metodos: { POST: "site.editar" } },
+  {
+    caminho: "/api/eventos/[id]/site/programacao/[itemId]",
+    metodos: { PATCH: "site.editar", DELETE: "site.editar" },
+  },
+  { caminho: "/api/eventos/[id]/site/perguntas", metodos: { POST: "site.editar" } },
+  {
+    caminho: "/api/eventos/[id]/site/perguntas/[perguntaId]",
+    metodos: { PATCH: "site.editar", DELETE: "site.editar" },
+  },
 
   // H-18 — o aparelho conta o que deu errado com ele
   { caminho: "/api/interno/erro-cliente", metodos: { POST: "interno.erro" }, publica: true },

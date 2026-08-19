@@ -3,9 +3,17 @@ import { notFound } from "next/navigation";
 
 import { CascaDoEditor } from "@/components/painel/site/CascaDoEditor";
 import { EditorDaCapa } from "@/components/painel/site/EditorDaCapa";
+import { EditorDaHistoria } from "@/components/painel/site/EditorDaHistoria";
+import { EditorDaProgramacao } from "@/components/painel/site/EditorDaProgramacao";
+import { EditorDasPerguntas } from "@/components/painel/site/EditorDasPerguntas";
 import { EditorDeIndicacoes } from "@/components/painel/site/EditorDeIndicacoes";
 import { EditorDeOnde } from "@/components/painel/site/EditorDeOnde";
 import { podeNoEvento } from "@/lib/autorizacao";
+import {
+  buscarHistoria,
+  listarPerguntas,
+  listarProgramacao,
+} from "@/lib/conteudo-do-site";
 import { buscarEventoPorId } from "@/lib/eventos";
 import { ehUuid } from "@/lib/ids";
 import { listarIndicacoesDoPainel } from "@/lib/indicacoes";
@@ -121,6 +129,44 @@ export default async function PaginaDoEditorDeSecao({
             localEndereco: evento.localEndereco ?? "",
           }}
         />
+      </CascaDoEditor>
+    );
+  }
+
+  if (secao === "historia") {
+    const historia = await buscarHistoria(evento.id);
+    return (
+      <CascaDoEditor {...casca}>
+        <EditorDaHistoria
+          dados={{
+            eventoId: evento.id,
+            titulo: historia?.titulo ?? "",
+            texto: historia?.texto ?? "",
+          }}
+        />
+      </CascaDoEditor>
+    );
+  }
+
+  if (secao === "programacao") {
+    const momentos = await listarProgramacao(evento.id);
+    return (
+      <CascaDoEditor {...casca}>
+        <EditorDaProgramacao dados={{ eventoId: evento.id, momentos }} />
+      </CascaDoEditor>
+    );
+  }
+
+  if (secao === "perguntas") {
+    /**
+     * O painel lista **todas**, inclusive as sem resposta — é o contrário do
+     * site, que só mostra as respondidas. A diferença é o mecanismo: a pergunta
+     * sem resposta existe aqui para ser respondida, e não existe lá.
+     */
+    const perguntas = await listarPerguntas(evento.id);
+    return (
+      <CascaDoEditor {...casca}>
+        <EditorDasPerguntas dados={{ eventoId: evento.id, perguntas }} />
       </CascaDoEditor>
     );
   }

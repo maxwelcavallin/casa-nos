@@ -127,6 +127,9 @@ function montar(evento: EventoPublico, indicacoes: Indicacao[] = []) {
         indicacoes={indicacoes}
         agoraMs={AGORA}
         secoes={CHAVES_DE_SECAO}
+        historia={null}
+        programacao={[]}
+        perguntas={[]}
       />
     </Providers>
   );

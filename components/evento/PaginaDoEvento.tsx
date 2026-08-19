@@ -4,8 +4,12 @@ import Stack from "@mui/material/Stack";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { HeroDoCasamento } from "@/components/evento/HeroDoCasamento";
 import { RodapeDoCasamento } from "@/components/evento/RodapeDoCasamento";
+import { SecaoHistoria } from "@/components/evento/SecaoHistoria";
 import { SecaoIndicacoes } from "@/components/evento/SecaoIndicacoes";
 import { SecaoOnde } from "@/components/evento/SecaoOnde";
+import { SecaoPerguntas } from "@/components/evento/SecaoPerguntas";
+import { SecaoProgramacao } from "@/components/evento/SecaoProgramacao";
+import type { Historia, Momento, Pergunta } from "@/lib/conteudo-do-site";
 import type { EventoPublico, Indicacao } from "@/lib/eventos";
 import type { ChaveDeSecao } from "@/lib/secoes";
 import { largura } from "@/lib/tokens";
@@ -53,12 +57,19 @@ export function PaginaDoEvento({
   indicacoes,
   agoraMs,
   secoes,
+  historia,
+  programacao,
+  perguntas,
 }: {
   evento: EventoPublico;
   indicacoes: Indicacao[];
   agoraMs: number;
   /** As chaves LIGADAS, já na ordem do casal (`chavesLigadas` de lib/secoes.ts). */
   secoes: readonly ChaveDeSecao[];
+  historia: Historia | null;
+  programacao: Momento[];
+  /** **Já filtradas**: pergunta sem resposta não chega aqui (RV-02, RV-01). */
+  perguntas: Pergunta[];
 }) {
   return (
     <>
@@ -84,6 +95,12 @@ export function PaginaDoEvento({
               switch (chave) {
                 case "onde":
                   return <SecaoOnde key={chave} evento={evento} />;
+                case "programacao":
+                  return <SecaoProgramacao key={chave} momentos={programacao} />;
+                case "historia":
+                  return <SecaoHistoria key={chave} historia={historia} />;
+                case "perguntas":
+                  return <SecaoPerguntas key={chave} perguntas={perguntas} />;
                 case "indicacoes":
                   return (
                     <SecaoIndicacoes
@@ -93,9 +110,10 @@ export function PaginaDoEvento({
                     />
                   );
                 default:
-                  // As três seções da `0013` entram aqui na V1.4. Até lá elas não
-                  // desenham nada — e não desenhar é o certo: a alternativa seria
-                  // um espaço em branco no site do casal.
+                  // `capa` e `rodape` já saíram no `filter` acima. O `default`
+                  // existe para o dia em que uma chave nova entrar no catálogo
+                  // sem componente — e `test/secoes-catalogo.test.ts` quebra
+                  // antes disso chegar ao site.
                   return null;
               }
             })}

@@ -3,8 +3,14 @@ import { notFound } from "next/navigation";
 
 import { PainelDoSite, type LinhaDeSecao } from "@/components/painel/site/PainelDoSite";
 import { podeNoEvento } from "@/lib/autorizacao";
-import { buscarEventoPorId, listarIndicacoes } from "@/lib/eventos";
+import {
+  buscarHistoria,
+  listarPerguntas,
+  listarProgramacao,
+} from "@/lib/conteudo-do-site";
+import { buscarEventoPorId } from "@/lib/eventos";
 import { ehUuid } from "@/lib/ids";
+import { listarIndicacoesDoPainel } from "@/lib/indicacoes";
 import { resumirSecao, type ContagemDoConteudo } from "@/lib/resumo-do-site";
 import { listarSecoes, SECOES_COM_EDITOR } from "@/lib/secoes";
 import { sessaoDoEvento } from "@/lib/sessao";
@@ -46,23 +52,35 @@ export default async function PaginaDoSite({
   const sessao = await sessaoDoEvento(evento.id);
   if (podeNoEvento(sessao, "site.editar", evento) === "nao") notFound();
 
-  const [secoes, indicacoes] = await Promise.all([
+  /**
+   * O PAINEL BUSCA TUDO, ao contrário do site.
+   *
+   * A diferença é a que importa: a página pública **não busca** o conteúdo de
+   * seção desligada (RV-01), porque ali ele viajaria no HTML para o convidado.
+   * Aqui quem lê é o casal, e ele precisa ver o que desligou para poder religar
+   * — esconder do dono o que ele mesmo escreveu seria a única forma de tornar o
+   * liga/desliga assustador.
+   *
+   * `listarIndicacoesDoPainel` e `listarPerguntas` incluem, pelo mesmo motivo, o
+   * que o site não mostra: indicação não publicada e pergunta sem resposta.
+   */
+  const [secoes, indicacoes, historia, programacao, perguntas] = await Promise.all([
     listarSecoes(evento.id),
-    listarIndicacoes(evento.id),
+    listarIndicacoesDoPainel(evento.id),
+    buscarHistoria(evento.id),
+    listarProgramacao(evento.id),
+    listarPerguntas(evento.id),
   ]);
 
-  /**
-   * As três seções da `0013` ainda não têm conteúdo aqui — elas entram na V1.4.
-   * Enquanto isso, o resumo delas diz a verdade ("sem texto ainda") e a marca
-   * de "falta preencher" aparece, que é exatamente o estado real: ligada, vazia
-   * e portanto invisível no site (RV-02).
-   */
   const conteudo: ContagemDoConteudo = {
     indicacoes: indicacoes.length,
-    programacao: 0,
-    perguntasRespondidas: 0,
-    perguntasTotal: 0,
-    historiaTemTexto: false,
+    programacao: programacao.length,
+    // Só as RESPONDIDAS contam como preenchidas: pergunta sem resposta não
+    // renderiza no site (RV-02), e contá-la faria o painel dizer que a seção
+    // está pronta enquanto o convidado não vê nada.
+    perguntasRespondidas: perguntas.filter(p => p.resposta !== null).length,
+    perguntasTotal: perguntas.length,
+    historiaTemTexto: historia !== null && historia.texto.trim() !== "",
   };
 
   const linhas: LinhaDeSecao[] = secoes.map(secao => {
