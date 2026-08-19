@@ -443,6 +443,80 @@ export function perguntasRespondidas(perguntas: Pergunta[]): Pergunta[] {
   return perguntas.filter(p => p.resposta !== null && p.resposta !== "");
 }
 
+/**
+ * AS CINCO QUE A MARINA RESPONDE TRINTA VEZES (v1.0, V-16).
+ *
+ * Vêm de `pesquisa.md` §persona e estão no PRD §4.5 com esta redação. Elas
+ * **nascem com resposta nula** — e é só por isso que sugerir é seguro: nesse
+ * estado a pergunta não renderiza no site (RV-02), então o casal que aceitar a
+ * oferta e fechar o painel não publica cinco perguntas em branco.
+ *
+ * **NÃO SÃO SEMEADAS EM MIGRATION** (§5.5), e a diferença não é de gosto: uma
+ * migration que as inserisse criaria cinco linhas em **todo** evento, para
+ * sempre, inclusive nos casamentos que não as querem — e apagar as cinco viraria
+ * o primeiro trabalho do casal em vez de uma oferta que ele aceita ou ignora.
+ * Aqui elas só existem se alguém tocar no botão.
+ */
+export const PERGUNTAS_SUGERIDAS = [
+  "Qual é o traje?",
+  "A que horas começa?",
+  "Como faço para chegar?",
+  "Tem estacionamento?",
+  "Posso levar criança?",
+] as const;
+
+/**
+ * A seção já teve pergunta alguma vez — **inclusive as que foram apagadas**.
+ *
+ * É o que faz a oferta das cinco não voltar depois que o casal apaga todas
+ * (V-16). A exclusão deste produto é lógica, então a linha continua ali com
+ * `excluido_em` preenchido, e a ausência do filtro nesta consulta **é a
+ * funcionalidade** — não um esquecimento de quem escreveu o SQL.
+ *
+ * Sem isto, apagar as cinco devolveria a oferta na mesma tela, e o casal que
+ * decidiu não as querer teria que recusá-las de novo a cada visita. Oferta que
+ * volta depois de recusada é a definição de insistência.
+ */
+export async function jaHouvePergunta(
+  eventoId: string,
+  exec: Executor = sql
+): Promise<boolean> {
+  const linhas = await exec`
+    select count(*)::int as quantas
+      from evento_perguntas
+     where evento_id = ${eventoId}
+  `;
+  return linhas.length > 0 && paraInteiro(linhas[0].quantas) > 0;
+}
+
+/**
+ * As cinco numa instrução só (V-16).
+ *
+ * `unnest` pelo mesmo motivo de `salvarSecoes` e da ordem da galeria: o driver
+ * HTTP do Neon executa **uma instrução por requisição**, sem transação que
+ * abrace cinco `insert` seguidos. Se o terceiro falhasse, o casal ficaria com
+ * duas perguntas e nenhuma explicação — e a oferta já teria sumido, porque a
+ * seção passou a ter pergunta. Ou entram as cinco, ou nenhuma.
+ */
+export async function criarPerguntasEmLote(
+  eventoId: string,
+  itens: DadosDaPergunta[],
+  exec: Executor = sql
+): Promise<Pergunta[]> {
+  if (itens.length === 0) return [];
+  const linhas = await exec`
+    insert into evento_perguntas (evento_id, pergunta, resposta, ordem)
+    select ${eventoId}::uuid, t.pergunta, nullif(t.resposta, ''), t.ordem
+      from unnest(
+        ${itens.map(i => i.pergunta)}::text[],
+        ${itens.map(i => i.resposta ?? "")}::text[],
+        ${itens.map(i => i.ordem)}::int[]
+      ) as t(pergunta, resposta, ordem)
+    returning id, pergunta, resposta, ordem
+  `;
+  return linhas.map(linhaParaPergunta);
+}
+
 export async function contarPerguntas(
   eventoId: string,
   exec: Executor = sql

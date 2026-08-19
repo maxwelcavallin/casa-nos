@@ -18,6 +18,7 @@ import { useState } from "react";
 import { EstadoVazio } from "@/components/EstadoVazio";
 import {
   MAXIMO_DE_PERGUNTAS,
+  PERGUNTAS_SUGERIDAS,
   TETOS_DE_CONTEUDO,
   type Pergunta,
 } from "@/lib/conteudo-do-site";
@@ -46,12 +47,19 @@ import { useSalvamento } from "@/lib/usar-salvamento";
 export type DadosDasPerguntas = {
   eventoId: string;
   perguntas: Pergunta[];
+  /**
+   * A seção já teve pergunta alguma vez, **inclusive apagadas** (V-16). É o que
+   * impede a oferta das cinco de voltar depois que o casal apagou todas — oferta
+   * que volta depois de recusada é insistência.
+   */
+  houvePergunta: boolean;
 };
 
 const VAZIO = { pergunta: "", resposta: "" };
 
 export function EditorDasPerguntas({ dados }: { dados: DadosDasPerguntas }) {
   const [perguntas, setPerguntas] = useState(dados.perguntas);
+  const [houvePergunta, setHouvePergunta] = useState(dados.houvePergunta);
   const [emEdicao, setEmEdicao] = useState<string | null>(null);
   const [formulario, setFormulario] = useState(VAZIO);
   /** O formulário como ele estava ao abrir — a referência do aviso (V-15). */
@@ -115,7 +123,31 @@ export function EditorDasPerguntas({ dados }: { dados: DadosDasPerguntas }) {
     setPerguntas(atual =>
       novo ? [...atual, guardada] : atual.map(p => (p.id === guardada.id ? guardada : p))
     );
+    if (novo) setHouvePergunta(true);
     setEmEdicao(null);
+  }
+
+  /**
+   * AS CINCO, NUMA REQUISIÇÃO SÓ (V-16).
+   *
+   * Elas viajam **sem resposta**, e é isso que torna a oferta segura: pergunta
+   * sem resposta não aparece no site (V-09), então aceitar a sugestão e fechar o
+   * painel não publica cinco perguntas em branco. A tela já diz isso na lista,
+   * com o selo "sem resposta" em cada uma.
+   */
+  async function usarSugestoes() {
+    const resultado = await salvamento.enviar(
+      `/api/eventos/${dados.eventoId}/site/perguntas`,
+      "POST",
+      { perguntas: PERGUNTAS_SUGERIDAS.map(pergunta => ({ pergunta, resposta: null })) }
+    );
+    if (!resultado.ok) return;
+
+    const { perguntas: criadas } = resultado.corpo as { perguntas: Pergunta[] };
+    setPerguntas(criadas);
+    // A oferta some **mesmo que o casal apague as cinco em seguida**: a decisão
+    // de não as querer é dele, e repeti-la a cada visita é insistência.
+    setHouvePergunta(true);
   }
 
   async function apagar(item: Pergunta) {
@@ -146,15 +178,44 @@ export function EditorDasPerguntas({ dados }: { dados: DadosDasPerguntas }) {
       {perguntas.length === 0 && !emFormulario ? (
         <EstadoVazio
           titulo="Nenhuma pergunta ainda"
-          corpo="Enquanto estiver vazia, a seção não aparece no site. As que mais chegam são traje, horário, como chegar, estacionamento e criança."
+          corpo={
+            houvePergunta
+              ? "Enquanto estiver vazia, a seção não aparece no site."
+              : "Enquanto estiver vazia, a seção não aparece no site. As que mais chegam são traje, horário, como chegar, estacionamento e criança."
+          }
           acao={
-            <Button
-              variant="contained"
-              onClick={abrirNovo}
-              sx={{ minHeight: toque.confortavel }}
-            >
-              Escrever a primeira
-            </Button>
+            <Stack sx={{ gap: 1, alignItems: "flex-start" }}>
+              {!houvePergunta ? (
+                <>
+                  <Button
+                    variant="contained"
+                    onClick={() => void usarSugestoes()}
+                    disabled={salvamento.salvando}
+                    sx={{ minHeight: toque.confortavel }}
+                  >
+                    {salvamento.salvando ? "Escrevendo…" : "Começar com essas cinco"}
+                  </Button>
+                  {/**
+                   * A oferta diz o que ela FAZ e o que ela NÃO faz. Sem a
+                   * segunda metade, "usar as cinco" soa como publicar cinco
+                   * perguntas em branco no site — e quem entende assim não
+                   * toca no botão, que é a leitura errada da coisa certa.
+                   */}
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    Elas entram aqui sem resposta, e nenhuma aparece no site
+                    enquanto vocês não responderem.
+                  </Typography>
+                </>
+              ) : null}
+              <Button
+                variant={houvePergunta ? "contained" : "text"}
+                onClick={abrirNovo}
+                disabled={salvamento.salvando}
+                sx={{ minHeight: toque.confortavel }}
+              >
+                {houvePergunta ? "Escrever uma pergunta" : "Escrever a nossa"}
+              </Button>
+            </Stack>
           }
         />
       ) : null}

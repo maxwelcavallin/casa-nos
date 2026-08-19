@@ -12,6 +12,7 @@ import { EditorDeOnde } from "@/components/painel/site/EditorDeOnde";
 import { podeNoEvento } from "@/lib/autorizacao";
 import {
   buscarHistoria,
+  jaHouvePergunta,
   listarPerguntas,
   listarProgramacao,
 } from "@/lib/conteudo-do-site";
@@ -204,9 +205,16 @@ export default async function PaginaDoEditorDeSecao({
      * sem resposta existe aqui para ser respondida, e não existe lá.
      */
     const perguntas = await listarPerguntas(evento.id);
+    /**
+     * **INCLUSIVE AS APAGADAS** (V-16). A oferta das cinco só aparece na seção
+     * que nunca teve pergunta nenhuma; depois que o casal apagou todas, a
+     * ausência delas é decisão dele, e repetir a oferta a cada visita é
+     * insistência.
+     */
+    const houvePergunta = await jaHouvePergunta(evento.id);
     return (
       <CascaDoEditor {...casca}>
-        <EditorDasPerguntas dados={{ eventoId: evento.id, perguntas }} />
+        <EditorDasPerguntas dados={{ eventoId: evento.id, perguntas, houvePergunta }} />
       </CascaDoEditor>
     );
   }
