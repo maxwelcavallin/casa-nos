@@ -5526,6 +5526,112 @@
         }
       }
     },
+    "/api/interno/saude": {
+      "get": {
+        "summary": "GET /api/interno/saude",
+        "description": "Permissao exigida: `interno.cron` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/interno/reconciliacao": {
       "get": {
         "summary": "GET /api/interno/reconciliacao",

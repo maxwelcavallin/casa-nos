@@ -4,6 +4,10 @@
     {
       "path": "/api/interno/reconciliacao",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/interno/saude",
+      "schedule": "30 13 * * *"
     }
   ]
 }

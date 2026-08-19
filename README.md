@@ -46,7 +46,7 @@ e horário pendentes) e rodapé. Mobile primeiro — o visitante chega de um lin
 WhatsApp, no celular, com uma mão.
 
 **O painel do site** (`/painel/<id>/site`) — a casa do editor, e o destino do
-link do e-mail do casal. Lista as sete seções na ordem atual, com um resumo de
+link do e-mail do casal. Lista as oito seções na ordem atual, com um resumo de
 uma linha de cada, marca as que estão **ligadas e vazias**, e liga, desliga e
 reordena. Desligar não apaga nada: o conteúdo continua no banco.
 
@@ -84,10 +84,12 @@ Publicar emite `site_published` **só na transição** de fora do ar para no ar,
 quem decide isso é a mesma instrução SQL que grava a coluna — dois toques não
 geram dois eventos.
 
-> **Este texto de confirmação tem data de validade, e isso está escrito no
-> código.** Quando a galeria existir (V-18), a foto vai morar no prefixo público
-> do balde e despublicar o site **não** vai tirar o arquivo do ar: quem já tiver
-> a URL de uma foto continua abrindo. V-19 tem o critério de emendar a frase.
+> **Este texto de confirmação está incompleto desde a V-18, e isso está escrito
+> no código.** A foto da galeria mora no prefixo público do balde, e despublicar
+> o site **não** tira o arquivo do ar: quem já guardou a URL de uma foto continua
+> abrindo. **V-19 tem o critério de emendar a frase**, e a emenda já está
+> escrita. Ela não entrou antes porque falar de fotos guardadas quando não havia
+> foto confundiria mais do que a ausência.
 
 Todo texto do casal é **texto puro**: parágrafo é linha em branco, e colar
 `<b>oi</b>` do WhatsApp mostra o `<b>oi</b>` escrito. Não existe
@@ -596,8 +598,8 @@ teto em `design-system.baseline.json` sem o motivo escrito na mensagem do commit
 O `build` roda `ds-check` antes do `next build`: desvio de design system não faz
 deploy.
 
-**O cron diário está em `vercel.json`: `0 12 * * *`, que é 12:00 UTC / 9h de
-Brasília.** O horário obedece à regra da casa (job que fala com API de terceiro
+**O cron da reconciliação está em `vercel.json`: `0 12 * * *`, que é 12:00 UTC /
+9h de Brasília.** O horário obedece à regra da casa (job que fala com API de terceiro
 roda entre 12 e 20 UTC) e evita o único horário proibido de verdade: um cron às
 3h UTC rodaria à meia-noite de Brasília, no meio de uma festa, quando as escritas
 do produto estão no pico.
@@ -612,6 +614,51 @@ a variável está vazia".
 é evidência onde uma pessoa olha — `evento_contadores.recomputado_em` viaja no
 painel do dia ao vivo, ao lado do sinal do telão. Um vigia de verdade é um
 serviço externo batendo numa rota, e é configuração.
+
+### A rota de saúde — `GET /api/interno/saude`
+
+**Segunda entrada do cron: `30 13 * * *`** (13:30 UTC / 10:30 de Brasília), com
+o mesmo `CRON_SEGREDO`. Espaçada da reconciliação de propósito: as duas na mesma
+hora disputam a partida a frio e transformam duas leituras baratas numa janela
+ruim.
+
+**O que ela existe para pegar, com nome e número:** a `DATABASE_URL` ficou vazia
+por **seis deploys**, e a plataforma mostrou READY nos seis. O `next build`
+compila sem tocar no banco — o cliente Neon é preguiçoso justamente para isso —,
+então o build passa, o deploy sobe, o painel fica verde, e toda página responde
+500 para quem abre. **A saúde do build não é a saúde do produto**, e nada no
+caminho normal media a segunda.
+
+Ela faz duas coisas, e a segunda é a que o `select 1` sozinho não faz:
+
+| Consulta | O que prova |
+|---|---|
+| `select 1` | a conexão **de verdade**, no runtime de verdade, com a variável de verdade — e não "a variável está definida" |
+| um evento não excluído | que **há evento para resolver**. Um banco migrado e vazio passa na primeira e reprova aqui — e é esse o estado em que `/` responde 404 para todo mundo com a plataforma dizendo READY |
+
+Resposta: `{ ok, evento_resolvido }`. Banco caído é **503**, nunca 200 com
+`ok: false` — um 200 mentiroso atravessa qualquer monitor sem acender nada, que é
+o defeito que ela existe para não repetir. E a falha vira **linha em
+`eventos_de_erro`**, porque foi o silêncio que deixou os seis deploys passarem.
+
+> #### O que ela NÃO pega
+>
+> Está escrito aqui e no cabeçalho da rota, e o motivo de estar escrito duas
+> vezes é o mesmo: **uma verificação que parece cobrir mais do que cobre é pior
+> que nenhuma** — ela transfere a confiança sem transferir a garantia, e a
+> próxima pessoa para de olhar.
+>
+> 1. **Página que renderiza torta.** Ela não abre página nenhuma. Layout
+>    quebrado, seção fora de lugar, foto esticada: tudo passa em verde.
+> 2. **Variável certa apontando para o banco errado.** Uma `DATABASE_URL` válida
+>    para o banco de desenvolvimento responde `ok: true` e
+>    `evento_resolvido: true` — e o casamento que o convidado abre é outro. Ela
+>    mede que **há** banco, não **qual** banco.
+> 3. **O R2.** Ela não escreve nem lê no balde. `R2_PUBLIC_BASE` vazia deixa a
+>    galeria fora do ar com esta rota dizendo `ok`. Foi decisão: um teste de
+>    saúde que escreve num balde suja produção todo dia.
+> 4. **Lentidão.** `select 1` responde rápido num banco que está levando quinze
+>    segundos por consulta real.
 
 ---
 

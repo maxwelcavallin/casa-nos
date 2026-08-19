@@ -240,6 +240,20 @@ export const ROTAS_DE_API: RotaDeApi[] = [
   { caminho: "/api/interno/erro-cliente", metodos: { POST: "interno.erro" }, publica: true },
 
   /**
+   * A ROTA DE SAÚDE. `publica: true` no sentido do middleware (não exige
+   * cookie), e **fechada** no sentido que importa: o segredo de cabeçalho é
+   * conferido na rota, e sem `CRON_SEGREDO` a resposta é sempre anônima.
+   *
+   * `GET` e nada mais: ela não escreve, e o agendador da plataforma só chama
+   * `GET`. Declarar `POST` aqui abriria um método que nenhum código atende.
+   */
+  {
+    caminho: "/api/interno/saude",
+    metodos: { GET: "interno.cron" },
+    publica: true,
+  },
+
+  /**
    * H-15 — o cron diário. `publica: true` no sentido do middleware (não exige
    * cookie), e **fechada** no sentido que importa: o segredo de cabeçalho é
    * conferido na rota, e sem `CRON_SEGREDO` configurado a resposta é sempre
