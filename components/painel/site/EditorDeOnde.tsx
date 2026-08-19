@@ -16,6 +16,7 @@ import { useState } from "react";
 
 import { LIMITES_DO_MAPA, TETOS_DO_EVENTO } from "@/lib/site-evento";
 import { toque } from "@/lib/tokens";
+import { situacaoDoFormulario, useAvisoDeSaida } from "@/lib/usar-aviso-de-saida";
 import { useSalvamento } from "@/lib/usar-salvamento";
 
 /**
@@ -67,7 +68,19 @@ export function EditorDeOnde({ dados }: { dados: DadosDeOnde }) {
     local_raio_metros: dados.localRaioMetros,
     local_endereco: dados.localEndereco,
   });
+  /** O que o servidor tem — a referência do aviso de saída (V-15). */
+  const [gravado, setGravado] = useState({
+    local_nome: dados.localNome,
+    local_nome_publicado: dados.localNomePublicado,
+    local_revelacao: dados.localRevelacao,
+    local_latitude: dados.localLatitude,
+    local_longitude: dados.localLongitude,
+    local_raio_metros: dados.localRaioMetros,
+    local_endereco: dados.localEndereco,
+  });
   const salvamento = useSalvamento();
+
+  useAvisoDeSaida(situacaoDoFormulario(campos, gravado));
 
   function mudar<C extends keyof typeof campos>(campo: C, valor: (typeof campos)[C]) {
     setCampos(atual => ({ ...atual, [campo]: valor }));
@@ -75,7 +88,7 @@ export function EditorDeOnde({ dados }: { dados: DadosDeOnde }) {
   }
 
   async function salvar() {
-    await salvamento.enviar(`/api/eventos/${dados.eventoId}/site/evento`, "PATCH", {
+    const resultado = await salvamento.enviar(`/api/eventos/${dados.eventoId}/site/evento`, "PATCH", {
       ...campos,
       // Campo numérico vazio viaja como `null`, e não como `""`: `null` é o que
       // significa "ainda não tem coordenada", e é o estado ao qual o casal
@@ -84,6 +97,7 @@ export function EditorDeOnde({ dados }: { dados: DadosDeOnde }) {
       local_longitude: campos.local_longitude === "" ? null : campos.local_longitude,
       local_raio_metros: campos.local_raio_metros === "" ? null : campos.local_raio_metros,
     });
+    if (resultado.ok) setGravado(campos);
   }
 
   const mostraMapa = campos.local_revelacao !== "oculto";

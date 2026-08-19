@@ -10,6 +10,7 @@ import { useState } from "react";
 
 import { TETOS_DE_CONTEUDO } from "@/lib/conteudo-do-site";
 import { toque } from "@/lib/tokens";
+import { situacaoDoFormulario, useAvisoDeSaida } from "@/lib/usar-aviso-de-saida";
 import { useSalvamento } from "@/lib/usar-salvamento";
 
 /**
@@ -43,16 +44,27 @@ const AVISO_EM = 200;
 export function EditorDaHistoria({ dados }: { dados: DadosDaHistoria }) {
   const [titulo, setTitulo] = useState(dados.titulo);
   const [texto, setTexto] = useState(dados.texto);
+  /**
+   * O QUE O SERVIDOR TEM (V-15). É contra isto que "alterado" é medido, e não
+   * contra `dados`: depois de salvar, o servidor passa a ter o que está na tela,
+   * e continuar comparando com o valor de montagem faria o aviso aparecer numa
+   * tela sem nada por salvar.
+   */
+  const [gravado, setGravado] = useState({ titulo: dados.titulo, texto: dados.texto });
   const salvamento = useSalvamento();
+
+  useAvisoDeSaida(situacaoDoFormulario({ titulo, texto }, gravado));
 
   const sobram = TETOS_DE_CONTEUDO.historiaTexto - texto.length;
   const vazio = texto.trim() === "";
 
   async function salvar() {
-    await salvamento.enviar(`/api/eventos/${dados.eventoId}/site/historia`, "PATCH", {
-      titulo,
-      texto,
-    });
+    const resultado = await salvamento.enviar(
+      `/api/eventos/${dados.eventoId}/site/historia`,
+      "PATCH",
+      { titulo, texto }
+    );
+    if (resultado.ok) setGravado({ titulo, texto });
   }
 
   return (

@@ -16,7 +16,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { ArrowDown, ArrowUp, ImagePlus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { gerarDerivadas } from "@/lib/fila/derivadas";
@@ -28,6 +28,7 @@ import {
   TETO_DA_LEGENDA,
 } from "@/lib/galeria";
 import { grade, largura, raio, toque } from "@/lib/tokens";
+import { useAvisoDeSaida, type SituacaoDeSaida } from "@/lib/usar-aviso-de-saida";
 
 /**
  * O EDITOR DA GALERIA (v1.0, V-18 e V-19) — o envio, e o que vem depois dele.
@@ -148,6 +149,22 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
   const [envios, setEnvios] = useState<Envio[]>([]);
   const [aApagar, setAApagar] = useState<FotoNoEditor | null>(null);
   const [erroDaLista, setErroDaLista] = useState<string | null>(null);
+  /**
+   * AS DUAS COISAS QUE ESTA TELA PODE PERDER AO SAIR (V-15), e elas não são o
+   * mesmo tipo de perda que nos editores de texto.
+   *
+   * `legendasPendentes` — legenda digitada e ainda não salva. Aqui a foto **já
+   * está publicada**: sair não deixa "nada aconteceu" para trás, deixa uma foto
+   * no site com a legenda errada ou faltando. É esta a perda que promoveu a
+   * V-15 de Should para Must.
+   *
+   * `ordemNoAr` — um `PATCH` de ordem em curso ou pendente na fila. A ordem
+   * salva sozinha, então o intervalo é curto; mas dentro dele o que está na tela
+   * ainda não é o que o site mostra, e sair perde exatamente o toque que a
+   * pessoa acabou de dar.
+   */
+  const [legendasPendentes, setLegendasPendentes] = useState<Record<string, boolean>>({});
+  const [ordemNoAr, setOrdemNoAr] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
 
   /**
@@ -177,6 +194,33 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
   }, [fotos]);
 
   const noTeto = fotos.length >= MAXIMO_DE_FOTOS;
+
+  /**
+   * **ENVIO EM CURSO NÃO É "ALTERAÇÃO NÃO SALVA", E A PRECEDÊNCIA É ESTA.** A
+   * foto a caminho já tem linha no banco, sem `armazenada_em`: ela não renderiza
+   * e não conta em lugar nenhum. Quem sair no meio não perde o que digitou —
+   * perde a foto, e a saída é mandá-la de novo, não procurar um botão de salvar.
+   * Por isso `enviando` vem antes de `alterado` quando os dois valem.
+   */
+  const situacao: SituacaoDeSaida = envios.some(e => e.passo !== "parou")
+    ? "enviando"
+    : Object.values(legendasPendentes).some(Boolean) || ordemNoAr
+      ? "alterado"
+      : "limpo";
+
+  useAvisoDeSaida(situacao);
+
+  /**
+   * **ESTÁVEL DE PROPÓSITO**, e não por otimização: ela entra na lista de
+   * dependências do efeito que publica o rascunho, lá dentro de cada linha. Uma
+   * função nova a cada renderização faria aquele efeito limpar e repor o mesmo
+   * sinal em laço — que aqui não é lentidão, é laço infinito de renderização.
+   */
+  const registrarRascunho = useCallback((fotoId: string, pendente: boolean) => {
+    setLegendasPendentes(atual =>
+      atual[fotoId] === pendente ? atual : { ...atual, [fotoId]: pendente }
+    );
+  }, []);
 
   function atualizar(chave: string, mudanca: Partial<Envio>) {
     setEnvios(atual => atual.map(e => (e.chave === chave ? { ...e, ...mudanca } : e)));
@@ -480,6 +524,10 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
    */
   async function enfileirarOrdem(lista: FotoNoEditor[]) {
     ordemPendente.current = lista;
+    // O espelho em estado existe só para o aviso de saída (V-15): os `ref`
+    // acima não causam renderização, e um aviso que depende deles nunca
+    // apareceria.
+    setOrdemNoAr(true);
     if (salvandoOrdem.current) return;
     salvandoOrdem.current = true;
 
@@ -513,6 +561,7 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
       );
     } finally {
       salvandoOrdem.current = false;
+      setOrdemNoAr(false);
     }
   }
 
@@ -613,6 +662,7 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
                 ultima={indice === fotos.length - 1}
                 aoMover={direcao => mover(indice, direcao)}
                 aoSalvarLegenda={texto => salvarLegenda(item.id, texto)}
+                aoMudarRascunho={registrarRascunho}
                 aoApagar={() => setAApagar(item)}
               />
             ))}
@@ -743,6 +793,7 @@ function FotoGerenciada({
   ultima,
   aoMover,
   aoSalvarLegenda,
+  aoMudarRascunho,
   aoApagar,
 }: {
   foto: FotoNoEditor;
@@ -751,6 +802,8 @@ function FotoGerenciada({
   ultima: boolean;
   aoMover: (direcao: -1 | 1) => void;
   aoSalvarLegenda: (texto: string) => Promise<boolean>;
+  /** Avisa o pai que esta legenda tem texto por salvar (V-15). */
+  aoMudarRascunho: (fotoId: string, pendente: boolean) => void;
   aoApagar: () => void;
 }) {
   const [texto, setTexto] = useState(foto.legenda ?? "");
@@ -759,6 +812,16 @@ function FotoGerenciada({
 
   const gravada = foto.legenda ?? "";
   const mudou = texto.trim() !== gravada;
+
+  /**
+   * O rascunho sobe para o pai porque o guarda da saída é um só para a tela
+   * inteira — doze linhas com doze guardas seriam doze diálogos possíveis, e o
+   * décimo terceiro nasceria sem.
+   */
+  useEffect(() => {
+    aoMudarRascunho(foto.id, mudou);
+    return () => aoMudarRascunho(foto.id, false);
+  }, [foto.id, mudou, aoMudarRascunho]);
 
   async function salvar() {
     setSalvando(true);

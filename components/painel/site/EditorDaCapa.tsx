@@ -10,6 +10,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
 
+import { situacaoDoFormulario, useAvisoDeSaida } from "@/lib/usar-aviso-de-saida";
 import { useSalvamento } from "@/lib/usar-salvamento";
 import { TETOS_DO_EVENTO } from "@/lib/site-evento";
 import { toque } from "@/lib/tokens";
@@ -56,7 +57,18 @@ export function EditorDaCapa({ dados }: { dados: DadosDaCapa }) {
     cidade: dados.cidade,
     uf: dados.uf,
   });
+  /** O que o servidor tem — a referência do aviso de saída (V-15). */
+  const [gravado, setGravado] = useState({
+    nome_casal: dados.nomeCasal,
+    data_evento: dados.dataEvento,
+    hora_evento: dados.horaEvento,
+    hora_publicada: dados.horaPublicada,
+    cidade: dados.cidade,
+    uf: dados.uf,
+  });
   const salvamento = useSalvamento();
+
+  useAvisoDeSaida(situacaoDoFormulario(campos, gravado));
 
   function mudar<C extends keyof typeof campos>(campo: C, valor: (typeof campos)[C]) {
     setCampos(atual => ({ ...atual, [campo]: valor }));
@@ -64,11 +76,12 @@ export function EditorDaCapa({ dados }: { dados: DadosDaCapa }) {
   }
 
   async function salvar() {
-    await salvamento.enviar(
+    const resultado = await salvamento.enviar(
       `/api/eventos/${dados.eventoId}/site/evento`,
       "PATCH",
       campos
     );
+    if (resultado.ok) setGravado(campos);
   }
 
   const sobramNoNome = TETOS_DO_EVENTO.nomeCasal - campos.nome_casal.length;

@@ -21,6 +21,7 @@ import { useState } from "react";
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { MAXIMO_DE_INDICACOES, TETOS } from "@/lib/indicacoes";
 import { largura, toque } from "@/lib/tokens";
+import { situacaoDoFormulario, useAvisoDeSaida } from "@/lib/usar-aviso-de-saida";
 import { useSalvamento } from "@/lib/usar-salvamento";
 
 /**
@@ -68,20 +69,38 @@ export function EditorDeIndicacoes({ dados }: { dados: DadosDasIndicacoes }) {
   const [itens, setItens] = useState(dados.indicacoes);
   const [emEdicao, setEmEdicao] = useState<string | null>(null);
   const [formulario, setFormulario] = useState(VAZIO);
+  /** O formulário como ele estava ao abrir — a referência do aviso (V-15). */
+  const [formularioBase, setFormularioBase] = useState(VAZIO);
   const [aApagar, setAApagar] = useState<ItemDeIndicacao | null>(null);
   const salvamento = useSalvamento();
 
   const noTeto = itens.length >= MAXIMO_DE_INDICACOES;
 
+  /**
+   * O AVISO DE SAÍDA DESTE EDITOR (V-15): há o que perder **enquanto o
+   * formulário estiver aberto com conteúdo diferente do que ele tinha ao
+   * abrir**. Fechar pelo "Cancelar" não avisa nada — ali a pessoa já disse que
+   * está descartando.
+   */
+  useAvisoDeSaida(
+    emEdicao === null ? "limpo" : situacaoDoFormulario(formulario, formularioBase)
+  );
+
+  /** Abrir o formulário é gravar o ponto de comparação junto. */
+  function abrirFormulario(valores: typeof VAZIO) {
+    setFormulario(valores);
+    setFormularioBase(valores);
+  }
+
   function abrirNovo() {
     setEmEdicao("novo");
-    setFormulario(VAZIO);
+    abrirFormulario(VAZIO);
     salvamento.limpar();
   }
 
   function abrirEdicao(item: ItemDeIndicacao) {
     setEmEdicao(item.id);
-    setFormulario({
+    abrirFormulario({
       tipo: item.tipo,
       titulo: item.titulo,
       referencia: item.referencia ?? "",
