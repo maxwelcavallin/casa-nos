@@ -217,7 +217,7 @@ export const ROTAS_DE_API: RotaDeApi[] = [
   },
 
   /**
-   * A GALERIA (v1.0, V-18) — as duas rotas do envio de foto.
+   * A GALERIA (v1.0, V-18 e V-19) — as quatro rotas do casal e da foto dele.
    *
    * **`site.editar`, e NENHUMA delas entra em `ACOES_DO_ALBUM`** (RV-23). É o
    * risco mais provável desta emenda, porque a semelhança superficial entre
@@ -225,12 +225,24 @@ export const ROTAS_DE_API: RotaDeApi[] = [
    * carimbam depois. O que as separa é que a galeria é **conteúdo do site**,
    * escrito pelo casal — e o site é justamente o que a v1.0 é.
    *
-   * Coleção antes de item, como manda a regra deste arquivo. As duas têm número
+   * **A ORDEM É `PATCH` NA COLEÇÃO, E NÃO NO ITEM** (RV-05): subir uma foto muda
+   * a posição de duas, e mover a última para o topo muda a de doze. Um ato do
+   * casal, uma requisição. A legenda e a exclusão são de uma foto só, e por isso
+   * moram no item.
+   *
+   * Coleção antes de item, como manda a regra deste arquivo. As três têm número
    * de segmentos diferente e não colidem, mas a ordem fica obedecida para o dia
    * em que um caminho novo empatar — que é quando o defeito aparece (405 num
    * POST legítimo) e ninguém entende por quê.
    */
-  { caminho: "/api/eventos/[id]/site/galeria", metodos: { POST: "site.editar" } },
+  {
+    caminho: "/api/eventos/[id]/site/galeria",
+    metodos: { POST: "site.editar", PATCH: "site.editar" },
+  },
+  {
+    caminho: "/api/eventos/[id]/site/galeria/[fotoId]",
+    metodos: { PATCH: "site.editar", DELETE: "site.editar" },
+  },
   {
     caminho: "/api/eventos/[id]/site/galeria/[fotoId]/confirmacao",
     metodos: { POST: "site.editar" },

@@ -1,10 +1,11 @@
 import { sql, type Executor } from "@/lib/db";
+import { ehUuid } from "@/lib/ids";
 import { urlPublicaDaFoto } from "@/lib/r2";
 import { paraInteiro, paraTexto, paraTextoObrigatorio } from "@/lib/serializar-linha";
 import { foto as tokenDaFoto } from "@/lib/tokens";
 
 /**
- * A GALERIA DO CASAL (v1.0, V-18) — as réguas, e o acesso a `evento_fotos`.
+ * A GALERIA DO CASAL (v1.0, V-18 e V-19) — as réguas, e o acesso a `evento_fotos`.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * É A PRIMEIRA VEZ QUE ESTE PRODUTO ESCREVE NO R2 A PARTIR DO PAINEL. Tudo que
@@ -25,6 +26,13 @@ import { foto as tokenDaFoto } from "@/lib/tokens";
  * função pura de navegador e não faz parte do desligamento do álbum. É ela que
  * faz a foto de 12 MB do iPhone **nunca cruzar a rede**: o navegador decodifica,
  * redimensiona, e sobem dois JPEG.
+ *
+ * O QUE A V-19 ACRESCENTA, e a ordem em que importa: o **teto de 12 conferido no
+ * servidor** (RV-24, a porta que V-18 deixou aberta por escrito), a legenda de 80
+ * (RV-09), a ordem em UMA instrução (RV-05) e a exclusão que **apaga o objeto no
+ * R2 antes de marcar a linha** (RV-22). A exclusão é a única do produto que apaga
+ * byte, e é ela que torna verdadeira a frase nova da confirmação de tirar o site
+ * do ar: tirar o site do ar não tira o arquivo do ar; apagar a foto tira.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -36,19 +44,27 @@ import { foto as tokenDaFoto } from "@/lib/tokens";
  * Doze. Acima disso a galeria **deixa de ser galeria e vira o álbum** — que é
  * exatamente o que esta versão desligou.
  *
- * **O TETO NÃO É VALIDADO NESTA HISTÓRIA**, e a ausência está escrita para não
- * ser lida como esquecimento: V-18 entrega o caminho inteiro para a PRIMEIRA
- * foto, e o teto (com 409 e o número no corpo, RV-24) é critério de V-19. A
- * constante mora aqui desde já porque o editor precisa dela para dizer quantas
- * cabem, e porque um segundo `12` escrito noutro arquivo é como um número de
- * sistema vira dois números parecidos.
+ * **VALIDADO NO SERVIDOR DESDE A V-19** (RV-24), na rota de intenção, com 409 e
+ * os dois números no corpo. V-18 tinha deixado a porta aberta de propósito e
+ * escrita como ausência; ela fecha aqui.
+ *
+ * **A CONFERÊNCIA É NA INTENÇÃO, E NÃO NA CONFIRMAÇÃO**, e a escolha tem preço
+ * dos dois lados. Recusar na confirmação seria recusar DEPOIS de os dois `PUT`
+ * terem terminado: os objetos já estariam no balde, sem linha que os aponte —
+ * e não há cron de limpeza (a 0015 escreve a ausência com todas as letras).
+ * Recusando na intenção, nada sobe, e a pessoa recebe a resposta antes de gastar
+ * o 4G dela. O preço é o registrado em §12.1: duas abas mandando a 12ª e a 13ª
+ * ao mesmo tempo cabem as duas. Raio de dano de uma foto a mais, assumido.
+ *
+ * **A CONTAGEM É DE FOTOS ARMAZENADAS** (RV-25): uma intenção que nunca
+ * confirmou não conta. Ela é uma linha sobre bytes que não existem.
  */
 export const MAXIMO_DE_FOTOS = 12;
 
 /**
- * 80 caracteres de legenda. **Escrita e leitura são de V-19**; a constante está
- * aqui porque o `CHECK` da 0015 já a impõe no banco, e um teto no banco sem
- * gêmeo em código é como uma inserção legítima vira 500.
+ * 80 caracteres de legenda, validados **no servidor** (RV-09) com o `CHECK` da
+ * 0015 como segunda tranca. O teto do campo na tela é conveniência, não
+ * segurança — um `PATCH` montado à mão passa por cima dele.
  */
 export const TETO_DA_LEGENDA = 80;
 
@@ -243,6 +259,119 @@ export function medidasCoerentes(largura: number, altura: number): boolean {
   return conferirMedidas(largura, altura).length === 0;
 }
 
+/**
+ * A LEGENDA — texto puro, 80 caracteres, **conferida no servidor** (RV-09).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `null` E `""` SÃO A MESMA COISA, E VIRAM `null`. Uma legenda vazia não é uma
+ * legenda curta: ela **não desenha `<figcaption>` nenhum** na página, e gravar
+ * `""` produziria uma linha que o `CHECK` aceita e que o site renderizaria como
+ * uma caixa vazia sob a foto — exatamente o item 8 da lista de proibições
+ * (`design-system.md` §20.6). Uma coisa, um valor.
+ *
+ * **O ESPAÇO EM BRANCO É NORMALIZADO ANTES DE MEDIR**, e não é frescura:
+ *
+ *   * a legenda mora num `<figcaption>` de uma a três linhas, e **HTML colapsa
+ *     quebra de linha em espaço**. Um Enter digitado no campo não faria nada na
+ *     tela e ainda ocuparia um dos 80 caracteres — o casal contaria 80 e o site
+ *     mostraria 79, sem explicação em lugar nenhum;
+ *   * colar do WhatsApp traz espaço duplo e espaço no fim com frequência, e os
+ *     dois gastam teto sem aparecer.
+ *
+ * O que ela **não** faz é sanitizar: não há o que sanitizar. Todo texto do casal
+ * é texto puro (RV-07), o React escapa na renderização, e este produto não usa
+ * `dangerouslySetInnerHTML` em lugar nenhum.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function conferirLegenda(bruto: unknown): {
+  legenda: string | null;
+  recusa: Recusa | null;
+} {
+  if (bruto === null || bruto === undefined) return { legenda: null, recusa: null };
+
+  if (typeof bruto !== "string") {
+    return {
+      legenda: null,
+      recusa: { campo: "legenda", mensagem: "A legenda precisa ser texto." },
+    };
+  }
+
+  const limpa = bruto.replace(/\s+/g, " ").trim();
+  if (limpa === "") return { legenda: null, recusa: null };
+
+  if (limpa.length > TETO_DA_LEGENDA) {
+    return {
+      legenda: null,
+      recusa: {
+        campo: "legenda",
+        // O NÚMERO NO CORPO, e não "legenda longa demais": quem escreveu 96
+        // caracteres precisa saber quantos cortar.
+        mensagem: `A legenda cabe em ${TETO_DA_LEGENDA} caracteres, e você escreveu ${limpa.length}.`,
+      },
+    };
+  }
+
+  return { legenda: limpa, recusa: null };
+}
+
+/** Uma foto e a posição que o casal quer para ela. */
+export type NovaOrdem = { id: string; ordem: number };
+
+/**
+ * A LISTA INTEIRA, conferida antes de virar uma instrução (RV-05).
+ *
+ * **IDS REPETIDOS SÃO RECUSA, E É A CONFERÊNCIA QUE MAIS IMPORTA AQUI.** O
+ * `unnest` não reclama de duplicata: ele aplicaria as duas linhas na ordem em
+ * que o Postgres resolvesse, e a foto acabaria numa das duas posições sem
+ * ninguém saber qual. Uma lista com id repetido é uma lista que quem a montou
+ * não sabe descrever, e o certo é recusá-la inteira.
+ *
+ * **NÃO É EXIGIDO QUE A LISTA COBRA TODAS AS FOTOS.** A tela sempre manda todas
+ * — e é o que RV-05 pede —, mas exigir isso aqui obrigaria a rota a contar
+ * antes de escrever, e uma foto enviada por outra aba no meio do caminho faria a
+ * reordenação inteira falhar com uma mensagem que ninguém entenderia. Quem não
+ * veio na lista fica com a ordem que tinha.
+ */
+export function conferirOrdem(bruto: unknown): { ordens: NovaOrdem[]; recusas: Recusa[] } {
+  const recusas: Recusa[] = [];
+
+  if (!Array.isArray(bruto) || bruto.length === 0) {
+    return {
+      ordens: [],
+      recusas: [{ campo: "fotos", mensagem: "Mande a lista inteira das fotos, na ordem." }],
+    };
+  }
+
+  const ordens: NovaOrdem[] = [];
+  const vistos = new Set<string>();
+
+  for (const item of bruto) {
+    if (!item || typeof item !== "object") {
+      recusas.push({ campo: "fotos", mensagem: "Cada foto da lista precisa ter id e ordem." });
+      continue;
+    }
+    const { id, ordem } = item as { id?: unknown; ordem?: unknown };
+
+    if (typeof id !== "string" || !ehUuid(id)) {
+      recusas.push({ campo: "fotos", mensagem: "Cada foto da lista precisa ter um id válido." });
+      continue;
+    }
+    if (vistos.has(id)) {
+      recusas.push({ campo: "fotos", mensagem: "A mesma foto veio duas vezes na lista." });
+      continue;
+    }
+    if (typeof ordem !== "number" || !Number.isSafeInteger(ordem)) {
+      recusas.push({ campo: "fotos", mensagem: "A ordem precisa ser um número inteiro." });
+      continue;
+    }
+
+    vistos.add(id);
+    ordens.push({ id, ordem });
+  }
+
+  return { ordens: recusas.length > 0 ? [] : ordens, recusas };
+}
+
 /* ------------------------------------------------------------------ *
  * A tabela
  * ------------------------------------------------------------------ */
@@ -381,6 +510,133 @@ export async function contarFotosArmazenadas(
        and armazenada_em is not null
   `;
   return linhas.length ? paraInteiro(linhas[0].quantas) : 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * A escrita de V-19: legenda, ordem, exclusão
+ * ------------------------------------------------------------------ */
+
+/**
+ * A LEGENDA DE UMA FOTO. `null` limpa, e limpar é uma edição legítima.
+ *
+ * `evento_id` na cláusula `where`, sempre: foto de outro casamento devolve
+ * `null`, que a rota traduz em 404 — nunca 403, porque 403 confirmaria que ela
+ * existe.
+ */
+export async function definirLegenda(
+  eventoId: string,
+  fotoId: string,
+  legenda: string | null,
+  exec: Executor = sql
+): Promise<Foto | null> {
+  const linhas = await exec`
+    update evento_fotos
+       set legenda       = ${legenda}::text,
+           atualizado_em = now()
+     where id = ${fotoId}
+       and evento_id = ${eventoId}
+       and excluido_em is null
+    returning id, legenda, largura, altura, ordem, armazenada_em
+  `;
+  return linhas.length ? linhaParaFoto(linhas[0]) : null;
+}
+
+/**
+ * A ORDEM — **uma instrução com a lista inteira, nunca N requisições** (RV-05).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `unnest`, pelo mesmo motivo de `salvarSecoes`: o driver HTTP do Neon executa
+ * **uma instrução por requisição, sem transação abraçando o arquivo**. Doze
+ * `update` em sequência, numa conexão de celular à noite, deixam a ordem
+ * inconsistente no meio se o quinto falhar — três fotos na posição nova, nove na
+ * antiga, e nada avisando. Com `unnest`, ou as doze mudam, ou nenhuma.
+ *
+ * **NÃO HÁ `insert` AQUI, E POR ISSO NÃO HÁ `on conflict`.** `salvarSecoes`
+ * precisa criar a linha que ainda não existe (seção sem linha é o padrão do
+ * catálogo); uma foto sem linha não existe em lugar nenhum. Um `id` que não é
+ * deste evento simplesmente não casa no `where` e é ignorado — e é isso que faz
+ * uma lista contaminada com o id do casamento vizinho não mover nada dele.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export async function reordenarFotos(
+  eventoId: string,
+  ordens: NovaOrdem[],
+  exec: Executor = sql
+): Promise<void> {
+  if (ordens.length === 0) return;
+
+  const ids = ordens.map(o => o.id);
+  const posicoes = ordens.map(o => o.ordem);
+
+  await exec`
+    update evento_fotos as f
+       set ordem         = t.ordem,
+           atualizado_em = now()
+      from unnest(${ids}::uuid[], ${posicoes}::int[]) as t(id, ordem)
+     where f.id = t.id
+       and f.evento_id = ${eventoId}
+       and f.excluido_em is null
+  `;
+}
+
+/**
+ * A foto, ou `null`. Existe para a rota de exclusão poder responder **404 antes
+ * de tocar no balde** — apagar objeto de uma foto que não é deste casamento
+ * seria a pior ordem possível dos dois passos.
+ */
+export async function buscarFoto(
+  eventoId: string,
+  fotoId: string,
+  exec: Executor = sql
+): Promise<Foto | null> {
+  const linhas = await exec`
+    select id, legenda, largura, altura, ordem, armazenada_em
+      from evento_fotos
+     where id = ${fotoId}
+       and evento_id = ${eventoId}
+       and excluido_em is null
+  `;
+  return linhas.length ? linhaParaFoto(linhas[0]) : null;
+}
+
+/**
+ * MARCA A LINHA — **e só é chamada depois de o objeto ter saído do balde**
+ * (RV-22).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A ORDEM É A REGRA, e ela é o contrário da exclusão de todo o resto do produto:
+ * aqui o **objeto some primeiro**, e a linha só é marcada depois. Nunca uma
+ * linha que diz "apagada" sobre um arquivo que continua respondendo — que é
+ * exatamente a promessa que a confirmação de tirar o site do ar passa a fazer
+ * (RV-21): quem quer a foto fora de verdade apaga a foto.
+ *
+ * **NÃO HÁ CARÊNCIA DE 30 DIAS, ao contrário do álbum, e não é esquecimento.**
+ * O álbum tem `objeto_expurgado_em` e carência porque um convidado apagar por
+ * engano no meio da festa é perda real — aquele arquivo não existe em outro
+ * lugar. A foto da galeria **o casal já tem no celular dele**; o produto nunca
+ * foi o guardião dela. Carência aqui seria guardar um objeto que ninguém quer
+ * de volta e ainda deixá-lo respondendo por trinta dias, que é o oposto do que
+ * a pessoa pediu quando apertou apagar.
+ *
+ * A linha continua no banco (`excluido_em`), porque ela é o registro de que a
+ * foto existiu; o **arquivo** é que não continua.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export async function marcarFotoExcluida(
+  eventoId: string,
+  fotoId: string,
+  exec: Executor = sql
+): Promise<boolean> {
+  const linhas = await exec`
+    update evento_fotos
+       set excluido_em   = now(),
+           atualizado_em = now()
+     where id = ${fotoId}
+       and evento_id = ${eventoId}
+       and excluido_em is null
+    returning id
+  `;
+  return linhas.length > 0;
 }
 
 /* ------------------------------------------------------------------ *

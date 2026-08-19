@@ -1,9 +1,11 @@
 import {
   assinarUrl,
   baseDoPublico,
+  chavesDaFoto,
   chavesDaMidia,
   configuracaoR2,
   PREFIXO_PUBLICO,
+  urlPublicaDaFoto,
   urlPublicaDeFeed,
   VALIDADE_DA_LEITURA_SEGUNDOS,
   type ConfiguracaoR2,
@@ -340,6 +342,59 @@ export async function abrirDerivadas(
     movidas += 1;
   }
   return { ok: true, movidas, confirmadoNaBorda: true };
+}
+
+/* ------------------------------------------------------------------ *
+ * A galeria do casal — a única exclusão do produto que apaga byte
+ * ------------------------------------------------------------------ */
+
+/**
+ * APAGA AS DUAS DERIVADAS DE UMA FOTO DA GALERIA (v1.0, V-19, RV-22).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * **ELA É CHAMADA ANTES DE A LINHA SER MARCADA, E ESSA É A REGRA INTEIRA.**
+ * Nunca uma linha que diz "apagada" sobre um arquivo que continua respondendo —
+ * porque a confirmação de tirar o site do ar passa a dizer, com todas as letras,
+ * que o jeito de tirar uma foto do ar de vez é apagar a foto (RV-21). Se essa
+ * frase for verdadeira em um só dos dois lugares, ela é mentira.
+ *
+ * **`false` É "NÃO CONSEGUI", E QUEM CHAMA RESPONDE 502 SEM TOCAR NA LINHA.**
+ * `apagar()` já trata 404 como sucesso — os dois "não está mais lá" —, e é isso
+ * que faz o botão de tentar de novo terminar o trabalho quando o processo morreu
+ * entre o balde e o banco: a segunda passada apaga o que já não existe, recebe
+ * 404, segue em frente e marca a linha.
+ *
+ * **A BORDA É PURGADA, MAS NÃO É CRITÉRIO — e a diferença para
+ * `restringirDerivadas` é deliberada.** Lá a conferência no endereço público
+ * decide, porque o produto imprime "Só os noivos veem esta foto" e essa promessa
+ * precisa ser verdadeira no instante em que é feita. Aqui a promessa é sobre a
+ * origem, e fazer o cache da Cloudflare decidir teria um custo concreto: sem
+ * `CF_ZONE_ID`/`CF_API_TOKEN` configurados, `purgarNaBorda` devolve `false` e a
+ * exclusão passaria a falhar **em todo ambiente sem Cloudflare** — com o objeto
+ * já apagado na origem e a linha viva, que é o pior dos dois mundos. Purgar é
+ * melhor esforço; apagar na origem é o que se promete.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export async function apagarDerivadasDaFoto(
+  eventoId: string,
+  fotoId: string,
+  cliente: ClienteDeObjetos | null = clienteR2()
+): Promise<boolean> {
+  // Sem R2 configurado não há objeto, e o que não existe não precisa ser
+  // apagado. É o mesmo lado de degradar de `restringirDerivadas`.
+  if (!cliente) return true;
+
+  const chaves = chavesDaFoto(eventoId, fotoId);
+  const enderecos: string[] = [];
+
+  for (const faixa of DERIVADAS) {
+    if (!(await cliente.apagar(chaves[faixa]))) return false;
+    const endereco = urlPublicaDaFoto(eventoId, fotoId, faixa);
+    if (endereco) enderecos.push(endereco);
+  }
+
+  if (enderecos.length > 0) await cliente.purgarNaBorda(enderecos);
+  return true;
 }
 
 /** Recolhe o lado privado depois de a abertura ter sido confirmada no banco. */

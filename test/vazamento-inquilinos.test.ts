@@ -209,6 +209,74 @@ describe("mídia não atravessa evento nem participação", () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * A quarta tabela: `evento_fotos` (v1.0, V-19, RV-14)
+ * ------------------------------------------------------------------ */
+
+describe("a galeria é a quarta tabela de inquilino, e as escritas de V-19 entram", () => {
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * **AS TRÊS ESCRITAS NOVAS PASSAM POR AQUI PORQUE AS TRÊS RECEBEM UM ID DA
+   * URL.** Legenda, ordem e exclusão operam sobre `[fotoId]`, e um uuid colado
+   * de outro casamento é a forma mais barata de tentar o vazamento: ele não
+   * exige adivinhar nada além do que já está na barra de endereços de quem tem
+   * o link.
+   *
+   * A asserção é sobre a FORMA, e não sobre o resultado: `evento_id` **entre os
+   * parâmetros da instrução**. Uma consulta sem filtro devolve a resposta certa
+   * num banco com duas linhas e vaza num banco com duzentas — que é exatamente o
+   * que este arquivo inteiro existe para não deixar acontecer.
+   *
+   * A reordenação é a mais exposta das três: ela recebe uma LISTA de ids, e uma
+   * lista contaminada com o id do casamento vizinho reescreveria a posição de
+   * uma foto que não é do casal que mandou.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  function bancoDeFotos() {
+    const registro: Registro[] = [];
+    const exec = (async (partes: TemplateStringsArray, ...valores: unknown[]) => {
+      registro.push({ texto: partes.join(" ? ").replace(/\s+/g, " ").trim(), valores });
+      return [];
+    }) as unknown as Executor;
+    return { exec, registro };
+  }
+
+  const FOTO = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa";
+  const DO_VIZINHO = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb";
+
+  it("**toda escrita de V-19 carrega o `evento_id` entre os parâmetros**", async () => {
+    const { definirLegenda, marcarFotoExcluida, reordenarFotos, buscarFoto } = await import(
+      "@/lib/galeria"
+    );
+    const banco = bancoDeFotos();
+
+    await buscarFoto(A, FOTO, banco.exec);
+    await definirLegenda(A, FOTO, "Nossa viagem.", banco.exec);
+    await reordenarFotos(
+      A,
+      [
+        { id: FOTO, ordem: 1 },
+        // O id do vizinho, colado na lista de propósito: ele não pode casar no
+        // `where`, e o filtro é o que impede.
+        { id: DO_VIZINHO, ordem: 2 },
+      ],
+      banco.exec
+    );
+    await marcarFotoExcluida(A, FOTO, banco.exec);
+
+    expect(banco.registro, "nenhuma instrução foi registrada").toHaveLength(4);
+
+    const semFiltro = banco.registro
+      .filter(r => /evento_fotos/.test(r.texto))
+      .filter(r => !r.valores.includes(A));
+
+    expect(
+      semFiltro.map(r => r.texto.slice(0, 70)),
+      "instrução sobre `evento_fotos` sem o evento_id entre os parâmetros"
+    ).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------ *
  * A varredura: toda rota passa pelo mesmo portão
  * ------------------------------------------------------------------ */
 

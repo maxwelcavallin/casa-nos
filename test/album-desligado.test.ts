@@ -496,13 +496,23 @@ describe("o guarda está no lugar certo, e é 404", () => {
    * parágrafo.
    * ─────────────────────────────────────────────────────────────────────────
    */
-  const ROTAS_DA_GALERIA = [
-    "/api/eventos/[id]/site/galeria",
-    "/api/eventos/[id]/site/galeria/[fotoId]/confirmacao",
+  /**
+   * O MÉTODO A SONDAR VEM JUNTO, e não é detalhe: cada rota da galeria tem um
+   * caminho de recusa determinístico **antes** de tocar em banco ou em R2, e é
+   * ele que prova a travessia do guarda sem depender de ambiente. Um método
+   * escolhido ao acaso cairia no banco, e o teste passaria a medir a rede.
+   */
+  const ROTAS_DA_GALERIA: Array<{ caminho: string; metodo: "POST" | "PATCH" }> = [
+    // Corpo sem medidas → 400 (RV-26).
+    { caminho: "/api/eventos/[id]/site/galeria", metodo: "POST" },
+    // Corpo sem `legenda` → 400. `DELETE` não serve aqui: ele consulta o banco.
+    { caminho: "/api/eventos/[id]/site/galeria/[fotoId]", metodo: "PATCH" },
+    // Corpo sem medidas → 400 (RV-26).
+    { caminho: "/api/eventos/[id]/site/galeria/[fotoId]/confirmacao", metodo: "POST" },
   ];
 
   it("**as rotas da galeria existem, e nenhuma ação delas está no conjunto**", () => {
-    for (const caminho of ROTAS_DA_GALERIA) {
+    for (const { caminho } of ROTAS_DA_GALERIA) {
       const rota = ROTAS_DE_API.find(r => r.caminho === caminho);
       expect(rota, `a rota ${caminho} sumiu de lib/rotas.ts`).toBeTruthy();
       for (const acao of Object.values(rota!.metodos)) {
@@ -517,19 +527,19 @@ describe("o guarda está no lugar certo, e é 404", () => {
   });
 
   it("**as rotas da galeria NÃO respondem 404 com o álbum desligado**", async () => {
-    for (const caminho of ROTAS_DA_GALERIA) {
+    for (const { caminho, metodo } of ROTAS_DA_GALERIA) {
       const arquivo = Object.keys(modulos).find(a => urlDoArquivo(a) === caminho);
       expect(arquivo, `sem arquivo no disco para ${caminho}`).toBeTruthy();
 
       const modulo = await modulos[arquivo as string]();
       const pedido = new Request(`https://casa-nos.invalid${caminho}`, {
-        method: "POST",
+        method: metodo,
         headers: { "content-type": "application/json" },
         /**
-         * CORPO SEM MEDIDAS, DE PROPÓSITO. As duas rotas conferem as medidas
-         * **depois** de `autorizar()` e **antes** de tocar em banco ou em R2,
-         * então a resposta esperada é 400 — determinística, sem ambiente, e ela
-         * só é alcançável por quem atravessou o guarda do álbum.
+         * CORPO VAZIO, DE PROPÓSITO. As três rotas conferem o corpo **depois**
+         * de `autorizar()` e **antes** de tocar em banco ou em R2, então a
+         * resposta esperada é 400 — determinística, sem ambiente, e ela só é
+         * alcançável por quem atravessou o guarda do álbum.
          *
          * Uma asserção de "não é 404" passaria também com um 500, e um 500 é
          * exatamente o que este arquivo não deveria aceitar como prova.
@@ -537,14 +547,17 @@ describe("o guarda está no lugar certo, e é 404", () => {
         body: "{}",
       });
 
-      const resposta = await modulo.POST!(pedido, {
+      const manipulador = modulo[metodo];
+      expect(manipulador, `${caminho} não exporta ${metodo}`).toBeTypeOf("function");
+
+      const resposta = await manipulador!(pedido, {
         params: Promise.resolve(parametrosDe(caminho)),
       });
 
       expect(
         resposta.status,
-        `${caminho} respondeu ${resposta.status} com \`album_ativo = false\`. ` +
-          "Esperado 400 (medidas ausentes), que só se alcança do outro lado do " +
+        `${metodo} ${caminho} respondeu ${resposta.status} com \`album_ativo = false\`. ` +
+          "Esperado 400 (corpo incompleto), que só se alcança do outro lado do " +
           "guarda. A galeria é conteúdo do SITE, e o site é justamente o que a " +
           "v1.0 é."
       ).toBe(400);
