@@ -229,8 +229,15 @@ describe("a confirmação diz a consequência", () => {
     );
   });
 
-  it("ela diz também que nada é apagado (RV-13)", () => {
-    expect(TELA).toMatch(/Nada é apagado/);
+  it("ela diz também que nada é apagado (RV-13), **com sujeito**", () => {
+    /**
+     * `Nada é apagado` era passiva sem dono: some quem faz a coisa, e some
+     * justamente quem a pessoa precisa que seja responsável (`pmm`, §5.18). A
+     * asserção mira a frase FINAL, e não a palavra solta — a versão anterior
+     * deste teste casava com o comentário que cita a frase velha, o que o
+     * deixava verde sobre um texto que já não estava na tela.
+     */
+    expect(TELA).toMatch(/Não apagamos nada\. O texto, as seções/);
   });
 
   it("**publicar não pede confirmação; tirar do ar pede**", () => {
@@ -251,19 +258,55 @@ describe("a confirmação diz a consequência", () => {
     );
   });
 
-  it("**a emenda da galeria está registrada, e não antecipada**", () => {
+  /**
+   * ───────────────────────────────────────────────────────────────────────────
+   * A EMENDA DA V-19 — **e este bloco mudou de forma junto com ela**.
+   *
+   * Até V-18 o teste segurava o oposto: que o comentário registrasse a dívida e
+   * que a frase de hoje **não** falasse de foto. Aquele teste, mantido, passaria
+   * a proteger a versão velha do texto — que é o modo mais silencioso de uma
+   * catraca virar lastro. A partir de V-19 ele exige as duas metades novas.
+   * ───────────────────────────────────────────────────────────────────────────
+   */
+  it("**com foto, a lista do que continua guardado cita as fotos**", () => {
     /**
-     * Quando a galeria existir (V-18), a foto vai morar no prefixo público e
-     * despublicar o site **não** tira o arquivo do ar. V-19 tem o critério de
-     * emendar esta frase. Enquanto isso, o texto é verdadeiro inteiro — e uma
-     * frase que fala de fotos que não existem confunde mais do que a ausência
-     * dela.
-     *
-     * O que este teste segura é o comentário: sem ele, quem mexer nesta tela
-     * daqui a dois meses não tem como saber que o texto tem data de validade.
+     * A emenda do `pmm` é uma palavra, `as fotos`, na posição em que ela cabe
+     * sem reescrever a frase. Numa tela que fala em tirar coisas do ar, uma
+     * lista do que continua guardado que não cite as fotos é lida como "as
+     * fotos não continuam".
      */
-    expect(TELA).toMatch(/V-19 tem o critério de emendar esta frase/);
-    // E a frase de hoje NÃO fala de foto.
-    expect(TELA).not.toMatch(/continua conseguindo abrir essa foto/);
+    expect(TELA).toMatch(
+      /Não apagamos nada\. O texto, as seções, as fotos e a ordem/
+    );
+  });
+
+  it("**com foto, ela diz que o arquivo continua respondendo — e qual é a saída** (RV-21)", () => {
+    /**
+     * É a metade desconfortável, e a §4.8.4 a escolheu de propósito no lugar de
+     * mover objeto a objeto ao despublicar. A escolha só é honesta se a frase
+     * apontar a saída completa: apagar a foto. Um aviso sem saída transforma uma
+     * decisão de arquitetura num susto.
+     */
+    expect(TELA).toMatch(/continua conseguindo abrir essa foto/);
+    expect(TELA).toMatch(/Para[\s\S]{0,20}tirar uma foto do ar de vez, apague a foto/);
+  });
+
+  it("**as duas metades novas dependem de `temFoto`, e não da versão do produto**", () => {
+    /**
+     * Com zero foto as duas frases seriam sobre nada — prometer que guardamos
+     * fotos que não existem, e avisar sobre endereços que ninguém tem. É a mesma
+     * régua que segurava a frase antes de V-19; o que mudou é que agora ela é
+     * **por casal**.
+     *
+     * A asserção olha a forma: as duas metades só podem aparecer sob a condição.
+     * Um texto novo escrito fora dela quebraria isto em vez de chegar a
+     * produção.
+     */
+    expect(TELA).toMatch(
+      /dados\.temFoto[\s\S]{0,20}\?\s*"Não apagamos nada\. O texto, as seções, as fotos/
+    );
+    expect(TELA).toMatch(
+      /\{dados\.temFoto \? \([\s\S]{0,400}continua conseguindo abrir essa foto/
+    );
   });
 });

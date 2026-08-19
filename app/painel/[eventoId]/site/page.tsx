@@ -142,6 +142,11 @@ export default async function PaginaDoSite({
           endereco: enderecoDoSite(origem, evento.slug, dominio),
           enderecoParaLer: enderecoDoSiteParaLer(origem, evento.slug, dominio),
           temDominio: dominio !== null,
+          // V-19, RV-21: com foto na galeria, a confirmação de tirar do ar ganha
+          // a palavra `as fotos` e o parágrafo que diz que o arquivo continua
+          // respondendo para quem tem o endereço. Sem foto, as duas seriam sobre
+          // nada — e a régua é por casal, não por versão do produto.
+          temFoto: fotos > 0,
         },
       }}
     />

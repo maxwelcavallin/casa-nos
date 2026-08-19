@@ -34,15 +34,19 @@ import { toque } from "@/lib/tokens";
  * confirmação para os dois lados ensinaria a atravessar a caixa sem ler — o que
  * estraga justamente a caixa que importa.
  *
- * **ESTE TEXTO TEM DATA DE VALIDADE, E ISSO ESTÁ ESCRITO NO PRD.** Quando a
- * galeria existir (V-18), a foto vai morar no prefixo público do balde, e
- * despublicar o site **não** tira o arquivo do ar: quem já guardou a URL de uma
- * foto continua conseguindo abri-la. Mover objeto a objeto ao despublicar foi
- * recusado pelo `po` — é cópia sem transação, disparada por alguém no celular às
- * 23h, e uma falha no meio deixa metade da galeria em cada prefixo. A saída é
- * dizer a verdade aqui, e **V-19 tem o critério de emendar esta frase**. Hoje ela
- * é verdadeira inteira, porque não existe galeria. Não antecipe a emenda: uma
- * frase que fala de fotos que não existem confunde mais do que a ausência dela.
+ * **A EMENDA DA V-19 ENTROU, E ELA É CONDICIONAL À FOTO.** A galeria mora no
+ * prefixo público do balde, e despublicar o site **não** tira o arquivo do ar:
+ * quem já guardou a URL de uma foto continua conseguindo abri-la. Mover objeto a
+ * objeto ao despublicar foi recusado pelo `po` — é cópia sem transação,
+ * disparada por alguém no celular às 23h, e uma falha no meio deixa metade da
+ * galeria em cada prefixo. A saída escolhida foi dizer a verdade aqui e oferecer
+ * a exclusão da foto como a saída completa (RV-21).
+ *
+ * **`temFoto` DECIDE, E NÃO "A GALERIA EXISTE".** Com zero foto, as duas frases
+ * novas seriam sobre nada: prometer que guardamos fotos que não existem, e
+ * avisar sobre endereços de fotos que ninguém tem. É a mesma régua que segurava
+ * a frase antes de V-19 — a diferença é que agora ela é por casal, e não por
+ * versão do produto.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * ESTADO DE ERRO: **o estado volta ao anterior** e a mensagem diz o que
@@ -60,6 +64,15 @@ export type DadosDaPublicacao = {
   enderecoParaLer: string;
   /** Verdadeiro quando o endereço acima é um domínio próprio do casal. */
   temDominio: boolean;
+  /**
+   * Há pelo menos uma foto **armazenada** na galeria (V-19, RV-21).
+   *
+   * Resolvido no servidor, e só das armazenadas: uma intenção que nunca
+   * confirmou não tem objeto no balde e portanto não tem endereço que continue
+   * respondendo (RV-25). Avisar sobre ela seria assustar por uma coisa que não
+   * existe.
+   */
+  temFoto: boolean;
 };
 
 export function PublicacaoDoSite({ dados }: { dados: DadosDaPublicacao }) {
@@ -316,18 +329,40 @@ export function PublicacaoDoSite({ dados }: { dados: DadosDaPublicacao }) {
            * `Não apagamos nada` tem sujeito, e o sujeito somos nós (`pmm`,
            * `gtm.md` §5.18).
            *
-           * **A EMENDA DA V-19 JÁ ESTÁ ESCRITA E NÃO ENTRA AINDA:** quando a
-           * galeria tiver foto, a frase ganha `as fotos` na lista e um parágrafo
-           * novo dizendo que a foto continua respondendo para quem guardou a URL
-           * (RV-21). Hoje seria mentira nas duas pontas — não há foto guardada, e
-           * prometer que guardamos o que não existe é a forma mais barata de
-           * perder a confiança de alguém com o dedo sobre um botão destrutivo.
+           * **A EMENDA DA V-19 É UMA PALAVRA, `as fotos`**, na posição em que ela
+           * cabe sem reescrever a frase — e o `pmm` a deixou escrita assim de
+           * propósito. Com foto na galeria ela é obrigatória: uma lista do que
+           * continua guardado que não cite as fotos, numa tela que fala em tirar
+           * coisas do ar, é lida como "as fotos não continuam".
            */}
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            Não apagamos nada. O texto, as seções e a ordem que vocês escolheram
-            continuam guardados, e publicar de novo traz o site inteiro de volta,
-            do jeito que estava.
+            {dados.temFoto
+              ? "Não apagamos nada. O texto, as seções, as fotos e a ordem que vocês escolheram continuam guardados, e publicar de novo traz o site inteiro de volta, do jeito que estava."
+              : "Não apagamos nada. O texto, as seções e a ordem que vocês escolheram continuam guardados, e publicar de novo traz o site inteiro de volta, do jeito que estava."}
           </Typography>
+
+          {/**
+           * **A METADE DESCONFORTÁVEL, E ELA SÓ EXISTE PORQUE EXISTE FOTO**
+           * (RV-21, prd-v1 §4.8.4).
+           *
+           * A foto mora em `pub/`, servido por um domínio público sem sessão.
+           * Tirar o site do ar faz `/e/<slug>` responder 404 e **não** faz a foto
+           * parar de responder — quem já abriu o site, ou recebeu o endereço da
+           * foto num encaminhamento, continua vendo.
+           *
+           * O `po` escolheu dizer isso em vez de mover objeto a objeto ao
+           * despublicar, e a escolha só é honesta se a frase **apontar a saída
+           * completa**: apagar a foto, que apaga o arquivo no balde na hora. Uma
+           * frase que só avise, sem dizer o que fazer, transforma uma decisão de
+           * arquitetura num susto.
+           */}
+          {dados.temFoto ? (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              A página para de responder, mas quem já abriu o site e guardou o
+              endereço de uma foto continua conseguindo abrir essa foto. Para
+              tirar uma foto do ar de vez, apague a foto.
+            </Typography>
+          ) : null}
         </Stack>
       </FolhaOuDialogo>
     </>
