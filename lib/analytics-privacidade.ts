@@ -1,4 +1,5 @@
 import { ehUuid } from "@/lib/ids";
+import { segmentosPublicos } from "@/lib/rotas";
 
 /**
  * MASCARAMENTO DE URL — nenhum endereço deste produto sai para o GA4 legível.
@@ -44,12 +45,15 @@ export const SEGMENTO_MASCARADO = "_";
  * Palavras de caminho que NÃO identificam ninguém e podem aparecer no
  * relatório.
  *
- * Declarar uma palavra aqui não cria rota nenhuma: só afirma que aquela palavra
- * é um nome de superfície do produto, e não o nome de uma pessoa. Quando a
- * Fatia 1 criar uma rota nova, o nome dela entra aqui **no mesmo commit** — até
- * lá ela chega mascarada, que é o lado seguro de errar.
+ * A LISTA SAIU DAQUI E FOI PARA `lib/rotas.ts` na Fatia 1, junto com a
+ * declaração das telas. O motivo é a decisão P14: a máscara vale para toda
+ * rota, **inclusive as que ainda não existem**, e uma lista que mora longe do
+ * lugar onde a rota nasce é uma lista que a rota nova não atualiza. Agora quem
+ * cria uma tela declara os segmentos dela no mesmo objeto, no mesmo commit — e
+ * `test/analytics-mascara-rotas.test.ts` varre a lista de rotas e falha se
+ * qualquer uma delas mandaria identificador legível ao GA4.
  */
-const SEGMENTOS_PUBLICOS = new Set(["album", "feed", "telao", "convidado"]);
+const SEGMENTOS_PUBLICOS = segmentosPublicos();
 
 /**
  * Parâmetros de consulta preservados. Só campanha, e nada mais.

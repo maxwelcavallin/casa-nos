@@ -9,14 +9,31 @@ rodapé.
 
 ---
 
-## O que existe hoje (Fatia 0)
+## O que existe hoje
 
-Uma página pública por casamento: hero com os nomes e "save the date", a data por
-extenso, contagem regressiva ao vivo, a seção "Onde" (cidade, mapa da região,
-local e horário pendentes) e rodapé. Mobile primeiro — o visitante chega de um
-link no WhatsApp, no celular, com uma mão.
+**Fatia 0 — a página pública.** Hero com os nomes e "save the date", data por
+extenso, contagem regressiva ao vivo, seção "Onde" (cidade, mapa da região, local
+e horário pendentes) e rodapé. Mobile primeiro — o visitante chega de um link no
+WhatsApp, no celular, com uma mão.
 
-O que **não** existe, de propósito, está em [`docs/fatia-0.md`](docs/fatia-0.md).
+**Fatia 1 · F1.1 e F1.2 — o acesso e o caminho da foto.**
+
+- **O casal entra por link de e-mail** (30 minutos, uma vez só) e configura o
+  dia: janela de envio, janela da festa, modo de moderação, moderador.
+- **O convidado abre `/e/<slug>/album`** e a participação nasce na primeira
+  resposta — sem cadastro, sem tela intermediária, sem pedir nada.
+- **O botão de mandar não espera nada**: ele não depende de rede em caminho de
+  código nenhum.
+- **A foto não se perde quando o wifi cai.** A intenção é registrada no servidor
+  **antes** dos bytes; a fila local em IndexedDB guarda o arquivo antes de
+  qualquer rede, sobe prévia e original em faixas separadas, retenta sem limite e
+  retoma sozinha quando o convidado reabre o link.
+- **Erro de produção vira linha no banco** e alerta por e-mail ao dono.
+
+O que **não** existe, de propósito, está em
+[`docs/fatia-0.md`](docs/fatia-0.md) e em
+[`docs/fatia-1-f1-1-f1-2.md`](docs/fatia-1-f1-1-f1-2.md) — inclusive o feed, o
+telão e "as minhas fotos", que são as sub-fatias seguintes.
 
 ---
 
@@ -58,6 +75,10 @@ painel da Vercel e no do Neon.
 | `DATABASE_URL` | sim | toda página responde 500 |
 | `EVENTO_SLUG_PADRAO` | só fora de produção | `/` responde 404 em localhost e no preview |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | não | o GA4 não carrega — nenhum script, nenhum cookie |
+| `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | para o envio | a rota de intenção responde 503 **e a linha de intenção fica gravada** — o servidor sabe que a foto existe, e a reconciliação vai procurá-la |
+| `BREVO_API_KEY`, `BREVO_REMETENTE` | para o link do casal | nenhum e-mail sai; a tela não mente dizendo que mandou. Entre pelo cookie que o bootstrap imprime |
+| `ALERTA_EMAIL` | não | o alerta de taxa de erro não sai; o registro em `eventos_de_erro` continua |
+| `CRON_SEGREDO` | F1.6 | a sessão de cron nunca é reconhecida — o lado seguro de errar |
 
 ---
 
@@ -83,6 +104,34 @@ pnpm db:migrar --status   # lista sem aplicar
 
 A migration `0001` foi executada contra um Postgres real, duas vezes seguidas,
 para provar que roda e que é idempotente.
+
+**A numeração pula de `0007` para `0010`, e é de propósito.** O PRD reserva a
+`0008` às views de medição (§5.7) e a `0009` a `leads` (§5.8) — as duas são das
+sub-fatias F1.6 e F1.7, e estão escritas lá com esses números. A tabela de erro
+da H-18 entrou como `0010` para não tomar o número de ninguém. O runner ordena
+por nome; buraco na sequência não quebra nada.
+
+### Bootstrap — é assim que um evento nasce
+
+Não existe cadastro público na Fatia 1 (decisão P4 do PRD): não há página de
+aquisição, e a estratégia proíbe vender ao segundo casal antes do primeiro
+casamento. O evento nasce por script, e o casal entra por link.
+
+```bash
+pnpm db:bootstrap db/seed/casamento-ana-e-max.json --dono
+pnpm db:bootstrap db/seed/casamento-de-teste.json
+```
+
+**Rode os dois.** O segundo evento não é enfeite: o teste de vazamento entre
+inquilinos é critério de término da fatia, e ele é invisível com um inquilino só.
+Acrescentar o segundo depois significa auditar cada consulta escrita até ali.
+
+O script imprime **uma vez** o valor do cookie de acesso do casal — no banco só
+existe o hash. Se o `email_casal` estiver preenchido, o caminho normal é pedir o
+link na tela de entrada, que manda por e-mail (Brevo).
+
+`--dono` marca o acesso do dono do produto, que é quem enxerga a medição. No
+casamento cobaia o dono **é** o casal; no evento de teste, ninguém é dono.
 
 ### Seed — é assim que o dono edita o site
 
@@ -184,7 +233,7 @@ embed ele existia com os links mortos.
 ## Verificação
 
 ```bash
-pnpm verificar    # tsc --noEmit && eslint && vitest run && ds-check
+pnpm verificar    # tsc --noEmit && eslint && vitest run && ds-check && contrato
 ```
 
 Um comando só, porque verificação que exige lembrar de rodar três comandos vira
@@ -208,6 +257,18 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/analytics-privacidade.test.ts` | o mascaramento de URL, inclusive nas rotas que ainda não existem |
 | `test/analytics-gtag-unico.test.ts` | ninguém fala com o `gtag` fora de `lib/analytics.ts` |
 | `scripts/ds-check.mjs` (no `build`) | contagem de desvios de design system; falha se subir |
+| `test/intencao-antes-dos-bytes.test.ts` | **a linha de intenção existe antes de a URL ser assinada** — e continua existindo se a assinatura falhar |
+| `test/fila-motor.test.ts` | o salão dentro do CI: modo avião, portal cativo, 500, URL vencida, retomada |
+| `test/fila-maquina.test.ts` | recuo com teto, classificação de falha, ordem das faixas |
+| `test/janela-de-envio.test.ts` + `.brasilia.test.ts` | a mesma janela em `TZ=UTC` **e** em `TZ=America/Sao_Paulo` |
+| `test/autorizacao-matriz.test.ts` | `cookies()` num arquivo só; nenhum `if` de perfil em rota; toda rota na matriz |
+| `test/vazamento-inquilinos.test.ts` | inquilino A não lê o B, agora com participação, acesso e mídia |
+| `test/analytics-mascara-rotas.test.ts` | nenhuma rota manda identificador legível ao GA4 — inclusive as que ainda não existem |
+| `test/r2-assinatura.test.ts` | o layout das chaves no R2 (mudar depois é migração de blob) |
+| `test/observabilidade-sem-pii.test.ts` | o registro de erro não guarda nome, e-mail nem telefone |
+| `test/telas-fatia-1.smoke.test.tsx` | as telas novas montadas, com o texto exato e o atalho de teclado |
+| `test/openapi.test.ts` | o contrato gerado bate com `lib/rotas.ts` |
+| `pnpm contrato` (no `build`) | `docs/openapi-casa-nos.json` regenerado no mesmo commit da rota |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
 
@@ -262,10 +323,14 @@ em [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-m
 ## Documentação
 
 - [`docs/fatia-0.md`](docs/fatia-0.md) — o que ficou de fora, de propósito
+- [`docs/fatia-1-f1-1-f1-2.md`](docs/fatia-1-f1-1-f1-2.md) — o que entrou na F1.1 e na F1.2, o que ficou de fora e por quê, e o que faltou nos documentos
+- [`docs/fila-local.md`](docs/fila-local.md) — **o contrato do registro no IndexedDB**. Leia antes de mexer na fila
 - [`docs/analytics.md`](docs/analytics.md) — dicionário de eventos GA4
+- [`docs/openapi-casa-nos.json`](docs/openapi-casa-nos.json) — contrato da API, **gerado**: não edite a mão
 - [`docs/adr/0001-evento-como-inquilino.md`](docs/adr/0001-evento-como-inquilino.md)
 - [`docs/adr/0002-mapa-sem-chave-de-api.md`](docs/adr/0002-mapa-sem-chave-de-api.md)
 - [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-mascarada-e-consentimento-negado.md)
+- [`docs/adr/0004-erro-em-tabela-do-proprio-banco.md`](docs/adr/0004-erro-em-tabela-do-proprio-banco.md)
 
 ---
 

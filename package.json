@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.13.1",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/ds-check.mjs && next build",
+    "build": "node scripts/ds-check.mjs && node scripts/openapi.mjs --conferir && next build",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -13,9 +13,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "ds": "node scripts/ds-check.mjs",
-    "verificar": "pnpm typecheck && pnpm lint && pnpm test && pnpm ds",
+    "verificar": "pnpm typecheck && pnpm lint && pnpm test && pnpm ds && pnpm contrato",
     "db:migrar": "node scripts/migrar.mjs",
-    "db:seed": "node scripts/seed.mjs"
+    "db:seed": "node scripts/seed.mjs",
+    "contrato": "node scripts/openapi.mjs --conferir",
+    "db:bootstrap": "node scripts/bootstrap.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

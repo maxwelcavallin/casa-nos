@@ -1,0 +1,938 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "casa-nos",
+    "version": "fatia-1-f1.1-f1.2",
+    "description": "GERADO por scripts/openapi.mjs a partir de lib/rotas.ts. Nao edite a mao: a proxima geracao apaga."
+  },
+  "paths": {
+    "/api/sessao/link": {
+      "post": {
+        "summary": "POST /api/sessao/link",
+        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessao/entrar": {
+      "post": {
+        "summary": "POST /api/sessao/entrar",
+        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eventos/{id}/dia": {
+      "patch": {
+        "summary": "PATCH /api/eventos/[id]/dia",
+        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "uuid. Formato conferido antes de qualquer consulta: malformado e 404, nunca 500."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eventos/{id}/acessos": {
+      "post": {
+        "summary": "POST /api/eventos/[id]/acessos",
+        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "uuid. Formato conferido antes de qualquer consulta: malformado e 404, nunca 500."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eventos/{id}/acessos/{acessoId}": {
+      "delete": {
+        "summary": "DELETE /api/eventos/[id]/acessos/[acessoId]",
+        "description": "Permissao exigida: `evento.configurar` (lib/autorizacao.ts).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "uuid. Formato conferido antes de qualquer consulta: malformado e 404, nunca 500."
+          },
+          {
+            "name": "acessoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "uuid. Formato conferido antes de qualquer consulta: malformado e 404, nunca 500."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eventos/{id}/midias/intencao": {
+      "post": {
+        "summary": "POST /api/eventos/[id]/midias/intencao",
+        "description": "Permissao exigida: `midia.enviar` (lib/autorizacao.ts).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "uuid. Formato conferido antes de qualquer consulta: malformado e 404, nunca 500."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/eventos/{id}/midias/{midiaId}/confirmacao": {
+      "post": {
+        "summary": "POST /api/eventos/[id]/midias/[midiaId]/confirmacao",
+        "description": "Permissao exigida: `midia.enviar` (lib/autorizacao.ts).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "uuid. Formato conferido antes de qualquer consulta: malformado e 404, nunca 500."
+          },
+          {
+            "name": "midiaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "uuid. Formato conferido antes de qualquer consulta: malformado e 404, nunca 500."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/interno/erro-cliente": {
+      "post": {
+        "summary": "POST /api/interno/erro-cliente",
+        "description": "Permissao exigida: `interno.erro` (lib/autorizacao.ts). Rota publica, com limite de taxa.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissao para esta acao.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nao encontrado. Cobre id malformado, recurso inexistente e recurso de OUTRO evento — os tres dao a mesma resposta, de proposito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao declarado em lib/rotas.ts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Formato unico de erro do produto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "erro"
+                  ],
+                  "properties": {
+                    "erro": {
+                      "type": "string"
+                    },
+                    "detalhe": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

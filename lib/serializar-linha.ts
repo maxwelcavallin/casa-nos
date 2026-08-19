@@ -50,3 +50,36 @@ export function paraInteiro(valor: unknown, padrao = 0): number {
   const numero = paraNumero(valor);
   return numero === null ? padrao : Math.trunc(numero);
 }
+
+/**
+ * `timestamptz` → `Date`. Nulo continua nulo.
+ *
+ * ISTO NÃO SERVE PARA COLUNA `date`, e a distinção é a regra §5 de `dados.md`:
+ * `date` chega como `"2027-08-22"` e é formatado como STRING (`lib/datas.ts`),
+ * porque passar por `Date` devolve meia-noite em UTC — 21h do dia anterior aqui,
+ * e um dia a menos em toda data sem hora. `timestamptz` é outra coisa: ali a
+ * hora é informação, e o driver já entrega um `Date` correto.
+ *
+ * Existe para as colunas de janela e de carimbo da Fatia 1 (`envio_abre_em`,
+ * `previa_armazenada_em`, `criada_em`), que são instantes de verdade.
+ */
+export function paraInstante(valor: unknown): Date | null {
+  if (valor === null || valor === undefined || valor === "") return null;
+  if (valor instanceof Date) return Number.isNaN(valor.getTime()) ? null : valor;
+  const data = new Date(String(valor));
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
+/**
+ * `bigint` do Postgres → number.
+ *
+ * O driver devolve `bigint` como STRING, pelo mesmo motivo de `numeric`: ele não
+ * cabe em `Number` acima de 2^53. A coluna que usa isto aqui é
+ * `midias.bytes` — e uma foto de 9 petabytes não existe, então a conversão é
+ * segura. Está separada de `paraInteiro` para que a decisão fique escrita:
+ * quando alguém somar bytes de um casamento inteiro num agregado, é aqui que
+ * vai estar o comentário dizendo até onde a conversão vale.
+ */
+export function paraBytes(valor: unknown): number {
+  return paraInteiro(valor, 0);
+}

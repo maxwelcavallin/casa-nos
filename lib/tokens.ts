@@ -284,18 +284,225 @@ export const largura = {
   app: 1120,
 } as const;
 
+/**
+ * Traço — espessura de linha, em px, e por que existe um piso por superfície.
+ *
+ * `hairline` é o filete entre itens numa tela na mão. `controle` é o contorno de
+ * algo que se opera e o contorno tracejado do selo "Chegando". `projecao` é o
+ * piso da parede: abaixo de 4 px de SINAL (num quadro de 1920×1080) o erro de
+ * convergência de um projetor barato transforma uma linha em franja colorida, e
+ * um filete de 1 px simplesmente não existe a 3 metros. Por isso a moldura da
+ * foto no telão é uma FAIXA, nunca um fio.
+ */
+export const traco = { hairline: 1, controle: 2, projecao: 8 } as const;
+
+/**
+ * Duração de transição, em ms.
+ *
+ * `padrao` é o teto da régua de acessibilidade (§10.11): 200 ms na tela na mão.
+ * `projecao` é a exceção ESCRITA, valendo para a superfície inteira e não para
+ * um componente: um corte de 200 ms entre duas fotos numa parede de 3 metros é
+ * um estrobo — a área que muda é mil vezes maior e o olho lê como flash. 600 ms
+ * de fusão cruzada é o mínimo confortável em projeção de evento.
+ * `prefers-reduced-motion` continua mandando: com ele, corte seco, sem fusão.
+ */
+export const duracao = { rapida: 150, padrao: 200, projecao: 600 } as const;
+
+/**
+ * A grade de mídia — um lugar só, quatro telas (feed, minhas fotos, painel de
+ * mídias, fila de aprovação).
+ *
+ * `tileMinimo` = 104 px não é gosto: o alvo de toque mínimo é 44 px, o card
+ * carrega dois selos e uma contagem, e num aparelho de 360 px de largura com
+ * 16 px de respiro lateral e 8 px de vão sobram 328 px — exatamente três
+ * colunas de 104. Abaixo disso a grade cai para duas colunas e o feed de 6.000
+ * itens fica longo demais para rolar.
+ */
+export const grade = {
+  tileMinimo: 104,
+  vao: espaco.sm,
+  /** Miniatura servida na grade (H-07). A prévia de 1600 só ao abrir a foto. */
+  miniatura: 400,
+} as const;
+
+/* ------------------------------------------------------------------ *
+ * 4b. A SUPERFÍCIE DE PROJEÇÃO — o telão do salão
+ *
+ * ISTO NÃO É MODO ESCURO. Modo escuro continua fora do produto (padrão da casa
+ * §13, decisão D13). Modo escuro é uma PREFERÊNCIA do leitor, que liga e
+ * desliga, e por isso obriga cada tela a existir duas vezes. Isto é uma
+ * SUPERFÍCIE: uma rota só (`/telao/[token]`), sempre assim, sem alternância,
+ * sem `prefers-color-scheme`, sem classe `dark:`. Ela existe porque a física da
+ * projeção é outra, não porque alguém prefere.
+ *
+ * O QUE MUDA NA FÍSICA, e o que cada item obriga:
+ *
+ *  1. Projetor não pinta preto — ele deixa de emitir. O "preto" da parede é a
+ *     luz ambiente do salão refletida na tela. Logo o piso de luminância NÃO é
+ *     zero, e todo contraste medido num monitor está superestimado ali.
+ *  2. Projetor estoura branco. Um campo branco de 3 metros às 23 h ilumina o
+ *     salão inteiro, apaga a luz cênica e dói de olhar. O problema é ÁREA, não
+ *     brilho: texto claro e fino é ótimo; retângulo claro e grande é farol.
+ *  3. Gama alto e contraste ANSI baixo esmagam o meio-tom. Dois tons escuros
+ *     vizinhos viram um só. Prova, com o modelo abaixo: `cor.primary` sobre
+ *     `fundo` mede 1.47:1 no monitor e 1.26:1 na parede.
+ *  4. Sobrevarredura: projetor e TV ainda cortam até 5% da borda. Nada legível
+ *     encosta na margem.
+ *
+ * O MODELO DE DERATING, escrito para poder ser contestado com número.
+ * A fórmula da WCAG é (L1+0.05)/(L2+0.05), e o 0.05 modela 5% de véu ambiente
+ * num monitor. Em projeção o véu é o preto do projetor MAIS a luz do salão.
+ * Adotei k = 0.10 como hipótese de projeto (salão escurecido, com luz cênica),
+ * e conferi tudo também em k = 0.15 e k = 0.20 (salão com a pista acesa):
+ *
+ *     razao_projetada = (L1 + k) / (L2 + k)
+ *
+ * A RÉGUA DESTA SUPERFÍCIE: 4.5:1 DERATADO em k = 0.15 para texto, 3:1 deratado
+ * para o que não é texto. Isso equivale a exigir cerca de 10:1 no monitor — e é
+ * exatamente por isso que a paleta da página não serve aqui.
+ *
+ * DUAS TINTAS NOVAS, E SÓ DUAS: `fundo` e `tintaSuave`. Todo o resto é token da
+ * marca reaproveitado. A superfície de projeção não é uma segunda paleta: é a
+ * mesma paleta virada do avesso.
+ * ------------------------------------------------------------------ */
+
+export const corProjecao = {
+  /**
+   * O chão da parede. NOVO. Marinho a 203.4° — a mesma matiz de `cor.primary`
+   * (203.9°), levado a 1.2% de luminância. Não é preto: preto é inalcançável
+   * num projetor, e um campo "preto" chapado só denuncia o piso cinza do
+   * aparelho como um retângulo sujo contra a parede em volta. Marinho a 1% some
+   * no escuro do salão e continua sendo a cor da marca para quem passa perto.
+   */
+  fundo: "#051E2E",
+
+  /**
+   * A tinta. É o mesmo algodão de `cor.onPrimary` — não branco puro.
+   * 16.05:1 no monitor · 9.31:1 em k=.10 · 6.74:1 em k=.15 · 5.38:1 em k=.20.
+   * Passa em todos os cenários, inclusive o salão com a pista acesa.
+   */
+  tinta: "#F9F8F5",
+
+  /**
+   * A segunda tinta. NOVO — derivada do "céu" do manual, clareada até passar.
+   * 10.45:1 no monitor · 6.22:1 em k=.10 · 4.60:1 em k=.15 · 3.75:1 em k=.20.
+   *
+   * SÓ PARA TEXTO GRANDE — e no telão todo texto é grande: o piso da superfície
+   * é 2.4vw (≈46 px em 1080), muito acima do limiar de "texto grande". Em k=.20
+   * ela cai para 3.75:1, e é por isso que NÃO existe uma terceira tinta. São
+   * duas, e a segunda já está no limite. Hierarquia aqui se faz com TAMANHO.
+   */
+  tintaSuave: "#B7CEDC",
+
+  /**
+   * Destaque. É o `cor.primaryBg` do manual ("céu claro"), sem alteração.
+   * 12.71:1 no monitor · 7.46:1 em k=.10 · 5.46:1 em k=.15.
+   * Endereço curto sob o QR e filete. Nunca texto corrido.
+   */
+  realce: "#C5E3F3",
+
+  /**
+   * O cartão claro do QR. É o algodão `cor.bg`.
+   * É o único campo claro permitido na parede, e ele tem teto de ÁREA: ver
+   * `escalaProjecao.campoClaroMaximo`.
+   */
+  superficie: "#F9F8F5",
+
+  /**
+   * A moldura da foto. É o `cor.primaryLight` — o "céu" do manual, a cor que na
+   * PÁGINA é PROIBIDA como texto e como ícone com significado (2.48:1 sobre o
+   * algodão). Aqui ela encontra o único uso em que é boa: uma faixa que separa
+   * uma foto escura do chão escuro. 6.48:1 no monitor · 4.03:1 em k=.10 ·
+   * 3.09:1 em k=.15. Objeto gráfico, régua de 3:1 — passa.
+   *
+   * O mesmo token, dois papéis opostos, os dois justificados por medida.
+   */
+  moldura: "#6CA6CE",
+
+  /**
+   * Véu sob texto claro em cima de foto. Mais pesado que o da página (0.62)
+   * porque o projetor levanta o preto: um véu de 0.62 na parede deixa passar
+   * uma foto de céu claro e o texto some.
+   */
+  veu: "rgba(5, 30, 46, 0.78)",
+} as const;
+
+/**
+ * A geometria da parede. Tudo em unidade de viewport, porque o telão não tem
+ * breakpoint: ele tem UMA proporção (16:9) e um tamanho físico que ninguém
+ * controla.
+ *
+ * DE ONDE SAEM OS NÚMEROS. Tela de 3 m de largura (1,69 m de altura), o mais
+ * distante da sala a 15 m. A régua audiovisual de leitura casual pede altura de
+ * caixa alta >= distância / 150: 15000 / 150 = 100 mm. Em 1080 linhas de sinal,
+ * 100 mm de 1690 mm são 64 px de caixa alta; com a caixa alta da Montserrat a
+ * 0.70 em, isso é 92 px de corpo — 4.8vw num quadro de 1920. É esse o tamanho
+ * da linha "aponte a câmera", e não uma escolha de gosto.
+ */
+export const escalaProjecao = {
+  /** Sobrevarredura. Nada legível fora daqui. A foto pode sangrar; texto não. */
+  margemSegura: "5%",
+
+  /**
+   * Piso tipográfico da superfície: 2.4vw (≈46 px em 1080 → 50 mm de caixa alta
+   * → legível a 7,5 m). NÃO EXISTE `caption` num telão. Metadado numa parede é
+   * ou ilegível ou lixo visual, e nos dois casos não deveria estar lá.
+   */
+  piso: "2.4vw",
+
+  /**
+   * Piso da serifa. A Cormorant é de contraste altíssimo; o traço fino mede
+   * cerca de 2.8% do em. A 4vw (77 px em 1080) esse traço dá 2.2 px de sinal —
+   * o mínimo que sobrevive ao erro de convergência de um projetor comum.
+   * Abaixo de 4vw, no telão, a família é a Montserrat.
+   *
+   * ESTE É O ÚNICO NÚMERO DESTE ARQUIVO QUE NÃO FOI MEDIDO NO PIXEL: saiu da
+   * proporção do desenho da fonte, não de uma projeção real. Está na lista de
+   * verificação do ensaio (design-system.md §18).
+   */
+  pisoDaSerifa: "4vw",
+
+  /**
+   * O QR da chamada. 30vw de lado.
+   * A regra de campo dos leitores é distância <= 10x o lado do código. 30vw de
+   * uma tela de 3 m são 90 cm, portanto leitura confiável até ~9 m — que é onde
+   * está quem ainda vai apontar a câmera para a parede. Com uma URL de ~36
+   * caracteres o código é versão 3 (29×29 módulos): 576 px de sinal / 29 = 19,8
+   * px por módulo, folgadíssimo para a câmera.
+   */
+  qrLado: "30vw",
+  /** Zona de silêncio em volta do código, dentro do cartão claro. */
+  qrRespiro: "2.5vw",
+
+  /**
+   * Teto de ÁREA de campo claro, como fração da tela projetada.
+   * O cartão do QR (30vw + 2.5vw de respiro dos dois lados = 35vw de largura,
+   * ~62vh de altura em 16:9) ocupa 21,7% — abaixo do teto. Nenhum outro campo
+   * claro entra na parede, e dois campos claros somam.
+   */
+  campoClaroMaximo: 0.25,
+
+  /** Espessura da moldura da foto, em unidade de viewport (8 px em 1920). */
+  moldura: "0.4vw",
+} as const;
+
 /** Alvo de toque mínimo no mobile. Não desça daqui. */
 export const toque = { minimo: 44, confortavel: 48 } as const;
 
 export const tokens = {
   cor,
+  corProjecao,
   fonte,
   peso,
   monograma,
   espaco,
   raio,
   sombra,
+  traco,
+  duracao,
+  grade,
   largura,
+  escalaProjecao,
   toque,
 } as const;
 
@@ -333,6 +540,26 @@ export const variaveisCss: Record<string, string> = {
   "--cn-shadow-md": sombra.md,
   "--cn-shadow-lg": sombra.lg,
   "--cn-monograma": `url(${monograma.caminho})`,
+};
+
+/**
+ * O espelho da SUPERFÍCIE DE PROJEÇÃO. Prefixo `--cn-proj-`.
+ *
+ * Não vai para o `:root`. Ele é injetado pelo `PalcoTelao` no escopo da rota
+ * `/telao/[token]` — porque essas variáveis não devem existir em nenhuma outra
+ * tela, e variável global de outra superfície é convite para alguém pintar um
+ * card do painel com a tinta do telão.
+ */
+export const variaveisCssProjecao: Record<string, string> = {
+  "--cn-proj-fundo": corProjecao.fundo,
+  "--cn-proj-tinta": corProjecao.tinta,
+  "--cn-proj-tinta-suave": corProjecao.tintaSuave,
+  "--cn-proj-realce": corProjecao.realce,
+  "--cn-proj-superficie": corProjecao.superficie,
+  "--cn-proj-moldura": corProjecao.moldura,
+  "--cn-proj-veu": corProjecao.veu,
+  "--cn-proj-margem-segura": escalaProjecao.margemSegura,
+  "--cn-proj-moldura-espessura": escalaProjecao.moldura,
 };
 
 export default tokens;

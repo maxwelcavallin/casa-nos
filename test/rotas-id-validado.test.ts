@@ -14,15 +14,22 @@ import { describe, expect, it } from "vitest";
  * vazio** onde a resposta certa é 404. O visitante recebe uma tela de erro do
  * servidor por ter digitado o link errado.
  *
- * Hoje o produto tem uma rota com parâmetro (`/e/[slug]`) e nenhuma rota de
- * API. O teste vale para as duas famílias desde já, porque a rota de API vai
- * nascer na Fatia 1 e ela nasce coberta.
+ * Na Fatia 1 ele passou a cobrir oito rotas de API e três telas com parâmetro —
+ * incluindo `[midiaId]`, que chega de um aparelho com rede ruim (ou seja: chega
+ * truncado), e `[token]`, que chega de um link de e-mail (ou seja: chega
+ * quebrado em duas linhas).
  */
 
 const RAIZ = path.resolve(import.meta.dirname, "..");
 const PASTAS = [path.join(RAIZ, "app")];
 
-const VERIFICADORES = /ehUuid|ehIdNumerico|ehSlug/;
+/**
+ * Os verificadores de formato. `ehTokenDeAcesso` entrou na Fatia 1: o link do
+ * casal, o do moderador e o do telão são tokens de 64 hexadecimais, e eles
+ * chegam tortos com a mesma facilidade de um uuid — cliente de e-mail quebra URL
+ * longa em duas linhas.
+ */
+const VERIFICADORES = /ehUuid|ehIdNumerico|ehSlug|ehTokenDeAcesso/;
 
 /**
  * Parâmetros que não são id de entidade e portanto não têm o que validar aqui.
@@ -77,11 +84,24 @@ describe("rotas com [param] na URL", () => {
   });
 
   it("a validação vem ANTES da consulta, e não depois", () => {
-    // As linhas de `import` saem antes da comparação: elas trazem os nomes das
-    // funções de consulta para o topo do arquivo por ordem alfabética, e sem
-    // removê-las este teste reprovaria uma rota correta.
-    const semImports = (fonte: string) => fonte.replace(/^import[\s\S]*?;$/gm, "");
-    const CONSULTA = /eventoPorSlug\(|eventoDaRequisicao\(|buscarEvento\w*\(|listarIndicacoes\(/;
+    /**
+     * Duas coisas saem do texto antes da comparação, e as duas por experiência:
+     *
+     * 1. As linhas de `import` — elas trazem os nomes das funções de consulta
+     *    para o topo do arquivo por ordem alfabética, e sem removê-las este
+     *    teste reprovaria uma rota correta.
+     * 2. Os COMENTÁRIOS — a rota de intenção explica no cabeçalho, de propósito,
+     *    que `registrarIntencao(...)` vem antes de `assinarFaixas(...)`. Contar
+     *    essa menção como "consulta" faria o teste reprovar justamente o arquivo
+     *    que documenta a ordem que ele existe para proteger.
+     */
+    const semImports = (fonte: string) =>
+      fonte
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/(^|[^:])\/\/.*$/gm, "$1")
+        .replace(/^import[\s\S]*?;$/gm, "");
+    const CONSULTA =
+      /eventoPorSlug\(|eventoDaRequisicao\(|buscarEvento\w*\(|listarIndicacoes\(|autorizar\(|garantirParticipacao\(|listarAcessos\(|confirmarFaixa\(|registrarIntencao\(/;
 
     const foraDeOrdem = rotas
       .filter(r => VERIFICADORES.test(r.fonte))

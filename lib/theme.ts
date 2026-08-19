@@ -36,10 +36,26 @@ export const tema: Theme = createTheme({
       light: cor.primaryLight,
       contrastText: cor.onPrimary,
     },
-    success: { main: cor.success, contrastText: cor.onPrimary },
-    warning: { main: cor.warning, contrastText: cor.onPrimary },
-    error: { main: cor.error, contrastText: cor.onPrimary },
-    info: { main: cor.info, contrastText: cor.onPrimary },
+    /**
+     * `light` de cada estado É o token `-Bg` correspondente, e o assento tem
+     * motivo (Fatia 1).
+     *
+     * O design system pede faixas em `successBg` e `warningBg` — o indicador de
+     * envio (§16.6) e a faixa de motivo do card (§16.2). A paleta do MUI só tem
+     * main/dark/light/contrastText, e `light` é literalmente "um tom mais claro
+     * deste estado", que é o que esses tokens são. Sem este assento, o
+     * componente importaria `cor` direto — e `sx={{ bgcolor: "warning.bg" }}`
+     * não daria erro nenhum: simplesmente não pintaria, que é o jeito mais
+     * silencioso de um estilo sumir. É a mesma dívida que `action.selected`
+     * quitou abaixo.
+     *
+     * Contraste conferido nos dois: `textPrimary` sobre `warningBg` dá 9.90:1 e
+     * sobre `successBg` dá 9.76:1 (tokens.ts §1).
+     */
+    success: { main: cor.success, light: cor.successBg, contrastText: cor.onPrimary },
+    warning: { main: cor.warning, light: cor.warningBg, contrastText: cor.onPrimary },
+    error: { main: cor.error, light: cor.errorBg, contrastText: cor.onPrimary },
+    info: { main: cor.info, light: cor.infoBg, contrastText: cor.onPrimary },
     background: { default: cor.bg, paper: cor.surface },
     text: {
       primary: cor.textPrimary,

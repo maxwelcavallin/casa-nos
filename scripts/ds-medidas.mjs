@@ -115,6 +115,54 @@ const TIPOGRAFIA_FORA_DA_ESCALA = /\bfontSize\s*:/g
 const FAMILIA_DE_FONTE_AVULSA = /\bfontFamily\s*:/g
 
 /** Importar de `components/ui/` (shadcn). A pasta nao nasce neste projeto. */
+/**
+ * `setCarregando(false)` FORA de um bloco `finally` — catraca nova, em modo
+ * contagem (regra da casa: catraca nasce contando, vira proibicao no zero).
+ *
+ * O QUE ELA PEGA (stack.md §6, RN-30): o `return` de guarda no comeco de uma
+ * busca no cliente. A tela fica em esqueleto para sempre, sem erro, sem nada no
+ * console — e ninguem abre chamado porque parece "lento". Ja aconteceu duas
+ * vezes em produtos desta casa, em perfis de permissao e no painel financeiro.
+ *
+ * COMO ELA MEDE: os blocos `finally { ... }` sao removidos do texto, e o que
+ * sobrar com uma chamada de desligamento de estado de carregamento e contado. E
+ * uma heuristica, e ela erra nos dois sentidos: uma funcao que desligue o estado
+ * num `catch` legitimo conta como desvio, e um `finally` que desligue o estado
+ * errado passa. O que ela garante e que o padrao certo — guarda dentro do `try`,
+ * desligamento no `finally` — seja o caminho de menor atrito.
+ */
+const DESLIGA_CARREGANDO = /\bset(?:Carregando|Salvando|Enviando|Buscando)\s*\(\s*false\s*\)/g
+
+/** Remove o CORPO de cada `finally { ... }`, contando chaves. */
+function semBlocosFinally(fonte) {
+  let saida = ""
+  let i = 0
+  while (i < fonte.length) {
+    const achado = fonte.indexOf("finally", i)
+    if (achado === -1) {
+      saida += fonte.slice(i)
+      break
+    }
+    const abre = fonte.indexOf("{", achado)
+    if (abre === -1) {
+      saida += fonte.slice(i)
+      break
+    }
+    saida += fonte.slice(i, achado)
+    let profundidade = 0
+    let j = abre
+    for (; j < fonte.length; j++) {
+      if (fonte[j] === "{") profundidade++
+      else if (fonte[j] === "}") {
+        profundidade--
+        if (profundidade === 0) break
+      }
+    }
+    i = j + 1
+  }
+  return saida
+}
+
 const IMPORT_DE_COMPONENTS_UI =
   /from\s+["'](?:@\/)?(?:\.\.?\/)*components\/ui(?:\/[^"']*)?["']/g
 
@@ -133,6 +181,27 @@ const LIMITE_DE_FAMILIAS = 2
  * Agora o breakpoint so conta quando ele muda o DESENHO (largura, direcao,
  * colunas, exibicao), nao o respiro.
  */
+/**
+ * Componentes de composicao que TRATAM a largura por conta propria. A pagina que
+ * delega a montagem a um deles nao precisa repetir o teto.
+ *
+ * `PalcoTelao` esta aqui por decisao do `lead-design`, e ela e o caso
+ * interessante: `app/telao/[token]/page.tsx` vai reprovar nesta medida, e a
+ * correcao obvia — espalhar `maxWidth` numa tela de projecao — e justamente o
+ * erro. A superficie de projecao E a largura: ela tem UMA proporcao (16:9) e um
+ * tamanho fisico que ninguem controla, e um teto centralizado ali deixaria
+ * faixas pretas nas laterais de uma parede de tres metros.
+ *
+ * Quando a regua fica impossivel para uma tela, a regua muda NO DOCUMENTO, para
+ * todas as telas, e nao por excecao silenciosa dentro do componente
+ * (design-system §17.4). Esta e a mudanca.
+ *
+ * `PalcoTelao` ainda nao existe: ele nasce na F1.4, com o telao. O nome entra
+ * agora porque a decisao ja esta escrita, e porque o custo de esquecer e alguem
+ * "consertar" a tela do telao no dia da festa.
+ */
+const COMPOSICOES = /PaginaDoEvento|AlbumDoConvidado|TelaDoDia|EntrarNoPainel|PalcoTelao/
+
 function trataLargura(fonte) {
   if (/\bmaxWidth\b/.test(fonte)) return true
   if (/largura\.(texto|conteudo|app)/.test(fonte)) return true
@@ -156,6 +225,16 @@ export function medir(raiz) {
     ...arquivosDe(path.join(raiz, "components")),
   ]
 
+  /**
+   * `lib/` entra SO na medida do estado de carregamento.
+   *
+   * As outras medidas nao valem la: `lib/tokens.ts` E a paleta, e proibir `#hex`
+   * nela seria proibir a propria fonte. Mas o gancho que desliga o esqueleto
+   * mora em `lib/fila/usar-fila.ts`, e uma catraca que nao olha onde o codigo
+   * esta e uma catraca decorativa.
+   */
+  const arquivosDeEstado = [...arquivos, ...arquivosDe(path.join(raiz, "lib"))]
+
   const medido = {
     coresLiterais: 0,
     coresEmFuncao: 0,
@@ -168,6 +247,7 @@ export function medir(raiz) {
     familiasDeFonteAMais: 0,
     importsDeComponentsUi: 0,
     paginasSemLarguraTratada: 0,
+    carregandoForaDoFinally: 0,
   }
 
   const detalhes = []
@@ -202,12 +282,22 @@ export function medir(raiz) {
     }
 
     if (relativo.endsWith("page.tsx") && !trataLargura(fonte)) {
-      // Pagina que delega a montagem inteira a um componente de composicao
-      // (PaginaDoEvento) nao precisa repetir o teto — o teto esta la.
-      if (!/PaginaDoEvento/.test(fonte)) {
+      // Pagina que delega a montagem inteira a um componente de composicao nao
+      // precisa repetir o teto — o teto esta la.
+      if (!COMPOSICOES.test(fonte)) {
         medido.paginasSemLarguraTratada += 1
         detalhes.push(`${relativo}: sem largura tratada`)
       }
+    }
+  }
+
+  for (const arquivo of arquivosDeEstado) {
+    const relativo = path.relative(raiz, arquivo).split(path.sep).join("/")
+    const fonte = semComentarios(fs.readFileSync(arquivo, "utf8"))
+    const quantos = contar(semBlocosFinally(fonte), DESLIGA_CARREGANDO)
+    if (quantos > 0) {
+      medido.carregandoForaDoFinally += quantos
+      detalhes.push(`${relativo}: ${quantos} carregandoForaDoFinally`)
     }
   }
 

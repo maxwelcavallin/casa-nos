@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
 import React from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Providers } from "@/components/Providers";
 import { PaginaDoEvento } from "@/components/evento/PaginaDoEvento";
@@ -28,6 +28,33 @@ import { buscarEventoPorDominio, listarIndicacoes, recortePublico } from "@/lib/
  * Ele também é a catraca do arquivo de seed: mudar a data para `22/08/2027`
  * (formato brasileiro) ou apagar a cidade quebra aqui, e não em produção.
  */
+
+/**
+ * O INSTANTE DO TESTE, e por que ele precisa ser falso.
+ *
+ * ACHADO DE 19/08/2026, na Fatia 1: este arquivo passou no dia em que foi
+ * escrito e falhou no dia seguinte, sozinho, sem ninguém tocar no código. O
+ * `agoraMs` da primeira pintura estava pinado, mas a `ContagemRegressiva` é
+ * componente de cliente e recalcula com `Date.now()` depois de montar — então o
+ * que o teste conferia era o RELÓGIO DA MÁQUINA, não o produto.
+ *
+ * O defeito é do teste, não da página: a página está certa em atualizar sozinha.
+ * Mas um teste que depende do dia em que roda é pior que nenhum — ele quebra o
+ * CI sem defeito nenhum, e a reação natural de quem chega é afrouxar a asserção.
+ *
+ * `toFake: ["Date"]` congela só o relógio. Os temporizadores continuam reais,
+ * porque a Testing Library depende deles para resolver as esperas.
+ */
+const AGORA = new Date("2026-08-18T12:00:00.000Z");
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(AGORA);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const SEED = JSON.parse(
   fs.readFileSync(
@@ -92,7 +119,7 @@ async function montarComOSeed() {
       <PaginaDoEvento
         evento={recortePublico(evento)}
         indicacoes={indicacoes}
-        agoraMs={new Date("2026-08-18T12:00:00.000Z").getTime()}
+        agoraMs={AGORA.getTime()}
       />
     </Providers>
   );

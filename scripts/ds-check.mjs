@@ -38,6 +38,7 @@ const rotulos = {
   familiasDeFonteAMais: "familias de fonte alem das duas do produto",
   importsDeComponentsUi: "imports de components/ui/",
   paginasSemLarguraTratada: "paginas sem largura tratada",
+  carregandoForaDoFinally: "desligamento de carregando fora de finally",
 }
 
 let subiu = false

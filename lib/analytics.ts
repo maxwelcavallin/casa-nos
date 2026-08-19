@@ -51,7 +51,84 @@ export type EventosDeAnalytics = {
     /** Posição na lista, começando em 1 — mostra se o rodapé da lista é lido. */
     recommendation_position: number;
   };
+
+  /* ---------------- Fatia 1 · F1.2 — o envio ---------------- */
+
+  /**
+   * Uma ou mais fotos entraram na fila local.
+   *
+   * **MELHOR ESFORÇO, E NUNCA DENOMINADOR** (`metricas.md` §13.4): se o aparelho
+   * estiver sem rede neste instante — que é o caso que este produto existe para
+   * atender —, o evento se perde e não volta. Quem quiser saber quantos envios
+   * começaram consulta a tabela `midias` no estado `intencao`. Usar isto como
+   * denominador de perda produziria o número mais otimista possível justamente
+   * na noite em que ele estivesse errado.
+   */
+  media_upload_started: {
+    wedding_id: string;
+    media_count: number;
+    media_visibility: Visibilidade;
+    /** Booleano vai como string: o GA4 não tem tipo booleano. */
+    enqueued_offline: "true" | "false";
+  };
+
+  /**
+   * O servidor confirmou UMA FAIXA de uma foto.
+   *
+   * `upload_lane` não é detalhe: sem ele cada foto conta duas vezes, e a
+   * ativação do convidado — mediana de segundos até a **prévia** — passa a
+   * misturar 8 segundos com 107. Dispara **uma vez por `client_media_id` e por
+   * faixa** (RN-28); a fila local guarda a marca, e uma confirmação repetida do
+   * servidor não vira um segundo evento.
+   *
+   * `queue_age_seconds`, `attempt_count` e `enqueued_offline` viajam aqui porque
+   * o sucesso é o único instante em que existe rede garantida. É assim que a
+   * história do que aconteceu offline chega ao GA4, que não tem fila.
+   */
+  media_upload_succeeded: {
+    wedding_id: string;
+    upload_lane: "previa" | "original";
+    media_visibility: Visibilidade;
+    media_source: "camera" | "galeria";
+    enqueued_offline: "true" | "false";
+    queue_age_seconds: number;
+    attempt_count: number;
+    visibility_changed: "true" | "false";
+    /** Só na faixa `previa`. No `original` mediria o uplink, não o produto. */
+    seconds_since_scan?: number;
+  };
+
+  /** Uma tentativa falhou e a fila vai tentar de novo. Separa o wifi do salão do nosso servidor. */
+  media_upload_retried: {
+    wedding_id: string;
+    attempt_count: number;
+    error_kind: "rede" | "servidor" | "arquivo";
+  };
+
+  /**
+   * O convidado saiu da página com itens na fila.
+   *
+   * **Subestima sempre**, e está escrito para ninguém tratar como censo: sai por
+   * `sendBeacon` no `pagehide`, e o aparelho que está sem rede — de novo, o caso
+   * que importa — não manda nada. O número oficial de perda é SQL (RN-14).
+   */
+  media_upload_abandoned: {
+    wedding_id: string;
+    pending_count: number;
+    oldest_pending_seconds: number;
+  };
 };
+
+/**
+ * DOIS VALORES, NÃO TRÊS (RN-03).
+ *
+ * `metricas.md` §6 registrava `ambos` como valor possível de `media_visibility`.
+ * Ele morreu na §3.1 V1 do PRD: "ambos" não é estado, porque o feed já inclui o
+ * casal. O tipo espelha o `CHECK` do Postgres de propósito — `metricas.md` §5.3
+ * exige que o valor do banco e o valor da dimensão do GA4 sejam a mesma palavra,
+ * e uma dimensão registrada com valor morto não se limpa depois.
+ */
+export type Visibilidade = "feed" | "noivos";
 
 export type NomeDeEvento = keyof EventosDeAnalytics;
 
@@ -66,6 +143,32 @@ type TodosComWeddingId = EventosDeAnalytics extends Record<
   ? true
   : never;
 const _confereWeddingId: TodosComWeddingId = true;
+
+/** As origens do QR, por material impresso (`metricas.md` §15.1). */
+export type OrigemDoQr = "mesa" | "telao" | "convite" | "cartao" | "direto";
+
+const ORIGENS: OrigemDoQr[] = ["mesa", "telao", "convite", "cartao", "direto"];
+
+/**
+ * `?o=mesa` → `mesa`. Qualquer outra coisa → `direto`.
+ *
+ * LISTA FECHADA, e não "o que vier na URL": o parâmetro é público e qualquer um
+ * pode escrever `?o=<o que quiser>` num link colado em grupo. Texto livre virando
+ * dimensão do GA4 é dado envenenado que não se limpa — e o limite de 50
+ * dimensões personalizadas não perdoa uma cheia de lixo.
+ */
+export function origemDoQr(valor: string | null | undefined): OrigemDoQr {
+  const achado = ORIGENS.find(o => o === valor);
+  return achado ?? "direto";
+}
+
+export type ContextoDeMedicao = {
+  /** `convidado` | `casal` | `telao`. O filtro do GA4 exclui o telão. */
+  superficie?: "convidado" | "casal" | "telao";
+  qrSource?: OrigemDoQr;
+  /** Pseudônimo `g:<id>` ou `c:<id>`. Nunca nome, e-mail ou telefone. */
+  usuario?: string | null;
+};
 
 type ComandoGtag = "event" | "config" | "js" | "consent";
 
@@ -141,7 +244,11 @@ function criarFila(): Gtag {
  * re-dispara o `page_view` e dobra a contagem. O efeito do React roda duas
  * vezes em desenvolvimento, e sem esta marca a abertura de página valeria dois.
  */
-export function configurarAnalytics(measurementId: string, weddingId: string): void {
+export function configurarAnalytics(
+  measurementId: string,
+  weddingId: string,
+  contexto: ContextoDeMedicao = {}
+): void {
   if (typeof window === "undefined") return;
   if (window.__ga4Configurado) return;
   window.__ga4Configurado = true;
@@ -165,6 +272,15 @@ export function configurarAnalytics(measurementId: string, weddingId: string): v
   gtag("config", measurementId, {
     ...camposDePagina(weddingId),
     wedding_id: weddingId,
+    // As duas dimensões novas do `page_view` (`metricas.md` §6.1). `surface`
+    // existe para o filtro que EXCLUI o telão de todo relatório: sem ele, o
+    // computador que fica seis horas com a página aberta domina a contagem de
+    // sessões e contamina toda média do casamento.
+    surface: contexto.superficie ?? "convidado",
+    qr_source: contexto.qrSource ?? "direto",
+    // Pseudônimo (`g:` / `c:`), resolvido em lib/sessao.ts. NUNCA nome, e-mail
+    // ou telefone: PII no GA4 viola os termos e pode zerar a propriedade.
+    ...(contexto.usuario ? { user_id: contexto.usuario } : {}),
     // Sem sinais do Google e sem personalização de anúncio: este produto não
     // anuncia, e o que não se liga não precisa ser desligado depois.
     allow_google_signals: false,

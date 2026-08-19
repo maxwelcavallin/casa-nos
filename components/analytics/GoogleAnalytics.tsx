@@ -3,7 +3,7 @@
 import Script from "next/script";
 import { useEffect } from "react";
 
-import { configurarAnalytics } from "@/lib/analytics";
+import { configurarAnalytics, origemDoQr } from "@/lib/analytics";
 
 /**
  * Carrega o GA4, ou não carrega nada.
@@ -29,16 +29,32 @@ import { configurarAnalytics } from "@/lib/analytics";
  * ao buscar o `gtag.js`. Mascarar o `page_location` e deixar o cabeçalho de
  * lado teria trocado o vazamento de lugar, não fechado.
  */
-export function GoogleAnalytics({ eventoId }: { eventoId: string }) {
+export function GoogleAnalytics({
+  eventoId,
+  superficie = "convidado",
+  usuario = null,
+}: {
+  eventoId: string;
+  superficie?: "convidado" | "casal" | "telao";
+  /** Pseudônimo (`g:` / `c:`), resolvido no servidor por `lib/sessao.ts`. */
+  usuario?: string | null;
+}) {
   const id = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
   useEffect(() => {
     if (!id) return;
+    /**
+     * `qr_source` sai da URL (`?o=mesa`), lida no cliente e passada por uma
+     * lista fechada. Não pode vir do servidor: o parâmetro é o passo 1 do funil
+     * do convidado, e a página do álbum é dinâmica justamente porque a origem
+     * muda por material impresso.
+     */
+    const qrSource = origemDoQr(new URLSearchParams(window.location.search).get("o"));
     // A ordem com o `gtag.js` não importa: os comandos são empilhados no
     // `dataLayer` e processados na ordem em que entraram, tenha o script
     // carregado antes ou depois.
-    configurarAnalytics(id, eventoId);
-  }, [id, eventoId]);
+    configurarAnalytics(id, eventoId, { superficie, qrSource, usuario });
+  }, [id, eventoId, superficie, usuario]);
 
   if (!id) return null;
 

@@ -1,7 +1,8 @@
 import { sql, type Executor } from "@/lib/db";
-import { ehSlug, normalizarDominio } from "@/lib/ids";
+import { ehSlug, ehUuid, normalizarDominio } from "@/lib/ids";
 import {
   paraBooleano,
+  paraInstante,
   paraInteiro,
   paraNumero,
   paraTexto,
@@ -55,7 +56,40 @@ export type Evento = {
   localRevelacao: NivelDeRevelacao;
 
   publicado: boolean;
+
+  /* --- O dia, acrescentado pela migration 0002 (Fatia 1, H-02) --- */
+
+  modoModeracao: ModoDeModeracao;
+
+  /**
+   * TRÊS JANELAS DIFERENTES, e confundi-las produz um número errado sem erro
+   * nenhum aparecer (PRD §3.1, V9):
+   *
+   *   envioAbreEm / envioFechaEm     o que o produto ACEITA
+   *   inicioFestaEm / fimFestaEm     o que conta como "durante a festa"
+   *   janela de medição (48 h)       derivada de `dataEvento` + `fuso`, na view
+   *
+   * As duas primeiras são INSTANTES, e não datas: a janela precisa significar o
+   * mesmo momento no servidor em UTC e no celular do convidado em Brasília.
+   */
+  envioAbreEm: Date | null;
+  envioFechaEm: Date | null;
+  enviosEncerradosEm: Date | null;
+  novosAparelhosBloqueados: boolean;
+  inicioFestaEm: Date | null;
+  fimFestaEm: Date | null;
+
+  /** Nulo SIGNIFICA "ainda não informado". A interface mostra isso, nunca zero. */
+  presentesContagem: number | null;
+  emailCasal: string | null;
 };
+
+/** Dois valores. `fila` exige moderador designado — regra da H-02, não do banco. */
+export type ModoDeModeracao = "direto" | "fila";
+
+function paraModoDeModeracao(valor: unknown): ModoDeModeracao {
+  return valor === "fila" ? "fila" : "direto";
+}
 
 /**
  * Quanto do lugar o site conta hoje.
@@ -118,6 +152,16 @@ function linhaParaEvento(linha: Record<string, unknown>): Evento {
     localRevelacao: paraNivelDeRevelacao(linha.local_revelacao),
 
     publicado: paraBooleano(linha.publicado),
+
+    modoModeracao: paraModoDeModeracao(linha.modo_moderacao),
+    envioAbreEm: paraInstante(linha.envio_abre_em),
+    envioFechaEm: paraInstante(linha.envio_fecha_em),
+    enviosEncerradosEm: paraInstante(linha.envios_encerrados_em),
+    novosAparelhosBloqueados: paraBooleano(linha.novos_aparelhos_bloqueados),
+    inicioFestaEm: paraInstante(linha.inicio_festa_em),
+    fimFestaEm: paraInstante(linha.fim_festa_em),
+    presentesContagem: paraNumero(linha.presentes_contagem),
+    emailCasal: paraTexto(linha.email_casal),
   };
 }
 
@@ -156,6 +200,30 @@ export async function buscarEventoPorSlug(
        and publicado = true
        and excluido_em is null
      limit 1
+  `;
+  return linhas.length ? linhaParaEvento(linhas[0]) : null;
+}
+
+/**
+ * O evento por id — o caminho das rotas de API, onde o inquilino vem do `[id]`.
+ *
+ * **NÃO filtra por `publicado`**, e a diferença com `buscarEventoPorSlug` é
+ * deliberada: o painel do casal precisa abrir antes de o site ir ao ar, e a
+ * janela de envio precisa ser configurável na véspera. Quem exige `publicado` é
+ * a superfície pública — o álbum do convidado confere isso explicitamente e
+ * responde 404 (H-05), porque ali a regra é outra.
+ *
+ * O id chega já validado como uuid pela rota. Sem isso, um `id` malformado
+ * estoura `22P02` no Postgres e vira 500 onde a resposta certa é 404
+ * (`dados.md` §3).
+ */
+export async function buscarEventoPorId(
+  eventoId: string,
+  exec: Executor = sql
+): Promise<Evento | null> {
+  if (!ehUuid(eventoId)) return null;
+  const linhas = await exec`
+    select * from eventos where id = ${eventoId} and excluido_em is null limit 1
   `;
   return linhas.length ? linhaParaEvento(linhas[0]) : null;
 }

@@ -177,6 +177,95 @@ são intenções diferentes, e misturá-las apagaria o efeito da revelação do 
 `recommendation_position` responde a pergunta que decide se a seção cresce ou
 encolhe: se só o primeiro item é aberto, a lista é longa demais.
 
+### Os quatro do envio — Fatia 1, F1.2
+
+Do dicionário de `metricas.md` §6. Os quatro nascem junto com a história que os
+emite (H-06 e H-07); o fechamento da instrumentação — registro das dimensões no
+GA4, filtro do telão, conferência item a item no DebugView — é a H-17, na F1.6.
+
+> **As 25 dimensões têm prazo de ensaio, não de casamento.** Parâmetro enviado
+> sem dimensão registrada é dado perdido para sempre: o GA4 não preenche o
+> passado.
+
+#### `media_upload_started`
+
+| Campo | Valor |
+|---|---|
+| Significa | Uma ou mais fotos entraram na fila local |
+| Onde dispara | `lib/fila/motor.ts`, ao enfileirar |
+| Parâmetros | `wedding_id` · `media_count` (número) · `media_visibility` (`feed` \| `noivos`) · `enqueued_offline` (`"true"` \| `"false"`) |
+| Alimenta | Ativação do convidado |
+| Conversão? | Não |
+
+**Melhor esforço, e NUNCA denominador.** Se o aparelho estiver sem rede neste
+instante — que é o caso que este produto existe para atender — o evento se perde
+e não volta. Quem quiser saber quantos envios começaram consulta a tabela
+`midias` no estado `intencao`. Usar isto como denominador de perda daria o número
+mais otimista possível justamente na noite em que ele estivesse errado.
+
+#### `media_upload_succeeded`
+
+| Campo | Valor |
+|---|---|
+| Significa | O servidor confirmou **uma faixa** de uma foto |
+| Onde dispara | `lib/fila/motor.ts`, depois da confirmação |
+| Parâmetros | `wedding_id` · `upload_lane` (`previa` \| `original`) · `media_visibility` · `media_source` (`camera` \| `galeria`) · `enqueued_offline` · `queue_age_seconds` · `attempt_count` · `visibility_changed` · `seconds_since_scan` (só na faixa `previa`) |
+| Alimenta | **North Star** e ativação, contando **só `upload_lane = previa`** |
+| Conversão? | **Sim**, só na faixa `previa` |
+
+Três coisas que decidem se este evento vale alguma coisa:
+
+1. **`upload_lane` não é detalhe.** Sem ele cada foto conta duas vezes, e a
+   mediana de ativação mistura 8 segundos com 107.
+2. **Uma vez por `client_media_id` e por faixa** (RN-28). A marca fica no
+   registro da fila, no disco, e sobrevive ao fechamento da aba — uma
+   confirmação repetida do servidor não pode virar um segundo evento.
+3. **O sucesso carrega a história da fila.** `queue_age_seconds`,
+   `attempt_count` e `enqueued_offline` viajam aqui porque o sucesso é o único
+   instante em que existe rede garantida. É assim que a história offline chega ao
+   GA4, que não tem fila.
+
+#### `media_upload_retried`
+
+| Campo | Valor |
+|---|---|
+| Significa | Uma tentativa falhou e a fila vai tentar de novo |
+| Onde dispara | `lib/fila/motor.ts`, no tratamento de falha |
+| Parâmetros | `wedding_id` · `attempt_count` · `error_kind` (`rede` \| `servidor` \| `arquivo`) |
+| Alimenta | Resiliência: separa "o wifi do salão" de "o nosso servidor" |
+| Conversão? | Não |
+
+**O portal cativo viaja como `rede`.** No produto ele é um estado próprio — é o
+único com ação na tela ("a rede do salão pediu login") —, mas o dicionário tem
+três valores, e inventar um quarto criaria dimensão fora do dicionário.
+
+#### `media_upload_abandoned`
+
+| Campo | Valor |
+|---|---|
+| Significa | O convidado saiu da página com itens na fila |
+| Onde dispara | `pagehide`, via `lib/fila/usar-fila.ts` |
+| Parâmetros | `wedding_id` · `pending_count` · `oldest_pending_seconds` |
+| Alimenta | Perda (sinal antecedente) |
+| Conversão? | Não |
+
+**Subestima sempre**, e está escrito para ninguém tratar como censo: o aparelho
+sem rede — de novo, o caso que importa — não manda nada. O número oficial de
+perda é SQL (RN-14).
+
+### As duas dimensões novas no `page_view`
+
+`surface` (`convidado` \| `casal` \| `telao`) e `qr_source` (`mesa` \| `telao` \|
+`convite` \| `cartao` \| `direto`), lidas em `configurarAnalytics`.
+
+`surface` existe para o filtro que **exclui o telão** de todo relatório: o
+computador que fica seis horas com a página aberta dominaria a contagem de
+sessões e contaminaria toda média do casamento. `qr_source` sai de `?o=` na URL,
+por **lista fechada** — o parâmetro é público, e texto livre virando dimensão é
+dado envenenado que não se limpa.
+
+---
+
 **Todo evento carrega também os três campos de página mascarados**, além dos
 seus. O `config` já os fixaria para os eventos seguintes, mas isso é
 comportamento do gtag, não contrato — e é invisível. Repetir custa três campos

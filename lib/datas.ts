@@ -141,9 +141,19 @@ export function instanteDoEvento(
   fuso: string = FUSO
 ): Date {
   const [ano, mes, d] = partesDoDia(dia);
-  const [hh, mm] = hora && ehHoraPura(hora) ? hora.split(":").map(Number) : [0, 0];
+  const [hh, mm, ss] =
+    hora && ehHoraPura(hora)
+      ? [
+          Number(hora.slice(0, 2)),
+          Number(hora.slice(3, 5)),
+          // Os segundos entram porque a janela de envio fecha às 23:59:59
+          // (RN-08). Sem eles, o último minuto do sétimo dia ficaria de fora e o
+          // convidado que manda 23:59:30 receberia "fora da janela".
+          hora.length >= 8 ? Number(hora.slice(6, 8)) : 0,
+        ]
+      : [0, 0, 0];
 
-  const comoSeFosseUtc = Date.UTC(ano, mes - 1, d, hh, mm, 0);
+  const comoSeFosseUtc = Date.UTC(ano, mes - 1, d, hh, mm, ss);
   let instante = comoSeFosseUtc;
   for (let i = 0; i < 2; i++) {
     instante = comoSeFosseUtc - deslocamentoEmMinutos(new Date(instante), fuso) * 60000;
@@ -201,4 +211,103 @@ export function contagemAte(alvo: Date, agora: Date): ContagemRegressiva {
  */
 export function agoraNoServidor(): Date {
   return new Date();
+}
+
+/* ------------------------------------------------------------------ *
+ * A janela de envio (Fatia 1, H-02 / RN-08)
+ * ------------------------------------------------------------------ */
+
+/**
+ * `somarDias("2027-08-22", -1)` → `"2027-08-21"`.
+ *
+ * Aritmética de CALENDÁRIO, com `Date.UTC` — que não tem fuso envolvido — e não
+ * `new Date(dia)`, que já seria meia-noite em UTC e devolveria o dia anterior
+ * aqui. A saída é string pura, do mesmo formato da entrada, porque quem consome
+ * é `instanteDoEvento` e não um `Date`.
+ *
+ * A virada de mês e de ano sai de graça: `Date.UTC(2027, 11, 32)` é 1º de
+ * janeiro de 2028, e é assim que um casamento em 31 de dezembro tem janela até
+ * 7 de janeiro sem nenhum caso especial escrito.
+ */
+export function somarDias(dia: string, dias: number): string {
+  const [ano, mes, d] = partesDoDia(dia);
+  const movido = new Date(Date.UTC(ano, mes - 1, d + dias));
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${movido.getUTCFullYear()}-${p(movido.getUTCMonth() + 1)}-${p(movido.getUTCDate())}`;
+}
+
+/**
+ * O padrão da janela de envio: abre D−1 às 00:00, fecha D+7 às 23:59:59, no
+ * fuso do EVENTO (RN-08).
+ *
+ * DUAS COISAS QUE PARECEM DETALHE E NÃO SÃO:
+ *
+ * 1. **O resultado é um INSTANTE**, não um dia. É ele que vai para
+ *    `timestamptz`, e é por isso que a mesma janela significa o mesmo momento no
+ *    servidor da Vercel (UTC) e no celular do convidado (Brasília). Guardar
+ *    "22/08 até 29/08" como data faria a consulta depender do fuso do processo,
+ *    e o envio das 00:30 do dia seguinte à festa — que a RN-08 manda aceitar —
+ *    cairia fora em um dos dois ambientes.
+ * 2. **O fuso vem do evento**, não da constante `FUSO`. Hoje todo evento é em
+ *    São Paulo; o dia em que um não for, a janela dele não pode seguir o
+ *    horário de Brasília.
+ *
+ * `test/janela-de-envio.test.ts` roda em `TZ=UTC` e
+ * `test/janela-de-envio.brasilia.test.ts` roda em `TZ=America/Sao_Paulo`: os
+ * dois exigem os MESMOS instantes. É a catraca da §9.2 do PRD.
+ */
+export function janelaDeEnvioPadrao(
+  dataEvento: string,
+  fuso: string = FUSO
+): { abre: Date; fecha: Date } {
+  return {
+    abre: instanteDoEvento(somarDias(dataEvento, -1), "00:00:00", fuso),
+    fecha: instanteDoEvento(somarDias(dataEvento, 7), "23:59:59", fuso),
+  };
+}
+
+/**
+ * Instante → `"2027-08-21T03:00"`, no fuso do evento, para preencher um
+ * `<input type="datetime-local">`.
+ *
+ * POR QUE NÃO `toISOString().slice(0,16)`: isso mostra o instante em UTC, e o
+ * casal veria a janela dele começando às 03:00 do dia 21. O campo diria uma hora
+ * que ele não escolheu, ele "corrigiria", e a janela real mudaria três horas.
+ *
+ * Vai e volta com `instanteDoInputLocal`, que é a metade que lê o campo.
+ */
+export function paraInputLocal(instante: Date | null, fuso: string = FUSO): string {
+  if (!instante) return "";
+  const formatador = new Intl.DateTimeFormat("en-CA", {
+    timeZone: fuso,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const p: Record<string, string> = {};
+  for (const parte of formatador.formatToParts(instante)) {
+    if (parte.type !== "literal") p[parte.type] = parte.value;
+  }
+  const hora = String(Number(p.hour) % 24).padStart(2, "0");
+  return `${p.year}-${p.month}-${p.day}T${hora}:${p.minute}`;
+}
+
+/**
+ * `"2027-08-21T00:00"` (o que o `<input datetime-local>` manda) → o instante
+ * real naquele fuso.
+ *
+ * Devolve `null` para vazio e para formato incompleto — que é o caso da "data
+ * incompleta" da H-02, e é erro de campo, não exceção.
+ */
+export function instanteDoInputLocal(
+  valor: string | null | undefined,
+  fuso: string = FUSO
+): Date | null {
+  if (!valor) return null;
+  const casa = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(valor.trim());
+  if (!casa) return null;
+  return instanteDoEvento(casa[1], `${casa[2]}:${casa[3]}:${casa[4] ?? "00"}`, fuso);
 }
