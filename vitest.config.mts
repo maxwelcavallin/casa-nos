@@ -1,8 +1,40 @@
 import react from "@vitejs/plugin-react"
+import fs from "node:fs"
+import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "vitest/config"
 
 const alias = { "@": fileURLToPath(new URL("./", import.meta.url)) }
+
+/**
+ * `.env.local` lido aqui, sem dependência — o Vitest não roda dentro do Next e
+ * portanto não carrega o arquivo sozinho.
+ *
+ * ELE EXISTE POR UM TESTE SÓ, e ele vale a pena: `contadores-vs-verdade` compara
+ * o agregado do casal com um `count(*)` **no banco de verdade**, depois de
+ * centenas de operações reais. Aquele SQL não é verificável com banco falso — um
+ * `greatest(x - 1, 0)` escrito errado passa em verde num executor de mentira,
+ * porque ali quem responde é o próprio teste.
+ *
+ * Sem `DATABASE_URL` o teste se pula sozinho e diz isso. Fingir que passou seria
+ * pior que pular.
+ */
+function carregarEnvLocal(): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const nome of [".env.local", ".env"]) {
+    const arquivo = path.join(process.cwd(), nome)
+    if (!fs.existsSync(arquivo)) continue
+    for (const linha of fs.readFileSync(arquivo, "utf8").split("\n")) {
+      const achado = linha.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
+      if (!achado) continue
+      const valor = achado[2].replace(/^["']|["']$/g, "")
+      if (valor && env[achado[1]] === undefined) env[achado[1]] = valor
+    }
+  }
+  return env
+}
+
+const doArquivo = carregarEnvLocal()
 
 /**
  * Dois conjuntos de teste, com ambientes diferentes.
@@ -29,7 +61,7 @@ export default defineConfig({
           environment: "node",
           include: ["test/**/*.test.ts"],
           exclude: ["test/**/*.brasilia.test.ts"],
-          env: { TZ: "UTC" },
+          env: { ...doArquivo, TZ: "UTC" },
         },
       },
       {
@@ -51,7 +83,7 @@ export default defineConfig({
           name: "fuso-brasilia",
           environment: "node",
           include: ["test/**/*.brasilia.test.ts"],
-          env: { TZ: "America/Sao_Paulo" },
+          env: { ...doArquivo, TZ: "America/Sao_Paulo" },
         },
       },
       {
@@ -62,7 +94,11 @@ export default defineConfig({
           environment: "jsdom",
           setupFiles: ["./test/setup-dom.ts"],
           include: ["test/**/*.test.tsx"],
-          env: { TZ: "UTC" },
+          // As medidas (`*.medida.test.tsx`) ficam fora: elas montam 6.000 nos e
+          // levam dezenas de segundos. Suite lenta ensina quem trabalha a pular
+          // a suite. Rodam com `pnpm medida`, e o resultado vai para o relatorio.
+          exclude: ["test/**/*.medida.test.tsx"],
+          env: { ...doArquivo, TZ: "UTC" },
           // O padrão de 5s é apertado: a primeira tela que puxa o MUI paga a
           // transformação da biblioteca inteira.
           testTimeout: 30_000,

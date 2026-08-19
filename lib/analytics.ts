@@ -98,11 +98,41 @@ export type EventosDeAnalytics = {
     seconds_since_scan?: number;
   };
 
-  /** Uma tentativa falhou e a fila vai tentar de novo. Separa o wifi do salão do nosso servidor. */
+  /**
+   * Uma tentativa falhou e a fila vai tentar de novo.
+   *
+   * **QUATRO VALORES DE `error_kind`, e o quarto decide uma AÇÃO** (`metricas.md`
+   * §6.2, corrigida). `rede` é a internet que caiu — a resposta certa é não
+   * fazer nada. `portal` é a internet que **mentiu**: o wifi do salão responde
+   * HTML com 200, o envio parece completar e a foto não existe. É o único erro
+   * que produz perda silenciosa, e o único em que agir é obrigatório (trocar de
+   * rede, ou passar para o QR do plano B). Colapsados, o painel recomendaria
+   * "não faça nada" no único caso em que agir é obrigatório.
+   *
+   * **A RESSALVA QUE ESTE ARQUIVO NÃO RESOLVE:** num portal cativo a requisição
+   * para o `/g/collect` também é interceptada. O evento que descreve o portal é
+   * justamente o que o portal engole — aqui ele é subnotificado por construção.
+   * Quando aparecer, já é diagnóstico; quando não aparecer, não prova nada. A
+   * contagem que vale é a do Postgres (`eventos_de_erro`), e é dela que o painel
+   * do dia lê a linha 4.
+   */
   media_upload_retried: {
     wedding_id: string;
     attempt_count: number;
-    error_kind: "rede" | "servidor" | "arquivo";
+    error_kind: "rede" | "portal" | "servidor" | "arquivo";
+  };
+
+  /**
+   * O convidado tocou em adicionar foto e o seletor abriu.
+   *
+   * **É O DEGRAU QUE SEPARA "QUIS" DE "CONSEGUIU"** (`metricas.md` §6.2): sem
+   * ele, uma queda entre a chegada e o envio não tem diagnóstico — não se sabe
+   * se a pessoa não quis mandar ou se o seletor não abriu no aparelho dela. É o
+   * item 9 da ordem de corte, e amarelo é o cenário mais provável.
+   */
+  media_picker_opened: {
+    wedding_id: string;
+    media_source: "camera" | "galeria";
   };
 
   /**
@@ -200,7 +230,109 @@ export type EventosDeAnalytics = {
     wedding_id: string;
     material_kind: "mesa" | "cartaz" | "telao";
   };
+
+  /**
+   * O casal (ou o moderador) aprovou ou recusou uma mídia.
+   *
+   * `moderation_during_event` É O BLOQUEIO 2 DO VERDE (`metricas.md` §4): se
+   * acontecer durante a festa, o resultado verde está anulado — a promessa do
+   * produto é que o casal não trabalhe durante o próprio casamento, e moderar é
+   * trabalhar. O parâmetro é calculado no SERVIDOR, contra `inicio_festa_em` e
+   * `fim_festa_em` (RN-10), e não pelo relógio do aparelho: quem modera às 23h
+   * pode estar num computador com a hora errada, e a janela da festa é a
+   * definição que decide um veredito.
+   *
+   * **Um evento por decisão em lote, e não por foto.** "Aprovar as 400" é um
+   * toque; 400 eventos fariam a contagem de moderações medir o tamanho do lote
+   * em vez do número de vezes que alguém precisou agir.
+   */
+  media_moderated: {
+    wedding_id: string;
+    moderation_action: "aprovada" | "recusada";
+    /** Booleano vai como string: o GA4 não tem tipo booleano. */
+    moderation_during_event: "true" | "false";
+  };
+
+  /* ---------------- Fatia 1 · F1.7 — o loop ---------------- */
+
+  /**
+   * A pergunta do loop APARECEU na tela de alguém que estava no casamento.
+   *
+   * **SEM ELE, A TAXA DE CLIQUE NÃO TEM DENOMINADOR** (`metricas.md` §6.2): se o
+   * alcance for 16 de 150, o número de cliques não diz nada sobre o texto do
+   * botão — diz que ninguém chegou nele, e a correção é outra. É este evento que
+   * torna visível o furo do `escopo-growth.md` §4.2.
+   *
+   * Dispara **no máximo uma vez por sessão e por superfície** (`sessionStorage`)
+   * e **só depois de 1 segundo visível** (`IntersectionObserver`, §14.10). Sem
+   * as duas travas, uma rolagem para cima e para baixo contaria dez alcances
+   * para uma pessoa, e o denominador ficaria maior que o número de convidados.
+   *
+   * **`cta_surface = feed` NÃO OCORRE NA FATIA 1** (H-16, R8). O valor continua
+   * no dicionário e simplesmente não é emitido — está escrito aqui para que
+   * ninguém o procure no relatório, e para que ninguém acrescente o CTA ao feed
+   * depois "porque o dicionário permite".
+   */
+  growth_cta_viewed: {
+    wedding_id: string;
+    cta_surface: SuperficieDoCta;
+  };
+
+  /** O convidado tocou na pergunta do loop. É a suposição S6. */
+  growth_cta_clicked: {
+    wedding_id: string;
+    cta_surface: SuperficieDoCta;
+  };
+
+  /**
+   * O convidado deixou contato, com permissão explícita.
+   *
+   * **O WHATSAPP NÃO ESTÁ AQUI, E NUNCA ESTARÁ** (RN-24): ele vive na tabela
+   * `leads`, com o texto da permissão e a data. Para o GA4 vão a bandeira e o
+   * mês — `2027-04`, jamais "casamento da Júlia em abril".
+   *
+   * `has_date = true` é o indicador que substitui o de 90 dias (`metricas.md`
+   * §4.1): sem ele, o loop só teria a leitura de conversão, que **lê zero por
+   * construção** enquanto a janela de 18 meses estiver correndo.
+   *
+   * `expected_month` é validado contra `^\d{4}-\d{2}$` **antes de sair**, e o
+   * tipo abaixo é uma união de literais de padrão — texto livre digitado por
+   * usuário não chega a uma dimensão do GA4 (§13.9).
+   */
+  growth_lead_captured: {
+    wedding_id: string;
+    cta_surface: SuperficieDoCta;
+    has_date: "true" | "false";
+    /** `AAAA-MM`, ou vazio. Nunca outra coisa — ver `mesParaOGa4`. */
+    expected_month: string;
+  };
 };
+
+/**
+ * As quatro superfícies do CTA (`metricas.md` §7.1).
+ *
+ * `feed` e `telao` existem no dicionário e **não são emitidos na Fatia 1**: o
+ * `po` arbitrou (R8) que a linha de aquisição não entra no feed em forma
+ * nenhuma, e no telão entra marca, não pergunta. Os valores ficam porque o
+ * dicionário é o contrato; a ausência de emissão está escrita na H-16 e no
+ * `docs/analytics.md`.
+ */
+export type SuperficieDoCta = "confirmacao_envio" | "album" | "feed" | "telao";
+
+/**
+ * `AAAA-MM`, ou string vazia. **A última barreira antes do GA4.**
+ *
+ * `metricas.md` §13.9 pede um teste que falhe se qualquer parâmetro do
+ * dicionário receber texto livre digitado por usuário. Esta função é o lado do
+ * código dessa regra: o campo de mês é um seletor, mas o valor atravessa estado
+ * de React, `localStorage` e uma resposta de API antes de chegar aqui — e
+ * qualquer um dos três pode ter sido adulterado no aparelho. Dimensão do GA4 com
+ * lixo não se limpa: o passado não se preenche e o limite de 50 dimensões não
+ * perdoa uma cheia de texto livre.
+ */
+export function mesParaOGa4(valor: unknown): string {
+  return typeof valor === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(valor) ? valor : "";
+}
 
 /**
  * DOIS VALORES, NÃO TRÊS (RN-03).

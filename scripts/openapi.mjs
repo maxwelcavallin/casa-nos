@@ -34,10 +34,22 @@ const SAIDA = path.join(RAIZ, "docs", "openapi-casa-nos.json")
  */
 function lerRotas() {
   const fonte = fs.readFileSync(path.join(RAIZ, "lib", "rotas.ts"), "utf8")
-  const bloco = fonte.slice(
-    fonte.indexOf("export const ROTAS_DE_API"),
-    fonte.indexOf("export type Tela")
-  )
+  const bloco = fonte
+    .slice(fonte.indexOf("export const ROTAS_DE_API"), fonte.indexOf("export type Tela"))
+    /**
+     * OS COMENTARIOS SAEM ANTES DA EXTRACAO.
+     *
+     * A primeira versao casava `caminho: "...", metodos: {` com `\s*` entre os
+     * dois — e uma entrada com um comentario no meio (que e o padrao deste
+     * arquivo: quase toda rota explica por que esta na posicao em que esta)
+     * simplesmente NAO ERA ENCONTRADA. A rota sumia do contrato em silencio, e
+     * quem lesse o JSON concluiria que ela nao existe.
+     *
+     * `test/openapi.test.ts` pegou isso comparando com o modulo de verdade, que
+     * e exatamente para isso que ele existe.
+     */
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1")
 
   const rotas = []
   const porRota = /\{\s*caminho:\s*"([^"]+)",\s*metodos:\s*\{([^}]*)\}([^}]*)\}/g

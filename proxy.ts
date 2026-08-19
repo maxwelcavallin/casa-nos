@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { buscarEventoPorDominio, buscarEventoPorSlug } from "@/lib/eventos";
 import { ehSlug } from "@/lib/ids";
-import { rotaDeApiQueCasa, type MetodoHttp } from "@/lib/rotas";
+import { ehRotaCurta, rotaDeApiQueCasa, type MetodoHttp } from "@/lib/rotas";
 import {
   ehTokenDeAcesso,
   MAX_AGE_PARTICIPACAO,
@@ -76,6 +76,42 @@ export default async function proxy(pedido: NextRequest) {
   }
 
   const partes = caminho.split("/").filter(Boolean);
+
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * 3. A ROTA CURTA: `casa-nos.app/<slug>` → `/e/<slug>/album`, com **307**.
+   *
+   * É o endereço que vai impresso no cartão de mesa. `casa-nos.app/` são 13
+   * caracteres; o endereço longo (`/e/<slug>/album`) come mais 11 antes do
+   * slug, e o cartão de mesa é lido de pé, a um metro, por alguém segurando uma
+   * taça. O `po` arbitrou em 19/08/2026: a rota existe, e ela **tira o 404 do
+   * caminho** em vez de escolher entre um endereço comprido e um que não
+   * responde.
+   *
+   * **307 E NÃO 301/308.** Um redirecionamento permanente é cacheado pelo
+   * navegador *para sempre*, inclusive na aba de quem leu o QR errado; o dia em
+   * que um slug for corrigido, o aparelho de quem já visitou continuaria indo
+   * para o antigo, e não há como limpar isso remotamente. 307 preserva o método
+   * e não é guardado — custa uma ida à rede por leitura de QR, uma vez.
+   *
+   * **A CONSULTA VIAJA INTEIRA**, e é o `?o=` que importa: ele é a origem por
+   * superfície (`mesa`, `cartaz`, `telao`) e o único jeito de saber qual peça
+   * impressa trouxe o convidado (`metricas.md` §15.1). Perdê-lo aqui faria toda
+   * leitura de QR virar `direto`, e o passo 1 do funil — o gargalo real —
+   * ficaria cego justamente na noite que decide o produto.
+   *
+   * O que **não** acontece aqui: consulta ao banco. Um slug inexistente
+   * redireciona e o 404 acontece na página, que é onde ele já era. Consultar na
+   * borda custaria uma ida ao Postgres em toda leitura de QR para adiantar um
+   * erro que ninguém vai cometer.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  if (partes.length === 1 && ehSlug(partes[0]) && ehRotaCurta(partes[0])) {
+    const destino = new URL(`/e/${partes[0]}/album`, pedido.nextUrl);
+    destino.search = pedido.nextUrl.search;
+    return NextResponse.redirect(destino, 307);
+  }
+
   if (!(partes[0] === "e" && partes[2] === "album")) return NextResponse.next();
 
   const evento = ehSlug(partes[1])
@@ -109,5 +145,16 @@ export const config = {
    * imagem, todo `_next/static` e todo `favicon` — e neste produto o caminho
    * quente é justamente o de arquivos.
    */
-  matcher: ["/api/:caminho*", "/e/:slug/album"],
+  /**
+   * Só o que precisa. Middleware que roda em tudo paga o custo dele em toda
+   * imagem, todo `_next/static` e todo `favicon` — e neste produto o caminho
+   * quente é justamente o de arquivos.
+   *
+   * `/:slug` entrou pela rota curta e é o único padrão largo daqui. Ele casa um
+   * segmento só, e `ehRotaCurta` recusa tudo que o produto ocupa; a lista de
+   * reservados vive em `lib/rotas.ts` e tem um teste que varre `app/`, porque o
+   * defeito que ela evita — uma pasta nova roubar o endereço de um casamento já
+   * impresso — não acusa em lugar nenhum.
+   */
+  matcher: ["/api/:caminho*", "/e/:slug/album", "/:slug"],
 };

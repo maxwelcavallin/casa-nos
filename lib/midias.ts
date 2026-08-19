@@ -346,6 +346,32 @@ export async function confirmarFaixa(
  * H-10 — a visibilidade, e ela volta atrás para sempre
  * ------------------------------------------------------------------ */
 
+/**
+ * Uma mídia, por id, opcionalmente restrita a uma participação.
+ *
+ * `participacaoId` nulo é o alcance `todas` da matriz (casal e dono); com valor,
+ * é o alcance `proprias`. **Quem decide qual dos dois é a rota**, a partir do
+ * alcance — esta função só transforma a decisão em cláusula. Foi escrita para a
+ * H-20 (baixar) e para a coreografia da RN-33, que precisa saber a visibilidade
+ * atual **antes** de mexer nos objetos.
+ */
+export async function buscarMidia(
+  eventoId: string,
+  midiaId: string,
+  participacaoId: string | null,
+  exec: Executor = sql
+): Promise<Midia | null> {
+  const linhas = await exec`
+    select * from midias
+     where id = ${midiaId}
+       and evento_id = ${eventoId}
+       and (${participacaoId === null} or participacao_id = ${participacaoId ?? null}::uuid)
+       and excluida_em is null
+     limit 1
+  `;
+  return linhas.length ? linhaParaMidia(linhas[0]) : null;
+}
+
 export type TrocaDeVisibilidade = {
   midia: Midia;
   /** O valor ANTERIOR. Vira `media_visibility_from` no GA4 (`metricas.md` §6). */

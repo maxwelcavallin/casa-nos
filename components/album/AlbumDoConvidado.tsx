@@ -315,6 +315,23 @@ export function AlbumDoConvidado({
       <BarraDeEnvio
         estadoDaFila={estadoDaFila}
         aoEscolherArquivos={podeEnviar ? aoEscolherArquivos : null}
+        /**
+         * `media_picker_opened` — o degrau entre "quis" e "conseguiu".
+         *
+         * `media_source: "galeria"` porque o campo abre o seletor do sistema, e
+         * o produto não sabe se a pessoa vai usar a câmera ou a galeria antes de
+         * o arquivo chegar. Declarar `camera` seria inventar; a origem de
+         * verdade viaja depois, no `media_upload_succeeded`.
+         */
+        aoAbrirSeletor={
+          podeEnviar
+            ? () =>
+                enviarEvento("media_picker_opened", {
+                  wedding_id: eventoId,
+                  media_source: "galeria",
+                })
+            : null
+        }
       />
 
       <FolhaDeEnvio

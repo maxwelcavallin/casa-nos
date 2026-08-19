@@ -231,7 +231,7 @@ const LIMITE_DE_FAMILIAS = 2
  * de outro — que e pior do que nao ter, porque nao da para saber qual manda.
  */
 const COMPOSICOES =
-  /PaginaDoEvento|AlbumDoConvidado|TelaDoDia|EntrarNoPainel|PalcoTelao|MinhasFotos|ListaDeConvidados|MateriaisDoQr|TelaoDoSalao/
+  /PaginaDoEvento|AlbumDoConvidado|TelaDoDia|EntrarNoPainel|PalcoTelao|MinhasFotos|ListaDeConvidados|MateriaisDoQr|TelaoDoSalao|FilaDeAprovacao|FotosQueChegaram|DiaAoVivo|RetomarAlbum/
 
 function trataLargura(fonte) {
   if (/\bmaxWidth\b/.test(fonte)) return true

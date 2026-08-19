@@ -54,7 +54,7 @@ export type Rede = {
   relatarErro(corpo: {
     evento_id: string;
     midia_id?: string | null;
-    tipo_erro: "rede" | "servidor" | "arquivo";
+    tipo_erro: "rede" | "portal" | "servidor" | "arquivo";
     mensagem: string;
   }): Promise<void>;
 };

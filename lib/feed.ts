@@ -1,6 +1,6 @@
 import { sql, type Executor } from "@/lib/db";
 import type { Visibilidade } from "@/lib/midias";
-import { urlPublica } from "@/lib/r2";
+import { urlDeLeitura, urlPublicaDeFeed } from "@/lib/r2";
 import {
   paraInstante,
   paraInteiro,
@@ -102,8 +102,11 @@ function linhaParaItem(linha: Record<string, unknown>, eventoId: string): ItemDo
     loteId: paraTextoObrigatorio(linha.lote_id, "midias.lote_id"),
     noLote: Math.max(1, paraInteiro(linha.no_lote, 1)),
     rotulo: paraTexto(linha.rotulo),
-    miniatura: urlPublica(eventoId, id, "miniatura"),
-    previa: urlPublica(eventoId, id, "previa"),
+    // O feed só lista mídia `visibilidade = 'feed'` — os quatro filtros estão
+    // logo abaixo —, então aqui o endereço é o público, estável e cacheável
+    // (RN-33). Uma foto `noivos` nunca chega a esta função.
+    miniatura: urlPublicaDeFeed(eventoId, id, "miniatura"),
+    previa: urlPublicaDeFeed(eventoId, id, "previa"),
     largura: paraInteiro(linha.largura, 0) || null,
     altura: paraInteiro(linha.altura, 0) || null,
     armazenadaEm: (armazenada ?? new Date(0)).toISOString(),
@@ -267,7 +270,7 @@ export async function fotosDoTelao(
     const id = paraTextoObrigatorio(linha.id, "midias.id");
     return {
       id,
-      previa: urlPublica(eventoId, id, "previa"),
+      previa: urlPublicaDeFeed(eventoId, id, "previa"),
       rotulo: paraTexto(linha.rotulo),
       largura: paraInteiro(linha.largura, 0) || null,
       altura: paraInteiro(linha.altura, 0) || null,
@@ -376,18 +379,35 @@ export async function paginaDeMinhas(
   `;
 
   const cheia = linhas.length > limite;
-  const itens: MinhaMidia[] = linhas.slice(0, limite).map(linha => {
-    const id = paraTextoObrigatorio(linha.id, "midias.id");
-    return {
-      id,
-      loteId: paraTextoObrigatorio(linha.lote_id, "midias.lote_id"),
-      visibilidade: linha.visibilidade === "noivos" ? "noivos" : "feed",
-      chegada: chegadaDaLinha(linha),
-      miniatura: urlPublica(eventoId, id, "miniatura"),
-      previa: urlPublica(eventoId, id, "previa"),
-      criadaEm: (paraInstante(linha.criada_em) ?? new Date(0)).toISOString(),
-    };
-  });
+  /**
+   * **A ÚNICA GRADE DO PRODUTO QUE MISTURA AS DUAS VISIBILIDADES**, e por isso a
+   * única que decide o endereço item a item (RN-33): a foto `feed` sai pelo
+   * endereço público estável, a `noivos` sai por URL assinada de 15 minutos.
+   *
+   * A assinatura acontece **aqui**, dentro de uma resposta que já exigiu a
+   * participação dona — a rota resolve o alcance `proprias` antes de chamar —, e
+   * não numa rota de imagem por miniatura. Custo: alguns HMAC por página de 40.
+   * Nenhuma ida à rede a mais, nenhuma invocação de função por foto.
+   */
+  const itens: MinhaMidia[] = await Promise.all(
+    linhas.slice(0, limite).map(async linha => {
+      const id = paraTextoObrigatorio(linha.id, "midias.id");
+      const visibilidade: Visibilidade = linha.visibilidade === "noivos" ? "noivos" : "feed";
+      const [miniatura, previa] = await Promise.all([
+        urlDeLeitura(eventoId, id, "miniatura", visibilidade),
+        urlDeLeitura(eventoId, id, "previa", visibilidade),
+      ]);
+      return {
+        id,
+        loteId: paraTextoObrigatorio(linha.lote_id, "midias.lote_id"),
+        visibilidade,
+        chegada: chegadaDaLinha(linha),
+        miniatura,
+        previa,
+        criadaEm: (paraInstante(linha.criada_em) ?? new Date(0)).toISOString(),
+      };
+    })
+  );
 
   const ultimo = itens[itens.length - 1];
   return {

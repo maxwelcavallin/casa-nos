@@ -2,6 +2,7 @@
 
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
+import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { Image as IconeDeImagem } from "lucide-react";
@@ -38,6 +39,22 @@ export type PropriedadesDoCard = {
   noLote?: number;
   /** Quem enviou. Vai para o `aria-label`, **nunca desenhado sobre a foto**. */
   rotulo?: string | null;
+  /**
+   * O TERCEIRO EIXO, e ele existe **em uma tela só**: o painel do casal (H-14).
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * Ele não aparece no feed (lá todas estão aprovadas, e um eixo que não varia
+   * é ruído em 6.000 cards), não aparece em "as minhas fotos" (RN-07: o
+   * convidado nunca vê a fila, em tela nenhuma) e **não aparece na fila de
+   * aprovação** — ali todas estão esperando, e carimbar 400 cards com a mesma
+   * palavra é a mesma regra dita ao contrário.
+   *
+   * Só `pendente` e `recusada` desenham selo. `nao_requer` e `aprovada` são a
+   * norma, e a norma não se carimba — é o mesmo princípio do canto vazio no
+   * eixo de chegada.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  aprovacao?: "nao_requer" | "pendente" | "aprovada" | "recusada";
   /** O motivo, quando o item parou. **A palavra "falhou" não entra aqui.** */
   motivo?: string | null;
   aoAbrir?: () => void;
@@ -77,6 +94,12 @@ export function rotuloAcessivel(propriedades: PropriedadesDoCard): string {
 
   if (propriedades.rotulo) partes.push(`de ${propriedades.rotulo}`);
 
+  // O terceiro eixo entra por extenso, como os outros dois: quem não vê a tela
+  // não vê o chip do canto, e "esperando aprovação" muda o que a pessoa faz.
+  const aprovacao = propriedades.aprovacao;
+  if (aprovacao === "pendente") partes.push(ROTULO_DA_APROVACAO.pendente.toLowerCase());
+  else if (aprovacao === "recusada") partes.push(ROTULO_DA_APROVACAO.recusada.toLowerCase());
+
   const chegada = propriedades.chegada;
   if (chegada === "chegando") partes.push(ROTULO_DO_SELO.chegando.toLowerCase());
   else if (chegada === "ainda_subindo") partes.push(ROTULO_DO_SELO.ainda_subindo.toLowerCase());
@@ -87,8 +110,27 @@ export function rotuloAcessivel(propriedades: PropriedadesDoCard): string {
   return propriedades.motivo ? `${texto}. ${propriedades.motivo}` : texto;
 }
 
+/**
+ * Os dois rótulos do terceiro eixo.
+ *
+ * `Esperando aprovação` é do `gtm.md` §5.13, palavra por palavra — a mesma do
+ * filtro, porque selo e filtro usam a palavra idêntica (§3.3).
+ *
+ * **`Fora do álbum` é texto que o `gtm.md` não escreveu**, e está registrado
+ * como pendência do `pmm` em `docs/fatia-1-f1-5-f1-7.md`. O documento dá o botão
+ * (`Tirar do álbum`) e o toast (`Tirada do álbum e do telão. Ela continua com
+ * você.`) e não dá o selo do estado resultante. Escolhi a forma mais curta que
+ * usa as mesmas palavras do botão — nunca "recusada" nem "rejeitada", que
+ * sugeririam que a foto saiu do painel do casal, e ela não saiu.
+ */
+export const ROTULO_DA_APROVACAO = {
+  pendente: "Esperando aprovação",
+  recusada: "Fora do álbum",
+} as const;
+
 export function CardMidia(propriedades: PropriedadesDoCard) {
-  const { miniatura, visibilidade, chegada, noLote = 1, motivo, aoAbrir } = propriedades;
+  const { miniatura, visibilidade, chegada, noLote = 1, motivo, aprovacao, aoAbrir } =
+    propriedades;
   const selo = chegada ? seloDeChegada(chegada) : null;
   const privada = visibilidade === "noivos";
 
@@ -189,8 +231,35 @@ export function CardMidia(propriedades: PropriedadesDoCard) {
         </Box>
       ) : null}
 
+      {/**
+       * Canto C — "aprovação". Superior ESQUERDO, e só no painel do casal.
+       *
+       * O canto é o mesmo da contagem de rajada, e os dois nunca convivem: o
+       * painel não agrupa lote (cada foto é uma decisão) e o feed não tem eixo
+       * de aprovação. Se um dia convivessem, o de aprovação ganha — ele muda o
+       * que a pessoa faz, e a contagem só informa.
+       */}
+      {aprovacao === "pendente" || aprovacao === "recusada" ? (
+        <Box sx={{ position: "absolute", top: 8, left: 8 }}>
+          <Chip
+            size="small"
+            label={ROTULO_DA_APROVACAO[aprovacao]}
+            sx={{
+              height: 24,
+              maxWidth: "calc(100% - 16px)",
+              // `warning` para o que espera, `action.selected` para o que saiu:
+              // sair do álbum não é erro (a foto continua com o casal), e pintar
+              // de vermelho uma decisão que o próprio casal tomou seria contar
+              // um incidente onde houve uma escolha.
+              bgcolor: aprovacao === "pendente" ? "warning.light" : "action.selected",
+              color: "text.primary",
+            }}
+          />
+        </Box>
+      ) : null}
+
       {/* Cartão de rajada — a contagem do lote inteiro (RN-17). */}
-      {noLote > 1 ? (
+      {noLote > 1 && !aprovacao ? (
         <Box sx={{ position: "absolute", top: 8, left: 8 }}>
           <Box
             sx={{

@@ -174,11 +174,20 @@ export const POST = rotaDeApi(CAMINHO, async (pedido, contexto) => {
   const expiraEm = new Date(agora.getTime() + VALIDADE_DA_URL_SEGUNDOS * 1000);
   const saida = [];
   for (const { midia, jaExistia } of registradas) {
+    /**
+     * A VISIBILIDADE ENTRA NA ASSINATURA porque ela decide o PREFIXO (RN-33): a
+     * derivada de uma foto `feed` nasce em `pub/`, a de uma foto `noivos` nasce
+     * em `prv/`, e o original nasce em `prv/` sempre. É `midia.visibilidade`, do
+     * banco, e não a do corpo do pedido — numa repetição de lote (RN-27) a
+     * pessoa pode ter trocado a visibilidade no meio, e assinar o prefixo errado
+     * subiria a foto privada para o lado público.
+     */
     const urls = await assinarFaixas(
       configuracao,
       acesso.evento.id,
       midia.id,
       midia.tipoArquivo,
+      midia.visibilidade,
       agora
     );
     saida.push({

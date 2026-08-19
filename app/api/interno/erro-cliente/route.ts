@@ -34,7 +34,13 @@ const CAMINHO = "/api/interno/erro-cliente";
 const LIMITE = 30;
 const JANELA_MS = 60 * 60 * 1000;
 
-const TIPOS: TipoDeErro[] = ["rede", "servidor", "arquivo"];
+/**
+ * Os quatro do dicionário (`metricas.md` §6.2), e `portal` é o que mais importa
+ * receber aqui: no salão em que ele acontece, o evento equivalente do GA4 é
+ * justamente o que o portal engole. **Este relato chega pelo caminho que
+ * funciona** — a fila reenvia quando a rede volta de verdade.
+ */
+const TIPOS: TipoDeErro[] = ["rede", "portal", "servidor", "arquivo"];
 
 export const POST = rotaDeApi(CAMINHO, async pedido => {
   const corpo = await corpoJson(pedido);

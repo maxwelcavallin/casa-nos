@@ -359,3 +359,57 @@ export function instanteDoInputLocal(
   if (!casa) return null;
   return instanteDoEvento(casa[1], `${casa[2]}:${casa[3]}:${casa[4] ?? "00"}`, fuso);
 }
+
+/**
+ * Um instante → `"22h14"`, no fuso do EVENTO.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ELA EXISTE PARA A FILA DE APROVAÇÃO ("A mais antiga chegou às 22h14") e para o
+ * painel do dia, e mora aqui pelo mesmo motivo de tudo o mais neste arquivo: a
+ * conversão é feita **no servidor, com o fuso do evento**, e a tela recebe o
+ * texto pronto.
+ *
+ * A tentação era formatar no cliente com `toLocaleTimeString()`. Ela erra de um
+ * jeito específico e invisível: o computador do padrinho que abre a fila às 23h
+ * pode estar em qualquer fuso — o do salão, o de casa, ou o que veio de fábrica
+ * —, e "a mais antiga chegou às 19h14" num casamento que começou às 18h faria
+ * quem lê concluir que a fila está parada há quatro horas.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Meia-noite volta `"0h"`, e não `null` como em `partesLocais`: aqui a hora é o
+ * conteúdo, e não um detalhe opcional de uma frase.
+ */
+export function horaDoInstante(instante: Date, fuso: string = FUSO): string {
+  const formatador = new Intl.DateTimeFormat("en-CA", {
+    timeZone: fuso,
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const p: Record<string, string> = {};
+  for (const parte of formatador.formatToParts(instante)) {
+    if (parte.type !== "literal") p[parte.type] = parte.value;
+  }
+  const hh = Number(p.hour) % 24;
+  return p.minute === "00" ? `${hh}h` : `${hh}h${p.minute}`;
+}
+
+/**
+ * `"2027-08"` → `"agosto de 2027"`. Reaproveita a tabela `MESES` do topo — o
+ * produto tem **uma** lista de meses por extenso, e não duas parecidas.
+ *
+ * **É UM MÊS, E NÃO UMA DATA** — e por isso ele NÃO passa por `Date` (regra §6
+ * do `stack.md`). `new Date("2027-08")` é meia-noite do dia 1 em **UTC**, que
+ * é 21h do dia 31 de julho em Brasília: a frase do toast do CTA diria "julho de
+ * 2027" para quem escolheu agosto, e só entre 21h e meia-noite. O defeito
+ * apareceria uma vez a cada tantos leads, e ninguém o reproduziria.
+ *
+ * A entrada vem de um campo `type="month"` e do banco, e nos dois lugares o
+ * formato é `AAAA-MM`. Fora do formato, devolve o que entrou: melhor um mês cru
+ * numa frase do que uma exceção derrubando o toast de sucesso.
+ */
+export function mesPorExtenso(mes: string): string {
+  const encontrado = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(mes);
+  if (!encontrado) return mes;
+  return `${MESES[Number(encontrado[2]) - 1]} de ${encontrado[1]}`;
+}

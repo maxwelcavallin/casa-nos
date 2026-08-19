@@ -15,6 +15,7 @@ import { CardMidia } from "@/components/album/CardMidia";
 import { EnvioIndisponivel } from "@/components/album/EnvioIndisponivel";
 import { FolhaDeEnvio, type PreviaLocal } from "@/components/album/FolhaDeEnvio";
 import { FolhaDaFoto } from "@/components/album/FolhaDaFoto";
+import { RodapeDoLoop } from "@/components/album/RodapeDoLoop";
 import { EsqueletoDaGrade, GradeMidias } from "@/components/album/GradeMidias";
 import { ResumoDoTopo } from "@/components/album/ResumoDoTopo";
 import {
@@ -62,6 +63,8 @@ import { useMinhas } from "@/lib/usar-minhas";
 export type PropriedadesDeMinhas = {
   eventoId: string;
   slug: string;
+  /** Para a mensagem pronta do `wa.me` no link guardado (H-22). */
+  nomeCasal: string;
   participacaoId: string | null;
   faixaLenta: boolean;
   estadoDoEnvio: EstadoDoEnvio;
@@ -82,6 +85,7 @@ const ERRO_DA_TROCA =
 export function MinhasFotos({
   eventoId,
   slug,
+  nomeCasal,
   participacaoId,
   faixaLenta,
   estadoDoEnvio,
@@ -102,6 +106,44 @@ export function MinhasFotos({
     participacaoId !== null
   );
   const podeEnviar = estadoDoEnvio === "aberto" && participacaoId !== null;
+
+  /**
+   * A RECONCILIAÇÃO NO GATILHO QUE MAIS IMPORTA (H-15): **a participação reabre
+   * o álbum**.
+   *
+   * Quem reabre "as minhas fotos" é justamente quem tinha foto na fila. O `PUT`
+   * no R2 é o passo que consome o uplink inteiro; o `POST` de confirmação é o
+   * que falha depois dele, quando a rede já acabou. A pessoa fecha a aba achando
+   * que perdeu, volta no dia seguinte — e é aqui que a foto dela é adotada.
+   *
+   * **Ela não é anunciada.** Nenhum "recuperamos 3 fotos": para a convidada a
+   * foto simplesmente está lá, e transformar um acerto invisível numa notícia é
+   * contar que algo tinha dado errado. O que a resposta muda é a grade, que
+   * recarrega.
+   */
+  const jaReconciliou = useRef(false);
+  useEffect(() => {
+    if (jaReconciliou.current || participacaoId === null) return;
+    jaReconciliou.current = true;
+    (async () => {
+      try {
+        const resposta = await fetch(
+          `/api/eventos/${eventoId}/participacoes/atual/reconciliar`,
+          { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }
+        );
+        if (!resposta.ok) return;
+        const corpo = (await resposta.json()) as { recarregar: boolean };
+        if (corpo.recarregar) await recarregar();
+      } catch {
+        /**
+         * Silêncio. A reconciliação é conserto oportunista: se ela não rodar
+         * agora, o cron diário roda às 12:00 UTC. Contar a falha na tela seria
+         * contar à convidada um problema que ela não tem como resolver, sobre
+         * uma foto que ela nem sabe que ficou para trás.
+         */
+      }
+    })();
+  }, [eventoId, participacaoId, recarregar]);
 
   const jaMediu = useRef(false);
   useEffect(() => {
@@ -196,6 +238,26 @@ export function MinhasFotos({
         media_visibility: nova,
       });
       if (nova === "noivos") setRecado("Agora só os noivos veem esta foto.");
+    }
+  }
+
+  /**
+   * BAIXAR (H-20). Duas idas: a rota assina, o navegador busca.
+   *
+   * O arquivo **não passa pela função** — ela devolve uma URL assinada de 15
+   * minutos e o navegador vai direto ao balde. Fazer proxy de 90 MB dentro de
+   * uma função serverless é memória, tempo e um limite de resposta da
+   * plataforma, e o caso "cheio" da história é exatamente uma foto de 90 MB.
+   */
+  async function baixarFoto(id: string) {
+    try {
+      const resposta = await fetch(`/api/eventos/${eventoId}/midias/${id}/download`);
+      if (!resposta.ok) throw new Error(String(resposta.status));
+      const corpo = (await resposta.json()) as { url: string };
+      window.location.href = corpo.url;
+    } catch {
+      // O botão continua na tela: quem falhou foi o pedido, não a foto.
+      setRecado("Não conseguimos preparar o download agora. Tente de novo em instantes.");
     }
   }
 
@@ -300,13 +362,21 @@ export function MinhasFotos({
         </Typography>
 
         {/**
-         * O CTA DO LOOP (H-16) FICA **ABAIXO** DA GRADE e **só depois** de ao
-         * menos uma mídia estar armazenada — e ele é da F1.7. O espaço dele está
-         * marcado aqui e vazio de propósito: nada de aquisição antes do primeiro
-         * envio concluído, e nada acima do botão de enviar
-         * (`escopo-core.md` §11.4).
+         * O CTA DO LOOP (H-16) E O LINK GUARDADO (H-22) — **abaixo da grade**, e
+         * só depois de ao menos uma mídia armazenada.
+         *
+         * `temMidiaArmazenada` é o que traduz a regra do `escopo-core.md` §11.4
+         * em dado: `chegando` significa que nem a prévia confirmou, e nesse
+         * estado o envio ainda não concluiu. O rodapé se desenha sozinho a
+         * partir daí — a decisão mora no componente, junto com o motivo.
          */}
         <Divider />
+        <RodapeDoLoop
+          eventoId={eventoId}
+          nomeCasal={nomeCasal}
+          temMidiaArmazenada={estado.itens.some(item => item.chegada !== "chegando")}
+          aoAvisar={setRecado}
+        />
       </Stack>
     );
   })();
@@ -367,6 +437,23 @@ export function MinhasFotos({
         // embaixo seriam duas mensagens sobre o mesmo estado, e a de baixo nunca
         // é lida.
         comIndicador={false}
+        /**
+         * `media_picker_opened` — o degrau entre "quis" e "conseguiu".
+         *
+         * `media_source: "galeria"` porque o campo abre o seletor do sistema, e
+         * o produto não sabe se a pessoa vai usar a câmera ou a galeria antes de
+         * o arquivo chegar. Declarar `camera` seria inventar; a origem de
+         * verdade viaja depois, no `media_upload_succeeded`.
+         */
+        aoAbrirSeletor={
+          podeEnviar
+            ? () =>
+                enviarEvento("media_picker_opened", {
+                  wedding_id: eventoId,
+                  media_source: "galeria",
+                })
+            : null
+        }
         aoEscolherArquivos={
           podeEnviar
             ? arquivos => {
@@ -420,6 +507,7 @@ export function MinhasFotos({
         aoFechar={() => setEmFoco(null)}
         aoTrocar={nova => void trocar(nova)}
         aoApagar={() => void apagarFoto(emFoco?.id ?? "")}
+        aoBaixar={() => void baixarFoto(emFoco?.id ?? "")}
       />
 
       {/**

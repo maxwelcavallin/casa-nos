@@ -21,7 +21,18 @@ import { sql, type Executor } from "@/lib/db";
  */
 
 export type OrigemDoErro = "servidor" | "cliente" | "alerta";
-export type TipoDeErro = "rede" | "servidor" | "arquivo";
+/**
+ * QUATRO VALORES, e o quarto foi a correção mais barata desta fatia (migration
+ * 0011, `metricas.md` §6.2).
+ *
+ * `rede` é a internet que CAIU — a resposta certa é não fazer nada, a fila
+ * existe para isso. `portal` é a internet que MENTIU: o wifi do salão responde
+ * HTML com status 200, o envio parece ter completado e a foto não existe. É o
+ * único erro desta lista que produz **perda silenciosa**, e o único em que agir
+ * é obrigatório. Colapsados num valor só, o painel do dia recomendaria "não faça
+ * nada" no único caso em que agir é obrigatório.
+ */
+export type TipoDeErro = "rede" | "portal" | "servidor" | "arquivo";
 
 export type RegistroDeErro = {
   origem: OrigemDoErro;
@@ -182,6 +193,53 @@ async function avaliarAlertaDeTaxa(
         `   where criado_em > now() - interval '6 hours'\n` +
         `   group by 1, 2, 3 order by 1 desc;\n`,
     });
+  } catch (falha) {
+    console.error("[casa-nos] alerta nao saiu:", sanearMensagem(falha));
+  }
+}
+
+/**
+ * Um alerta ao dono, fora do caminho de erro.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * OS DOIS ALERTAS QUE FALTAVAM À H-18 ENTRARAM AQUI NA F1.6: "adoções por
+ * reconciliação passam de 5 numa hora" e "objeto público de mídia privada".
+ * Eles não existiam na F1.2 porque o processo que eles observam não existia — e
+ * um alerta sobre um processo inexistente dispara sobre nada ou nunca, e nos dois
+ * casos ensina quem o recebe a ignorá-lo.
+ *
+ * O TERCEIRO DA LISTA — "o cron diário não rodou" — **continua sem existir como
+ * alerta, e a ausência é declarada**: um processo não consegue avisar que não
+ * rodou. O que existe no lugar é evidência num lugar onde uma pessoa olha:
+ * `evento_contadores.recomputado_em` viaja no painel do dia ao vivo, ao lado do
+ * sinal do telão. Um vigia de verdade é um serviço externo batendo numa rota —
+ * configuração, não código, e está escrito no README.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * **NUNCA ESTOURA**, pelo mesmo motivo de `registrarErro`: um alerta que lança
+ * transforma o incidente que ele deveria contar num incidente sobre a ferramenta
+ * de diagnóstico.
+ */
+export async function alertar(
+  assunto: string,
+  texto: string,
+  exec: Executor = sql
+): Promise<void> {
+  const destino = process.env.ALERTA_EMAIL;
+  await registrarErro(
+    {
+      origem: "alerta",
+      rota: "interno/alerta",
+      sessaoTipo: "cron",
+      tipoErro: "servidor",
+      classe: "alerta",
+      mensagem: assunto,
+    },
+    exec
+  );
+  if (!destino) return;
+  try {
+    await enviarEmail({ para: destino, assunto, texto });
   } catch (falha) {
     console.error("[casa-nos] alerta nao saiu:", sanearMensagem(falha));
   }

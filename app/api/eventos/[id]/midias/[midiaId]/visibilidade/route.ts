@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 
-import { autorizar, corpoJson, naoEncontrado, pedidoInvalido, rotaDeApi } from "@/lib/api";
+import {
+  autorizar,
+  corpoJson,
+  naoEncontrado,
+  pedidoInvalido,
+  respostaDeErro,
+  rotaDeApi,
+} from "@/lib/api";
 import { ehUuid } from "@/lib/ids";
-import { trocarVisibilidade, type Visibilidade } from "@/lib/midias";
+import type { Visibilidade } from "@/lib/midias";
 import { participacaoDaSessao } from "@/lib/sessao";
+import { mudarVisibilidadeDaMidia, trocaFalhou } from "@/lib/visibilidade";
 
 /**
  * A VISIBILIDADE VOLTA ATRÁS, PARA SEMPRE (H-10).
@@ -53,10 +61,31 @@ export const PATCH = rotaDeApi(CAMINHO, async (pedido, contexto) => {
   const nova = paraVisibilidade((corpo as Record<string, unknown>).visibilidade);
   if (!nova) return pedidoInvalido("visibilidade invalida");
 
-  const troca = await trocarVisibilidade(acesso.evento.id, midiaId, participacao.id, nova);
-  // Mídia de outra participação, de outro evento, ou já excluída: 404. Os três
-  // dão a mesma resposta de propósito — 403 confirmaria que a mídia existe.
-  if (!troca) return naoEncontrado();
+  const troca = await mudarVisibilidadeDaMidia(
+    acesso.evento.id,
+    midiaId,
+    participacao.id,
+    nova
+  );
+
+  if (trocaFalhou(troca)) {
+    // Mídia de outra participação, de outro evento, ou já excluída: 404. Os três
+    // dão a mesma resposta de propósito — 403 confirmaria que a mídia existe.
+    if (troca.motivo === "nao_encontrada") return naoEncontrado();
+    /**
+     * 503, E A VISIBILIDADE NÃO MUDOU (RN-33).
+     *
+     * O endereço público da foto não pôde ser fechado — a cópia falhou, a
+     * remoção falhou, ou a borda continuou respondendo. Escrever a coluna assim
+     * mesmo mostraria "Só os noivos veem esta foto" para uma foto que qualquer
+     * um com o endereço antigo continua abrindo. **Mentir é o único resultado
+     * proibido aqui**; falhar não é.
+     *
+     * 5xx e não 4xx de propósito: a fila do cliente trata 5xx como "tente de
+     * novo", e tentar de novo é exatamente a atitude certa.
+     */
+    return respostaDeErro(503, "nao foi possivel mudar agora");
+  }
 
   return NextResponse.json({
     id: troca.midia.id,

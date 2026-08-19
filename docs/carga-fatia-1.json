@@ -1,0 +1,148 @@
+{
+  "quando": "2026-08-19T11:57:50.356Z",
+  "opcoes": {
+    "base": "http://localhost:3211",
+    "slug": "carga-fatia-1",
+    "clientes": 200,
+    "midias": 4000,
+    "escala": 120,
+    "sondagem": 30,
+    "feed": 6000,
+    "manter": false
+  },
+  "resumos": [
+    {
+      "nome": "GET /<slug> + /e/<slug>/album (leitura do QR)",
+      "amostras": 200,
+      "erros": 0,
+      "p50": 679.8181000000004,
+      "p90": 1243.5224999999998,
+      "p99": 1546.4988,
+      "maximo": 1550.142
+    },
+    {
+      "nome": "PATCH /participacoes/atual (quem eu sou)",
+      "amostras": 200,
+      "erros": 0,
+      "p50": 650.1864000000005,
+      "p90": 744.0741000000007,
+      "p99": 977.8907999999992,
+      "maximo": 1276.7012999999988
+    },
+    {
+      "nome": "POST /midias/intencao",
+      "amostras": 2960,
+      "erros": 1040,
+      "p50": 3944.491900000008,
+      "p90": 8676.773199999996,
+      "p99": 11593.923299999995,
+      "maximo": 14518.231
+    },
+    {
+      "nome": "POST /midias/[id]/confirmacao",
+      "amostras": 2957,
+      "erros": 3,
+      "p50": 1255.1896000000124,
+      "p90": 2183.9213000000163,
+      "p99": 6355.992599999998,
+      "maximo": 8421.580599999987
+    },
+    {
+      "nome": "custo do produto no seconds_since_scan",
+      "amostras": 2957,
+      "erros": 1043,
+      "p50": 5234.4187999999995,
+      "p90": 10705.807500000024,
+      "p99": 17028.016799999983,
+      "maximo": 17967.3327
+    },
+    {
+      "nome": "GET /feed/novidades",
+      "amostras": 160,
+      "erros": 1040,
+      "p50": 10835.561999999976,
+      "p90": 11861.210300000006,
+      "p99": 12344.555299999978,
+      "maximo": 13050.938200000004
+    },
+    {
+      "nome": "GET /feed (primeira pagina)",
+      "amostras": 1,
+      "erros": 0,
+      "p50": 1090.320699999982,
+      "p90": 1090.320699999982,
+      "p99": 1090.320699999982,
+      "maximo": 1090.320699999982
+    },
+    {
+      "nome": "GET /feed (paginas seguintes)",
+      "amostras": 125,
+      "erros": 0,
+      "p50": 502.0342000000528,
+      "p90": 518.6854000000167,
+      "p99": 548.233499999973,
+      "maximo": 964.6000999999815
+    },
+    {
+      "nome": "consulta das sete linhas (SQL direto)",
+      "amostras": 20,
+      "erros": 0,
+      "p50": 492.5480000000098,
+      "p90": 509.3949000000139,
+      "p99": 1135.3647999999812,
+      "maximo": 1135.3647999999812
+    }
+  ],
+  "volume": {
+    "disparadas": 1200,
+    "segundos": 30
+  },
+  "album": {
+    "itens": 5023,
+    "paginas": 126,
+    "bytesTotais": 2155993,
+    "bytesPorItem": 429
+  },
+  "veredito": {
+    "contagens": {
+      "total": 6003,
+      "armazenadas": 6000,
+      "sem_previa": 3,
+      "originais_pendentes": 1202,
+      "contador": 2957
+    },
+    "erros": [
+      {
+        "tipo": "servidor",
+        "quantos": 130
+      }
+    ],
+    "causas": [
+      {
+        "classe": "NeonDbError",
+        "mensagem": "Error connecting to database: TypeError: fetch failed",
+        "quantos": 120
+      },
+      {
+        "classe": "NeonDbError",
+        "mensagem": "Database request failed",
+        "quantos": 8
+      },
+      {
+        "classe": "NeonDbError",
+        "mensagem": "server login has been failing, cached error: the database system is shutting down (server_login_retry)",
+        "quantos": 2
+      }
+    ],
+    "perda": {
+      "previas_perdidas": 0
+    },
+    "participacao": {
+      "evento_id": "d11311e8-8c03-472a-8b99-6648c94d5664",
+      "slots_presentes": "184",
+      "slots_publicaram": "184",
+      "pessoas_teto": "184",
+      "presentes_contagem": 184
+    }
+  }
+}

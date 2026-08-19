@@ -393,19 +393,33 @@ export function criarMotor(ferramentas: Ferramentas, contexto: ContextoDaFila) {
     medir("media_upload_retried", {
       wedding_id: contexto.weddingId,
       attempt_count: item.tentativas,
-      // `portal` não existe no dicionário do GA4 (metricas.md §6): são três
-      // valores, e inventar um quarto criaria dimensão fora do dicionário. O
-      // portal cativo é, do ponto de vista da medição, rede — e a distinção que
-      // importa (ela tem ação na tela) vive no produto, não no relatório.
-      error_kind:
-        falha === "servidor" ? "servidor" : falha === "arquivo" ? "arquivo" : "rede",
+      /**
+       * `portal` VIAJA COM O PRÓPRIO NOME desde a F1.6 (`metricas.md` §6.2
+       * corrigida). Ele era colapsado em `rede` porque o dicionário tinha três
+       * valores; o quarto entrou, e a palavra é a mesma no banco e no relatório.
+       *
+       * **A ressalva, e ela não tem conserto:** num portal cativo a requisição
+       * para o `/g/collect` também é interceptada. O evento que descreve o
+       * portal é justamente o que o portal engole — este valor é subnotificado
+       * por construção no GA4. Quando ele aparecer lá, já é diagnóstico
+       * suficiente; quando não aparecer, não prova nada. **A contagem que vale
+       * é a do Postgres**, e ela chega pelo `relatarErro` logo abaixo.
+       */
+      error_kind: falha,
     });
 
+    /**
+     * `rede` pura não é relatada: o aparelho está sem rede, e o relato usaria a
+     * rede que não existe. **`portal` É RELATADO**, e é a diferença que importa —
+     * num portal cativo há rede local, a requisição sai, e é justamente esse
+     * relato que produz o número que o painel do dia lê na linha 4. Se ele
+     * também for engolido, a fila reenvia quando a rede voltar de verdade.
+     */
     if (falha !== "rede" && item.midiaId) {
       await rede.relatarErro({
         evento_id: contexto.eventoId,
         midia_id: item.midiaId,
-        tipo_erro: falha === "servidor" ? "servidor" : "arquivo",
+        tipo_erro: falha,
         mensagem: `falha na faixa apos ${item.tentativas} tentativas`,
       });
     }

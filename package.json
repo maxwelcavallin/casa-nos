@@ -17,7 +17,9 @@
     "db:migrar": "node scripts/migrar.mjs",
     "db:seed": "node scripts/seed.mjs",
     "contrato": "node scripts/openapi.mjs --conferir",
-    "db:bootstrap": "node scripts/bootstrap.mjs"
+    "db:bootstrap": "node scripts/bootstrap.mjs",
+    "carga": "node scripts/carga.mjs",
+    "medida": "vitest run --config vitest.medida.mts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

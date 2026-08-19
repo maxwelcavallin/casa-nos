@@ -76,6 +76,14 @@ export default async function PaginaDeMinhasFotos({
     <MinhasFotos
       eventoId={evento.id}
       slug={evento.slug}
+      /**
+       * O nome do casal serve à mensagem pronta do `wa.me` no link guardado
+       * (H-22) — `Minhas fotos do casamento de [casal]: [link]` — e **não**
+       * aparece em linha com teto nesta tela: o título continua sendo "As
+       * minhas fotos", literal (RN-31), e a barra de contexto do `/r/[token]`
+       * usa "deste casamento", que mede 34 sempre.
+       */
+      nomeCasal={evento.nomeCasal}
       participacaoId={participacao?.id ?? null}
       faixaLenta={participacao?.faixaLenta ?? false}
       estadoDoEnvio={estado}

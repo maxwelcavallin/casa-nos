@@ -73,6 +73,7 @@ function montarMinhas(sobrepor: Partial<React.ComponentProps<typeof MinhasFotos>
       <MinhasFotos
         eventoId={EVENTO}
         slug="ana-e-max"
+        nomeCasal="Ana Flávia e Maxwel"
         participacaoId={PARTICIPACAO}
         faixaLenta={false}
         estadoDoEnvio="aberto"

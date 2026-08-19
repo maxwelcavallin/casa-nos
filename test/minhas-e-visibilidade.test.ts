@@ -216,7 +216,24 @@ describe("a visibilidade só é escrita por quem enviou", () => {
         .readFileSync(arquivo, "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/(^|[^:])\/\/.*$/gm, "$1");
-      return /update\s+midias[\s\S]{0,400}?\bset\b[\s\S]{0,200}?\bvisibilidade\s*=/.test(fonte);
+      /**
+       * A varredura olha só o que está **entre `set` e `where`**, e a precisão
+       * importa nos dois sentidos.
+       *
+       * A primeira versão media `set` … 200 caracteres … `visibilidade =` e
+       * acusava `lib/moderacao.ts`, que escreve `aprovacao` e **filtra** por
+       * `visibilidade = 'feed'` na cláusula. Era falso positivo — e falso
+       * positivo numa catraca é como ela é desligada: alguém acrescenta uma
+       * exceção nominal, e a exceção seguinte entra sem ninguém olhar.
+       *
+       * O erro contrário seria pior: uma varredura frouxa demais deixaria passar
+       * um `update midias set visibilidade` novo, que é exatamente o que ela
+       * existe para impedir.
+       */
+      for (const achado of fonte.matchAll(/update\s+midias\b([\s\S]*?)(?:\bwhere\b|`)/g)) {
+        if (/\bvisibilidade\s*=/.test(achado[1])) return true;
+      }
+      return false;
     });
 
     expect(

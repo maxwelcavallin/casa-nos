@@ -39,6 +39,14 @@ export type PropriedadesDaFolhaDaFoto = {
   aoFechar: () => void;
   aoTrocar: (nova: Visibilidade) => void;
   aoApagar: () => void;
+  /**
+   * Baixar (H-20, `Should`). Ausente → o botão não existe.
+   *
+   * A URL é assinada pelo servidor, vale 15 minutos e é gerada por requisição —
+   * o original mora em `prv/` em toda visibilidade (RN-33), e esta é a única
+   * porta para ele.
+   */
+  aoBaixar?: () => void;
 };
 
 type Painel = "ver" | "escolher" | "confirmar";
@@ -48,6 +56,7 @@ export function FolhaDaFoto({
   aoFechar,
   aoTrocar,
   aoApagar,
+  aoBaixar,
 }: PropriedadesDaFolhaDaFoto) {
   /**
    * O PAINEL VOLTA AO INÍCIO POR **REMONTAGEM**, e não por um efeito.
@@ -91,6 +100,23 @@ export function FolhaDaFoto({
               virada em controle. */}
           Mudar quem vê
         </Button>
+        {aoBaixar ? (
+          <Button
+            variant="text"
+            fullWidth
+            onClick={aoBaixar}
+            sx={{ minHeight: toque.confortavel }}
+          >
+            {/**
+             * **O BOTÃO DIZ QUAL VERSÃO ESTÁ BAIXANDO** (H-20), e a fonte da
+             * verdade é o eixo de chegada: `completa` significa que o original
+             * confirmou. *"Nunca entrega prévia dizendo que é original"* é o
+             * critério, e ele só é cumprível se o texto do botão for derivado do
+             * estado — não de uma constante.
+             */}
+            {midia.chegada === "completa" ? "Baixar esta foto" : "Baixar (versão menor)"}
+          </Button>
+        ) : null}
         <Button
           variant="text"
           fullWidth

@@ -344,6 +344,148 @@ o único evento desta fatia cuja ausência invalida a leitura de todos os outros
 Ele dispara **depois** de o arquivo ser gerado, e não ao tocar no botão: uma
 falha de geração não pode contar como material baixado.
 
+### Os cinco da F1.5 a F1.7 — a moderação e o loop
+
+Fecham o dicionário da Fatia 1 (H-17). Os 16 eventos de `metricas.md` §6 estão
+todos no código; `sign_up` e `wedding_created` ficaram para a Fatia 2 (V8), e
+`couple_activated` **não é evento de GA4** — é marco derivado em SQL.
+
+#### `media_picker_opened`
+
+| Campo | Valor |
+|---|---|
+| Significa | O convidado tocou em adicionar foto e o seletor abriu |
+| Onde dispara | `components/album/BarraDeEnvio.tsx`, **no toque** |
+| Parâmetros | `wedding_id` · `media_source` (`camera` \| `galeria`) |
+| Alimenta | Ativação. É o degrau que separa "quis" de "conseguiu" |
+| Conversão? | Não |
+
+**Ele sai no toque, e não no `change` do campo.** O `change` só dispara quando a
+pessoa **escolhe** uma foto — e a pergunta que este evento responde é a
+anterior: o seletor abriu? Medindo no `change`, quem tocou e viu a galeria
+travar não apareceria em lugar nenhum, que é exatamente o caso que este número
+existe para achar.
+
+`media_source` sai como `galeria` porque o campo abre o seletor do sistema (não
+há `capture`): o produto **não sabe** qual das duas a pessoa vai usar antes de o
+arquivo chegar. Declarar `camera` seria inventar; a origem de verdade viaja
+depois, no `media_upload_succeeded`.
+
+#### `media_moderated`
+
+| Campo | Valor |
+|---|---|
+| Significa | O casal (ou o moderador) aprovou ou recusou mídia |
+| Onde dispara | `components/painel/FilaDeAprovacao.tsx` e `FotosQueChegaram.tsx` |
+| Parâmetros | `wedding_id` · `moderation_action` (`aprovada` \| `recusada`) · `moderation_during_event` (`true` \| `false`) |
+| Alimenta | **Bloqueio 2 do verde** (`metricas.md` §4) |
+| Conversão? | Não |
+
+**`moderation_during_event` é calculado no SERVIDOR**, contra `inicio_festa_em` e
+`fim_festa_em` (RN-10), e volta no corpo da resposta. A tela só repassa. Deixar
+o cliente calcular seria confiar um veredito ao relógio de um computador
+emprestado do salão.
+
+**Um evento por decisão, e não por foto.** "Aprovar as 400" é um toque; 400
+eventos fariam a contagem medir o tamanho do lote em vez do número de vezes que
+alguém precisou agir — e o bloqueio 2 é sobre a segunda coisa.
+
+#### `growth_cta_viewed`
+
+| Campo | Valor |
+|---|---|
+| Significa | A pergunta do loop **apareceu** na tela de alguém que estava no casamento |
+| Onde dispara | `components/album/RodapeDoLoop.tsx`, por `IntersectionObserver` |
+| Parâmetros | `wedding_id` · `cta_surface` (`confirmacao_envio` \| `album` \| `feed` \| `telao`) |
+| Alimenta | **Alcance do loop.** Sem ele, a taxa de clique não tem denominador |
+| Conversão? | Não — de propósito (`metricas.md` §7.4) |
+
+Duas travas, e sem as duas o denominador fica maior que o número de convidados:
+**uma vez por sessão e por superfície** (`sessionStorage`) e **só depois de 1
+segundo visível**. Uma rolagem para cima e para baixo cruza o elemento seis
+vezes; seis alcances para uma pessoa fariam a taxa de clique parecer seis vezes
+pior, e a correção óbvia — mexer no texto do botão — seria a errada.
+
+**`cta_surface = feed` não é emitido na Fatia 1** (H-16, decisão R8 do `po`). O
+valor continua no dicionário e simplesmente não ocorre. Está escrito aqui para
+que ninguém o procure no relatório, e para que ninguém acrescente o CTA ao feed
+depois "porque o dicionário permite".
+
+#### `growth_cta_clicked`
+
+| Campo | Valor |
+|---|---|
+| Significa | O convidado tocou na pergunta do loop |
+| Onde dispara | `components/album/RodapeDoLoop.tsx`, no toque |
+| Parâmetros | `wedding_id` · `cta_surface` |
+| Alimenta | Indicação (suposição S6) |
+| Conversão? | **Sim** |
+
+**Ele existe só no GA4, e não no Postgres** — o clique abre uma folha local, sem
+ida ao servidor, de propósito: uma requisição a mais no salão é uma chance a
+mais de falhar. É por isso que a linha 7 do painel do dia (H-19) mostra
+"viram · deixaram contato · com data" em vez de "viram · clicaram · com data".
+
+#### `growth_lead_captured`
+
+| Campo | Valor |
+|---|---|
+| Significa | O convidado deixou contato, com permissão explícita |
+| Onde dispara | `components/album/FolhaDoCta.tsx`, depois do 201 da rota |
+| Parâmetros | `wedding_id` · `cta_surface` · `has_date` (`true` \| `false`) · `expected_month` (`AAAA-MM` ou vazio) |
+| Alimenta | Indicação. `has_date = true` substitui o indicador de 90 dias (§4.1) |
+| Conversão? | **Sim** |
+
+**O WhatsApp fica no banco e nunca aqui** (RN-24). Ele vive em `leads.contato`,
+com `permissao_texto` e `permissao_em` ao lado — sem o texto, daqui a um ano
+ninguém sabe ao que a pessoa consentiu.
+
+Os valores saem **do que o servidor devolveu**, não do que a tela mandou: o
+servidor é quem valida a faixa do mês, e mandar o valor digitado faria a dimensão
+registrar um mês que foi recusado. `expected_month` ainda passa por
+`mesParaOGa4` antes de sair — é a última barreira contra texto livre numa
+dimensão (§13.9).
+
+### O quarto valor de `error_kind`, e a ressalva que ele carrega
+
+`media_upload_retried` passou a ter **quatro** valores: `rede`, `portal`,
+`servidor`, `arquivo`. Antes o portal cativo viajava como `rede`.
+
+**Os dois pedem ações opostas.** `rede` é a internet que caiu, e a resposta certa
+é **não fazer nada** — a fila existe para isso. `portal` é a internet que
+**mentiu**: o wifi do salão responde HTML com status 200, o envio parece ter
+completado e a foto não existe. É o único erro desta lista que produz **perda
+silenciosa**, e o único em que agir é obrigatório (trocar a rede, ou passar para
+o QR do plano B). Colapsados num valor só, o painel recomendaria "não faça nada"
+no único caso em que agir é obrigatório.
+
+**A ressalva, e ela não tem conserto do lado do GA4:** num portal cativo a
+requisição para o `/g/collect` também é interceptada. **O evento que descreve o
+portal é justamente o que o portal engole.** Este valor é subnotificado por
+construção — quando ele aparecer no relatório, já é diagnóstico suficiente;
+quando não aparecer, **não prova nada**.
+
+**A contagem que vale é a do Postgres** (`eventos_de_erro`, migration 0011), e é
+dela que a linha 4 do painel do dia ao vivo lê. O relato do cliente chega pela
+rota `/api/interno/erro-cliente`, que a fila reenvia quando a rede volta de
+verdade — pelo caminho que funciona.
+
+### O fechamento da instrumentação (H-17)
+
+Estas cinco linhas são **configuração no GA4**, não código, e por isso são a
+única parte da H-17 que este repositório não consegue provar. Prazo: **antes do
+ensaio**, porque o GA4 não preenche o passado.
+
+- [ ] As **25 dimensões** de `metricas.md` §7.1 registradas na interface, com
+      `ambos` já fora de `media_visibility` e `media_visibility_from` (V1)
+- [ ] As **11 métricas personalizadas** de §7.2 registradas
+- [ ] Conversões marcadas conforme §7.4, com `growth_cta_viewed` **fora** delas
+- [ ] **Filtro de dados excluindo `surface = telao`** — sem ele, o computador que
+      fica seis horas com a página aberta domina a contagem de sessões e
+      contamina toda média do casamento
+- [ ] A lista do DebugView de `metricas.md` §13 executada item por item, com o
+      resultado no PR
+
 ### O telão não emite nada além do `page_view`
 
 `/telao/[token]` carrega o GA4 com `surface = telao` e **nenhum evento próprio**

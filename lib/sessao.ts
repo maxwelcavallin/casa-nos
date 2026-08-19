@@ -148,10 +148,21 @@ export async function sessaoDoTelao(
 export function sessaoDeCron(cabecalho: string | null): Sessao {
   const segredo = process.env.CRON_SEGREDO;
   if (!segredo || !cabecalho) return ANONIMO;
-  if (cabecalho.length !== segredo.length) return ANONIMO;
+  /**
+   * `Bearer <segredo>` também vale, e não é generosidade: **é a forma que a
+   * Vercel manda**. O agendador da plataforma chama a rota com
+   * `Authorization: Bearer $CRON_SECRET`, e não com um cabeçalho nosso.
+   *
+   * Aceitar as duas formas num lugar só é o que evita a alternativa: uma rota
+   * que confere `x-cron-segredo` e um agendador que manda `Authorization` —
+   * combinação que responde 401 todo dia às 12h e ninguém percebe, porque
+   * ninguém olha o log de um cron que "está configurado".
+   */
+  const limpo = cabecalho.startsWith("Bearer ") ? cabecalho.slice(7) : cabecalho;
+  if (limpo.length !== segredo.length) return ANONIMO;
   let diferenca = 0;
   for (let i = 0; i < segredo.length; i++) {
-    diferenca |= segredo.charCodeAt(i) ^ cabecalho.charCodeAt(i);
+    diferenca |= segredo.charCodeAt(i) ^ limpo.charCodeAt(i);
   }
   return diferenca === 0 ? { tipo: "cron" } : ANONIMO;
 }

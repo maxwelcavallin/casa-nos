@@ -59,12 +59,35 @@ WhatsApp, no celular, com uma mão.
   **nunca projeta um erro na parede**. Perdeu a rede, perdeu o servidor: ele
   continua com o que já tem.
 
+**Fatia 1 · F1.5 a F1.7 — o controle, a verdade e o loop. A fatia fecha aqui.**
+
+- **A fila de aprovação** (`/painel/<id>/fila`) segura o feed e o telão, **nunca
+  o acervo do casal**: com a moderação ligada, a foto é gravada, contada e fica
+  com o casal na hora. "Aprovar as 400" é um toque e uma requisição.
+- **O que chegou** (`/painel/<id>/midias`): `6.000 fotos, 5.412 em alta
+  resolução` — dois números, nunca somados. Falha de leitura mostra um travessão
+  e o motivo, **nunca um zero**.
+- **A reconciliação** adota a foto cujos bytes chegaram e cuja confirmação se
+  perdeu — quando o convidado reabre o álbum, e num cron diário às 12:00 UTC. A
+  perda irrecuperável é uma consulta, e o valor esperado é **zero**.
+- **O painel do dia** (`/painel/<id>/dia-ao-vivo`, **só o dono**): sete números,
+  um por linha, atualizando a cada minuto, direto do Postgres. Inclui o sinal do
+  telão — a única forma de descobrir que a parede congelou.
+- **O CTA do loop** e o **link guardado**, abaixo da grade de "as minhas fotos" e
+  só depois do primeiro envio concluído. O lead é gravado com a festa de origem
+  **no servidor**, porque o loop não fecha por cookie.
+- **Baixar a foto**, por URL assinada de 15 minutos, dizendo qual versão está
+  baixando.
+- **Toda foto `noivos` sai por URL assinada** (RN-33): `pub/` é servido, `prv/`
+  não. Trocar uma foto para `noivos` **move os objetos de prefixo**, e a troca só
+  é confirmada depois de o endereço público parar de responder — inclusive na
+  borda.
+
 O que **não** existe, de propósito, está em
 [`docs/fatia-0.md`](docs/fatia-0.md), em
-[`docs/fatia-1-f1-1-f1-2.md`](docs/fatia-1-f1-1-f1-2.md) e em
-[`docs/fatia-1-f1-3-f1-4.md`](docs/fatia-1-f1-3-f1-4.md) — inclusive a fila de
-aprovação, o painel de mídias, a reconciliação e o CTA do loop, que são as
-sub-fatias seguintes.
+[`docs/fatia-1-f1-1-f1-2.md`](docs/fatia-1-f1-1-f1-2.md), em
+[`docs/fatia-1-f1-3-f1-4.md`](docs/fatia-1-f1-3-f1-4.md) e em
+[`docs/fatia-1-f1-5-f1-7.md`](docs/fatia-1-f1-5-f1-7.md).
 
 ---
 
@@ -337,6 +360,17 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/telas-f1-3-f1-4.smoke.test.tsx` | as quatro telas novas montadas, com o texto exato do `gtm.md` |
 | `test/openapi.test.ts` | o contrato gerado bate com `lib/rotas.ts` |
 | `pnpm contrato` (no `build`) | `docs/openapi-casa-nos.json` regenerado no mesmo commit da rota |
+| `test/visibilidade-move-objetos.test.ts` | **a foto que vira `noivos` sai de `pub/`** — a ordem dos quatro passos, e a troca falhando inteira quando a borda ainda responde |
+| `test/r2-assinatura.test.ts` | os dois prefixos do balde; a URL de `noivos` **nunca** contém o domínio público; sem R2 ela é `null`, e não a pública |
+| `test/rota-curta.test.ts` | **toda pasta de primeiro nível de `app/` está reservada** — uma pasta nova rouba, em silêncio, o endereço de um casamento já impresso |
+| `test/moderacao.test.ts` | a fila filtra `feed`, aprova em lote numa instrução, e o álbum do convidado não conhece a palavra "aprovação" |
+| `test/leads.test.ts` | a origem do lead vem da URL e nunca do corpo; o WhatsApp não sai para o GA4; `cta_surface = feed` não é emitido |
+| `test/reconciliacao.test.ts` | a adoção usa a data do OBJETO, é idempotente, e original sem prévia vira marca — não perda |
+| `test/analytics-dicionario.test.ts` | a união tem exatamente os 16 eventos da fatia, todos documentados, e **nenhum parâmetro aceita texto livre** |
+| `test/medicao.test.ts` + `.brasilia.test.ts` | as sete linhas nos dois fusos; `numeric` vira número na fronteira; a linha que falha não derruba as outras seis |
+| `test/telas-f1-5-f1-7.smoke.test.tsx` | fila, painel e dia ao vivo montados, com o texto exato — e o CTA **não existindo** antes do primeiro envio |
+| `test/contadores-vs-verdade.test.ts` | **banco real**: o agregado do casal contra `count(*)` depois de centenas de operações |
+| `test/perda-vs-verdade.test.ts` | **banco real**: a consulta de perda diz 0 hoje e diz 3 depois de D+7 — a prova de que ela não está cega |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
 
@@ -344,9 +378,21 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
   de pixel exige navegador, e não existe substituto honesto — quem resolve isso é
   o olho humano no preview.
 - **Usabilidade e clareza do texto.**
-- **A viagem até o Neon.** Todo o caminho de dados é testado com um banco falso
-  que imita os tipos que o Postgres devolve (`numeric` como string, `date` como
-  texto). O trecho que vai pela rede só se verifica com o banco real no ar.
+- **A viagem até o Neon.** Quase todo o caminho de dados é testado com um banco
+  falso que imita os tipos que o Postgres devolve (`numeric` como string, `date`
+  como texto). **Duas exceções, e elas rodam contra o banco de verdade quando há
+  `DATABASE_URL`:** `contadores-vs-verdade` (o agregado do casal) e
+  `perda-vs-verdade` (a consulta que decide a fatia). Sem a variável, as duas se
+  pulam sozinhas e dizem isso — fingir que passaram seria pior.
+- **O balde.** Sem credencial de R2 não há objeto para copiar nem endereço para
+  conferir. A coreografia da RN-33 é verificada por uma porta
+  (`ClienteDeObjetos`) com um balde falso: a **ordem** dos passos e a recusa
+  quando a borda não confirma são provadas; que o domínio público esteja
+  configurado só no prefixo `pub/` é configuração, e está escrita no
+  `.env.example`.
+- **Escala.** `pnpm verificar` não sobe 200 clientes. Quem faz isso é
+  `pnpm carga`, e o resultado está em
+  [`docs/carga-fatia-1.md`](docs/carga-fatia-1.md).
 
 A catraca do design system nasceu com todos os números em **zero**. Ela está em
 modo contagem (falha se subir), que na prática já é proibição — não aumente o
@@ -368,6 +414,23 @@ teto em `design-system.baseline.json` sem o motivo escrito na mensagem do commit
 
 O `build` roda `ds-check` antes do `next build`: desvio de design system não faz
 deploy.
+
+**O cron diário está em `vercel.json`: `0 12 * * *`, que é 12:00 UTC / 9h de
+Brasília.** O horário obedece à regra da casa (job que fala com API de terceiro
+roda entre 12 e 20 UTC) e evita o único horário proibido de verdade: um cron às
+3h UTC rodaria à meia-noite de Brasília, no meio de uma festa, quando as escritas
+do produto estão no pico.
+
+Configure `CRON_SEGREDO` na Vercel **e** como `CRON_SECRET` do projeto: o
+agendador chama por `GET` com `Authorization: Bearer`, e a rota aceita as duas
+formas. **Sem o segredo configurado, a rota responde 401** — nunca "passa porque
+a variável está vazia".
+
+**O que ainda não existe, e está declarado:** um vigia que avise quando o cron
+*não* rodar. Um processo não consegue avisar que não rodou. O que existe no lugar
+é evidência onde uma pessoa olha — `evento_contadores.recomputado_em` viaja no
+painel do dia ao vivo, ao lado do sinal do telão. Um vigia de verdade é um
+serviço externo batendo numa rota, e é configuração.
 
 ---
 
@@ -400,7 +463,10 @@ em [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-m
 - [`docs/adr/0002-mapa-sem-chave-de-api.md`](docs/adr/0002-mapa-sem-chave-de-api.md)
 - [`docs/adr/0003-url-mascarada-e-consentimento-negado.md`](docs/adr/0003-url-mascarada-e-consentimento-negado.md)
 - [`docs/adr/0004-erro-em-tabela-do-proprio-banco.md`](docs/adr/0004-erro-em-tabela-do-proprio-banco.md)
-- [`docs/adr/0005-leitura-de-midia-por-base-publica.md`](docs/adr/0005-leitura-de-midia-por-base-publica.md) — **como a mídia é lida**, e a postura de privacidade que isso assume
+- [`docs/fatia-1-f1-5-f1-7.md`](docs/fatia-1-f1-5-f1-7.md) — a F1.5 a F1.7: a moderação, os números honestos, a reconciliação, o loop, e o que ficou de fora
+- [`docs/carga-fatia-1.md`](docs/carga-fatia-1.md) — **o teste de carga com 200 clientes**: os números, o que quebrou primeiro, e o veredito sobre a virtualização
+- [`docs/adr/0005-dois-prefixos-no-balde.md`](docs/adr/0005-dois-prefixos-no-balde.md) — **`pub` é servido, `prv` não**, e o que acontece quando uma foto muda de visibilidade
+- [`docs/adr/0005-leitura-de-midia-por-base-publica.md`](docs/adr/0005-leitura-de-midia-por-base-publica.md) — a primeira redação do 0005, **rejeitada**, e por que a lápide fica
 
 ---
 

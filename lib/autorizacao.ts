@@ -67,6 +67,8 @@ export type Acao =
   | "evento.configurar"
   | "evento.materiais.ver"
   | "participacao.renomear"
+  | "participacao.recuperar"
+  | "participacao.reconciliar"
   | "lead.criar"
   | "lead.ver"
   | "medicao.ver"
@@ -121,6 +123,15 @@ export const MATRIZ: Record<Acao, Linha> = {
   "evento.materiais.ver": { casal: "todas", moderador: "todas", dono: "todas" },
 
   "participacao.renomear": { convidado: "proprias", casal: "todas", dono: "todas" },
+
+  /**
+   * O link guardado e a reconciliação são **da própria participação**, e de mais
+   * ninguém. Nem do casal: gerar o link de recuperação de um convidado seria o
+   * casal cunhando uma credencial que apaga fotos alheias, e disparar a
+   * reconciliação de outro seria pedir `HEAD` no balde em nome de terceiro.
+   */
+  "participacao.recuperar": { convidado: "proprias" },
+  "participacao.reconciliar": { convidado: "proprias" },
 
   "lead.criar": { convidado: "todas" },
   // Nem o casal. A consulta do dono acontece fora da API (PRD §7).

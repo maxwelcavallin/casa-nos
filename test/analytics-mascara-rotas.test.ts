@@ -94,11 +94,19 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
       // cartão impresso. O rótulo do convidado continua fora de tudo.
       "convidados",
       "dia",
+      // As quatro da F1.5 a F1.7. `dia-ao-vivo`, `fila` e `midias` são telas do
+      // painel — nomeiam o que a tela FAZ, não quem a abriu. `r` é a porta do
+      // link guardado, e o token que vem depois dela continua mascarado como
+      // qualquer outro: ele é credencial ao portador.
+      "dia-ao-vivo",
       "entrar",
       "feed",
+      "fila",
       "materiais",
+      "midias",
       "minhas",
       "painel",
+      "r",
       "telao",
     ]);
   });

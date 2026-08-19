@@ -1,5 +1,5 @@
 import { sql, type Executor } from "@/lib/db";
-import { hashDeToken } from "@/lib/segredos";
+import { hashDeToken, novoToken } from "@/lib/segredos";
 import {
   paraBooleano,
   paraInstante,
@@ -221,4 +221,126 @@ export async function marcarFaixaLenta(
      where id = ${participacaoId}
        and faixa_lenta = false
   `;
+}
+
+/* ------------------------------------------------------------------ *
+ * H-22 — o link guardado, e o que ele custa
+ * ------------------------------------------------------------------ */
+
+/**
+ * Gera o link guardado desta participação. **O novo invalida o anterior.**
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * O QUE ESTE LINK É, DITO SEM EUFEMISMO (e a tela diz a mesma coisa): quem tiver
+ * ele **age como aquela participação** — vê as próprias fotos, muda
+ * visibilidade, apaga. Nada de casal, nada de moderador. É a mitigação do risco
+ * R8 ("o convidado troca de celular e perde o álbum"), não uma conta.
+ *
+ * Por isso a linha de risco fica ACIMA dos botões na folha, e não em letra
+ * miúda: ela é a informação que decide se a pessoa manda o link para um grupo de
+ * WhatsApp. Ela precisa ser lida antes da decisão.
+ *
+ * **NENHUM TELEFONE É ARMAZENADO** (critério da H-22). O `wa.me` é um link que o
+ * navegador abre; o número que a pessoa escolhe para mandar para si mesma nunca
+ * passa por este servidor.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Só o HASH é guardado, como em todo token do produto. O token em claro existe
+ * uma vez, no retorno desta função, e vai direto para a tela.
+ */
+export async function gerarLinkGuardado(
+  eventoId: string,
+  participacaoId: string,
+  exec: Executor = sql
+): Promise<string | null> {
+  const token = novoToken();
+  const hash = await hashDeToken(token);
+  const linhas = await exec`
+    update participacoes
+       set recuperacao_hash = ${hash},
+           recuperacao_criada_em = now(),
+           atualizado_em = now()
+     where id = ${participacaoId}
+       and evento_id = ${eventoId}
+       and excluido_em is null
+    returning id
+  `;
+  // Falha ao gerar NÃO invalida o anterior: o `update` é um só, e ou ele
+  // acontece inteiro ou não acontece. É o que torna verdadeira a mensagem de
+  // erro da tela — "O seu link anterior continua valendo."
+  return linhas.length ? token : null;
+}
+
+/**
+ * A participação por trás de um link guardado. **Descobre o inquilino**, como a
+ * sessão do telão — o `/r/[token]` não tem evento na URL.
+ *
+ * Ao abrir, o `modo_identificacao` vira `retomado` (H-22): é o terceiro valor da
+ * dimensão, e ele existe para que P saiba distinguir "esta é uma pessoa nova" de
+ * "esta é a mesma pessoa noutro aparelho". Sem ele, uma troca de celular
+ * apareceria como um convidado a mais no numerador.
+ */
+export async function participacaoPorLinkGuardado(
+  token: string,
+  exec: Executor = sql
+): Promise<Participacao | null> {
+  const hash = await hashDeToken(token);
+  const linhas = await exec`
+    update participacoes
+       set modo_identificacao = 'retomado',
+           ultimo_acesso_em = now(),
+           atualizado_em = now()
+     where recuperacao_hash = ${hash}
+       and excluido_em is null
+    returning *
+  `;
+  return linhas.length ? linhaParaParticipacao(linhas[0]) : null;
+}
+
+/**
+ * O token de sessão desta participação, para o aparelho novo.
+ *
+ * A retomada **cunha um token de participação novo** em vez de devolver o
+ * antigo: o antigo é o cookie do celular velho, e o produto não o conhece em
+ * claro (só o hash). Os dois passam a valer, e é o certo — a pessoa que achou o
+ * celular antigo continua com o álbum dela.
+ */
+export async function tokenDeRetomada(
+  participacaoId: string,
+  exec: Executor = sql
+): Promise<string> {
+  const token = novoToken();
+  const hash = await hashDeToken(token);
+  await exec`
+    update participacoes
+       set token_hash = ${hash}, atualizado_em = now()
+     where id = ${participacaoId}
+  `;
+  return token;
+}
+
+/**
+ * O casal renomeia uma participação (H-23). **Nunca junta, nunca numera.**
+ *
+ * O alcance da matriz aqui é `todas` para o casal — é o álbum dele —, e a
+ * cláusula carrega o `evento_id` pelo mesmo motivo de sempre: um id de
+ * participação de outro casamento não pode ser renomeado a partir deste painel.
+ */
+export async function renomearParticipacao(
+  eventoId: string,
+  participacaoId: string,
+  rotulo: string,
+  exec: Executor = sql
+): Promise<Participacao | null> {
+  const limpo = rotulo.trim().slice(0, MAXIMO_DO_ROTULO);
+  if (!limpo) return null;
+  const linhas = await exec`
+    update participacoes
+       set rotulo = ${limpo}, atualizado_em = now()
+     where id = ${participacaoId}
+       and evento_id = ${eventoId}
+       and excluido_em is null
+    returning *
+  `;
+  return linhas.length ? linhaParaParticipacao(linhas[0]) : null;
 }

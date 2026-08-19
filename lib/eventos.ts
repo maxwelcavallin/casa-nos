@@ -347,3 +347,39 @@ export function recortePublico(evento: Evento): EventoPublico {
       : null,
   };
 }
+
+/**
+ * Os eventos que o cron diário precisa varrer (H-15).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A JANELA É `data_evento` DENTRO DE UM ANO PARA TRÁS E UM DIA PARA A FRENTE, e
+ * ela tem dois motivos escritos:
+ *
+ * - **Um ano para trás** é a vida do álbum (Q9). Reconciliar um casamento de
+ *   2019 seria `HEAD` num prefixo que a regra de ciclo de vida do balde já
+ *   expirou — custo sem chance de achar nada.
+ * - **Um dia para a frente** porque a festa começa antes da meia-noite e termina
+ *   depois: um casamento no sábado ainda está recebendo foto no domingo, e o
+ *   cron das 12:00 UTC de sábado precisa enxergá-lo.
+ *
+ * `excluido_em is null` e nada mais: um evento não publicado ainda pode ter
+ * recebido mídia de teste do casal, e a promessa de "nenhuma foto se perde" não
+ * tem cláusula de publicação.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export async function eventosParaReconciliar(
+  exec: Executor = sql
+): Promise<Array<{ id: string; slug: string }>> {
+  const linhas = await exec`
+    select id, slug
+      from eventos
+     where excluido_em is null
+       and data_evento >= (current_date - interval '1 year')
+       and data_evento <= (current_date + interval '1 day')
+     order by data_evento desc
+  `;
+  return linhas.map(linha => ({
+    id: paraTextoObrigatorio(linha.id, "eventos.id"),
+    slug: paraTextoObrigatorio(linha.slug, "eventos.slug"),
+  }));
+}

@@ -16,18 +16,27 @@ import { origemDoQr, type OrigemDoQr } from "@/lib/analytics";
  * onde a câmera cairia. A única diferença permitida é o `?o=`, que é medição e
  * não destino.
  *
- * **ACHADO REGISTRADO, e não resolvido por mim:** o `gtm.md` imprime o endereço
- * curto como `casa-nos.app/ana-e-max` e o PRD §6.1 não declara nenhuma rota
- * `/<slug>` — o álbum mora em `/e/<slug>/album`. Escrever o endereço do mock
- * daria um cartão de mesa com um endereço que responde 404, que é pior que um
- * endereço comprido. Está implementado o endereço **verdadeiro**; encurtá-lo é
- * uma rota nova e uma decisão do `po`. Ver `docs/fatia-1-f1-3-f1-4.md`.
+ * **A ROTA CURTA EXISTE DESDE 19/08/2026** (decisão do `po`). `casa-nos.app/
+ * <slug>` responde **307** para `/e/<slug>/album`, preservando o `?o=` — o
+ * redirecionamento mora no `proxy.ts` e a lista de segmentos reservados, com o
+ * teste que varre `app/`, mora em `lib/rotas.ts`.
+ *
+ * O achado da F1.4 continua registrado e agora tem desfecho: o `gtm.md`
+ * imprimia `casa-nos.app/ana-e-max`, o PRD §6.1 não declarava a rota, e escrever
+ * o endereço do mock daria um cartão de mesa com 404. A saída não foi escolher
+ * entre um endereço comprido e um que não responde — foi **tirar o 404 do
+ * caminho**.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-/** `/e/<slug>/album` — o caminho do álbum, num lugar só. */
+/** `/e/<slug>/album` — o destino real, num lugar só. */
 export function caminhoDoAlbum(slug: string): string {
   return `/e/${slug}/album`;
+}
+
+/** `/<slug>` — a rota curta, que redireciona para a de cima. */
+export function caminhoCurto(slug: string): string {
+  return `/${slug}`;
 }
 
 /**
@@ -48,6 +57,12 @@ export function origemDaRequisicao(cabecalhos: Headers): string {
 /**
  * O endereço que o QR carrega, com a origem por superfície.
  *
+ * **PELA ROTA CURTA.** Não é só estética de cartão: a densidade do QR cresce com
+ * o número de caracteres, e cada versão a mais do símbolo são módulos menores no
+ * mesmo papel. `casa-nos.app/ana-e-max?o=mesa` cabe numa versão mais baixa que
+ * `casa-nos.app/e/ana-e-max/album?o=mesa` — módulo maior, leitura mais fácil sob
+ * a luz de um salão, que é a única condição em que este QR será usado.
+ *
  * VALOR FORA DA LISTA VIRA `direto` (H-04), e a lista é fechada em
  * `lib/analytics.ts`: o parâmetro é público e qualquer um pode escrever
  * `?o=<o que quiser>` num link colado em grupo. Texto livre virando dimensão do
@@ -60,7 +75,7 @@ export function enderecoParaQr(
   superficie: OrigemDoQr | string | null
 ): string {
   const o = origemDoQr(typeof superficie === "string" ? superficie : null);
-  const base = `${origem}${caminhoDoAlbum(slug)}`;
+  const base = `${origem}${caminhoCurto(slug)}`;
   // `direto` não vai na URL: ele é o valor PADRÃO de quem chegou sem material
   // impresso, e escrevê-lo transformaria "chegou por um cartaz sem parâmetro"
   // em "chegou sem cartaz nenhum".
@@ -76,5 +91,60 @@ export function enderecoParaQr(
  */
 export function enderecoParaLer(origem: string, slug: string): string {
   const semEsquema = origem.replace(/^https?:\/\//, "");
-  return `${semEsquema}${caminhoDoAlbum(slug)}`;
+  return `${semEsquema}${caminhoCurto(slug)}`;
+}
+
+/* ------------------------------------------------------------------ *
+ * A conferência dos 24 caracteres — avisa, e nunca recusa
+ * ------------------------------------------------------------------ */
+
+/**
+ * O teto do endereço impresso no cartão de mesa.
+ *
+ * 24 caracteres é o que o `design-system.md` mede como legível **de pé, a um
+ * metro**, no corpo que o cartão usa. Acima disso o endereço não some: ele
+ * quebra em duas linhas, ou encolhe — e o endereço escrito é a única retentativa
+ * do passo 1.
+ */
+export const TETO_DO_ENDERECO_IMPRESSO = 24;
+
+export type ConferenciaDoEndereco = {
+  endereco: string;
+  caracteres: number;
+  /** Quantos sobram para o slug depois do domínio e da barra. */
+  sobramParaOSlug: number;
+  cabe: boolean;
+};
+
+/**
+ * Confere o endereço impresso contra o teto — **com aviso e sem bloqueio**.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * DEGRADAR E AVISAR, NUNCA RECUSAR (decisão do `po`, 19/08/2026).
+ *
+ * A tentação óbvia era recusar o slug longo na tela do dia, ou encurtá-lo
+ * sozinho. As duas são piores que o problema: recusar impede o casal de se
+ * chamar como ele quer no próprio endereço, e encurtar sozinho produz um
+ * endereço que **ninguém escolheu** e que o casal descobre impresso em 40
+ * cartões.
+ *
+ * O que a tela faz com isto: mostra a conta ("`casa-nos.app/` são 13; sobram 11
+ * para o nome"), oferece encurtar, e imprime o que o casal decidir. Quem quiser
+ * um slug maior imprime o endereço maior — em duas linhas, e sabendo disso.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function conferirEnderecoImpresso(
+  origem: string,
+  slug: string
+): ConferenciaDoEndereco {
+  const endereco = enderecoParaLer(origem, slug);
+  const semEsquema = origem.replace(/^https?:\/\//, "");
+  // +1 pela barra que separa o domínio do slug.
+  const sobram = TETO_DO_ENDERECO_IMPRESSO - semEsquema.length - 1;
+  return {
+    endereco,
+    caracteres: endereco.length,
+    sobramParaOSlug: Math.max(0, sobram),
+    cabe: endereco.length <= TETO_DO_ENDERECO_IMPRESSO,
+  };
 }

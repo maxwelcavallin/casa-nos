@@ -86,30 +86,77 @@ export function TelaoDoSalao({
    * constante desde a primeira hora: entra uma, sai a mais velha.
    */
   const [buffer, setBuffer] = useState<FotoDoTelao[]>([]);
-  const [indice, setIndice] = useState(0);
-  const marca = useRef<string | null>(null);
+  /**
+   * **O CICLO ANDA POR ID, E NÃO POR ÍNDICE**, e a diferença apareceu junto com
+   * a reconciliação do buffer.
+   *
+   * Com a janela inteira chegando a cada 5 s, o buffer muda de tamanho e de
+   * deslocamento o tempo todo: uma foto nova entra no fim, uma velha sai pela
+   * frente. Um índice numérico passaria a apontar para **outra foto** a cada
+   * sondagem, e a parede trocaria de imagem no meio do intervalo de 8 s — um
+   * pulo de três metros, visível para 150 pessoas.
+   *
+   * Guardando o id, a foto que está no ar continua no ar enquanto existir. Se
+   * ela sair (foi tirada do álbum), o `find` abaixo não a acha e a parede volta
+   * para a primeira do buffer, que é o comportamento certo: a removida
+   * simplesmente não volta.
+   */
+  const [idNoAr, setIdNoAr] = useState<string | null>(null);
   const versaoNoAr = useRef(versaoInicial);
+  /**
+   * O buffer, também em ref — lido pelo temporizador do ciclo.
+   *
+   * Sem ele, o efeito do ciclo dependeria de `buffer` e **recriaria o intervalo
+   * a cada sondagem**: a cada 5 s o relógio de 8 s voltaria ao zero, e a foto
+   * atual ficaria na parede para sempre. É escrito dentro de `sondar`, nunca
+   * durante a renderização.
+   */
+  const bufferNoAr = useRef<FotoDoTelao[]>([]);
 
   const sondar = useCallback(async () => {
     try {
-      const desde = marca.current;
-      const resposta = await fetch(
-        `/api/eventos/${eventoId}/telao${desde ? `?desde=${encodeURIComponent(desde)}` : ""}`,
-        { headers: { "x-telao": token } }
-      );
+      /**
+       * ─────────────────────────────────────────────────────────────────────
+       * A SONDAGEM PEDE **A JANELA INTEIRA**, e não só o que chegou desde a
+       * última — e a mudança conserta um defeito real da F1.4.
+       *
+       * Até aqui o cliente só ACRESCENTAVA: `?desde=` trazia as novas, e elas
+       * entravam no fim do buffer. O efeito colateral era que **nada saía**. Uma
+       * foto que o convidado tirou do feed (H-10), ou que o casal tirou do álbum
+       * (H-13), continuava rodando na parede por até 8 minutos — o tempo de o
+       * ciclo dar a volta nas 60 do buffer. A H-10 promete que a foto some do
+       * feed **e do telão**, e a promessa estava valendo só na metade.
+       *
+       * Agora o buffer é **reconciliado**: o que a resposta não trouxer sai. O
+       * custo é uma resposta de até 60 linhas a cada 5 s, para **um** cliente —
+       * o computador do projetor —, com a borda cacheando 5 s. É o recurso mais
+       * barato que este produto gasta, e ele compra a promessa inteira.
+       * ─────────────────────────────────────────────────────────────────────
+       */
+      const resposta = await fetch(`/api/eventos/${eventoId}/telao`, {
+        headers: { "x-telao": token },
+      });
       if (!resposta.ok) return;
       const corpo = (await resposta.json()) as RespostaDoTelao;
       if (corpo.versao) versaoNoAr.current = corpo.versao;
-      if (corpo.fotos.length === 0) return;
 
-      marca.current = corpo.fotos[0].armazenadaEm;
-      setBuffer(anterior => {
-        const conhecidas = new Set(anterior.map(foto => foto.id));
-        const novas = corpo.fotos.filter(foto => !conhecidas.has(foto.id) && foto.previa);
-        // As novas entram no fim; o teto corta pela frente. A ordem do ciclo é a
-        // de chegada, que é a ordem em que a festa aconteceu.
-        return [...anterior, ...novas.reverse()].slice(-BUFFER_DO_TELAO);
-      });
+      // A resposta vem da mais nova para a mais velha; a parede roda na ordem em
+      // que a festa aconteceu.
+      const janela = corpo.fotos
+        .filter(foto => foto.previa)
+        .reverse()
+        .slice(-BUFFER_DO_TELAO);
+
+      // Nada novo e nada removido: não mexer no estado evita uma renderização
+      // por sondagem — 4.320 renderizações inúteis ao longo de uma noite.
+      const anterior = bufferNoAr.current;
+      const iguais =
+        janela.length === anterior.length &&
+        janela.every((foto, posicao) => foto.id === anterior[posicao].id);
+      if (iguais) return;
+
+      bufferNoAr.current = janela;
+      setBuffer(janela);
     } catch {
       /**
        * SILÊNCIO. Este `catch` vazio é a especificação, e não uma omissão: perdeu
@@ -121,6 +168,11 @@ export function TelaoDoSalao({
   }, [eventoId, token]);
 
   useEffect(() => {
+    // Ver `lib/usar-feed.ts`: exceção estreita, com o motivo. A regra recusa
+    // qualquer função assíncrona que chame `setState` e seja chamada de dentro
+    // de um efeito, mesmo quando o `setState` só acontece depois de um `await`.
+    // Aqui não há alternativa: a parede é uma tela que só busca dado.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void sondar();
     const temporizador = setInterval(() => void sondar(), INTERVALO_DE_SONDAGEM_MS);
     return () => clearInterval(temporizador);
@@ -128,17 +180,25 @@ export function TelaoDoSalao({
 
   /**
    * O CICLO. Um passo por `TEMPO_POR_FOTO_MS`, e **nunca a mesma foto em
-   * sequência**: com uma foto só no buffer, o índice não anda — trocar uma foto
-   * por ela mesma é uma fusão cruzada de 600 ms que pisca sem mudar nada.
+   * sequência**: com uma foto só no buffer o id devolvido é o mesmo, o React não
+   * re-renderiza, e nada pisca. Trocar uma foto por ela mesma seria uma fusão
+   * cruzada de 600 ms que muda nada e aparece.
+   *
+   * O intervalo é criado **uma vez** e lê o buffer do ref. Dependendo de
+   * `buffer`, ele seria recriado a cada sondagem — e o relógio de 8 s nunca
+   * chegaria ao fim.
    */
   useEffect(() => {
-    if (buffer.length <= 1) return;
-    const temporizador = setInterval(
-      () => setIndice(anterior => (anterior + 1) % buffer.length),
-      TEMPO_POR_FOTO_MS
-    );
+    const temporizador = setInterval(() => {
+      setIdNoAr(anterior => {
+        const lista = bufferNoAr.current;
+        if (lista.length === 0) return null;
+        const posicao = lista.findIndex(foto => foto.id === anterior);
+        return lista[(posicao + 1) % lista.length].id;
+      });
+    }, TEMPO_POR_FOTO_MS);
     return () => clearInterval(temporizador);
-  }, [buffer.length]);
+  }, []);
 
   /**
    * A VERIFICAÇÃO DE VERSÃO, e ela só dispara **com a tela vazia**.
@@ -157,7 +217,13 @@ export function TelaoDoSalao({
     return () => clearInterval(temporizador);
   }, [versaoInicial, buffer.length]);
 
-  const atual = buffer[indice % Math.max(1, buffer.length)] ?? null;
+  /**
+   * A foto no ar, derivada — sem efeito e sem escrita em ref durante a
+   * renderização. O `?? buffer[0]` cobre os dois casos em que o id não existe
+   * mais: a primeira foto da noite (ainda não houve ciclo) e a foto que acabou
+   * de ser tirada do álbum.
+   */
+  const atual = buffer.find(foto => foto.id === idNoAr) ?? buffer[0] ?? null;
 
   return (
     <PalcoTelao>

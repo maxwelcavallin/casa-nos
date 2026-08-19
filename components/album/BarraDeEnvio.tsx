@@ -97,6 +97,15 @@ export type PropriedadesDaBarra = {
   comIndicador?: boolean;
   /** Conteúdo extra abaixo do botão — o link de volta ao feed, em "minhas". */
   extra?: React.ReactNode;
+  /**
+   * O evento `media_picker_opened` (H-17). `null` desliga a medição.
+   *
+   * **É O DEGRAU QUE SEPARA "QUIS" DE "CONSEGUIU"** (`metricas.md` §6.2): sem
+   * ele, uma queda entre a chegada e o envio não tem diagnóstico — não se sabe
+   * se a pessoa não quis mandar ou se o seletor não abriu no aparelho dela. É o
+   * item 9 da ordem de corte, e amarelo é o cenário mais provável.
+   */
+  aoAbrirSeletor?: (() => void) | null;
 };
 
 export function BarraDeEnvio({
@@ -105,6 +114,7 @@ export function BarraDeEnvio({
   acaoDoIndicador,
   comIndicador = true,
   extra,
+  aoAbrirSeletor,
 }: PropriedadesDaBarra) {
   const entrada = useRef<HTMLInputElement>(null);
 
@@ -158,7 +168,24 @@ export function BarraDeEnvio({
             <Button
               variant="contained"
               fullWidth
-              onClick={() => entrada.current?.click()}
+              onClick={() => {
+                /**
+                 * O EVENTO SAI NO TOQUE, e não no `change` do campo.
+                 *
+                 * O `change` só dispara quando a pessoa **escolhe** uma foto —
+                 * e a pergunta que este evento responde é justamente a
+                 * anterior: o seletor abriu? Medindo no `change`, quem tocou e
+                 * viu a galeria travar não apareceria em lugar nenhum, que é
+                 * exatamente o caso que este número existe para achar.
+                 *
+                 * `media_source` sai como `galeria`: o campo aceita galeria e
+                 * câmera pelo mesmo seletor do sistema (não há `capture`), e o
+                 * produto **não sabe** qual das duas a pessoa escolheu antes de
+                 * o arquivo chegar. Declarar `camera` aqui seria inventar.
+                 */
+                aoAbrirSeletor?.();
+                entrada.current?.click();
+              }}
               sx={{ minHeight: toque.confortavel }}
             >
               {TEXTO_DO_BOTAO}
