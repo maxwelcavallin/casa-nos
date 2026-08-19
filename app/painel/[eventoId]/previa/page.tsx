@@ -108,9 +108,9 @@ export default async function PaginaDaPrevia({
         <Box sx={{ maxWidth: largura.conteudo, mx: "auto", px: { xs: 2, sm: 3 }, py: 4 }}>
           <Stack sx={{ gap: 2 }}>
             <Alert severity="error">
-              <AlertTitle>Não deu para montar a prévia agora</AlertTitle>
-              A leitura do conteúdo do site falhou. Nada foi alterado — ver a
-              prévia não muda nada no que está guardado, nem no que está no ar.
+              <AlertTitle>Não conseguimos montar a prévia agora</AlertTitle>
+              A leitura do conteúdo do site falhou. O site não mudou — ver a prévia
+              não escreve nada, nem no que está guardado nem no que está no ar.
               Tente de novo em alguns instantes.
             </Alert>
             <Link href={`/painel/${evento.id}/site`}>Voltar para o painel</Link>

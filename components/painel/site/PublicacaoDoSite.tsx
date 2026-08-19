@@ -10,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import { Check, Copy, Eye } from "lucide-react";
 import { useState } from "react";
 
+import { ApenasParaLeitor } from "@/components/ApenasParaLeitor";
 import { FolhaOuDialogo } from "@/components/FolhaOuDialogo";
 import { enviarEvento } from "@/lib/analytics";
 import { toque } from "@/lib/tokens";
@@ -99,10 +100,17 @@ export function PublicacaoDoSite({ dados }: { dados: DadosDaPublicacao }) {
       // O estado volta ao anterior: o interruptor não pode afirmar uma coisa que
       // o servidor não gravou.
       setPublicado(anterior);
+      /**
+       * A REGRA DAS DUAS FRASES (`pmm`, `gtm.md` §5.18): **um erro de publicação
+       * precisa dizer em que estado o site ficou.** Quem aperta "publicar", vê
+       * um erro e não sabe se publicou pela metade **aperta de novo** — e a
+       * segunda tentativa é a que faz estrago. "Nada mudou" responde a pergunta
+       * antes de ela ser feita.
+       */
       setErro(
         proximo
-          ? "Não deu para publicar agora. O site continua fora do ar — tente de novo em alguns instantes."
-          : "Não deu para tirar do ar agora. O site continua no ar — tente de novo em alguns instantes."
+          ? "Não conseguimos publicar agora. Nada mudou: o site continua fora do ar."
+          : "Não conseguimos tirar do ar agora. O site continua no ar."
       );
     } finally {
       // O desligamento no `finally`, e nenhum `return` de guarda antes dele
@@ -123,7 +131,9 @@ export function PublicacaoDoSite({ dados }: { dados: DadosDaPublicacao }) {
       // `clipboard` falha sem rede nenhuma envolvida: contexto não seguro,
       // permissão negada, navegador antigo. O endereço está escrito logo acima,
       // então a saída existe — e a mensagem aponta para ela.
-      setErro("Não deu para copiar. O endereço está aí em cima para você selecionar.");
+      setErro(
+        "Não conseguimos copiar. O endereço está logo acima: dá para selecionar e copiar à mão."
+      );
     }
   }
 
@@ -168,6 +178,21 @@ export function PublicacaoDoSite({ dados }: { dados: DadosDaPublicacao }) {
             >
               {copiado ? "Copiado" : "Copiar"}
             </Button>
+
+            {/**
+             * A TROCA DE RÓTULO É **VISTA**, E PRECISA SER **ANUNCIADA**
+             * (`pmm`, `gtm.md` §5.18). Sem isto, quem não vê a tela toca no botão
+             * e não recebe confirmação nenhuma — e a área de transferência é
+             * justamente o tipo de ação cujo resultado não dá para conferir.
+             *
+             * Uma região viva separada, e não `aria-live` no próprio botão:
+             * anunciar o rótulo do botão que acabou de receber o foco faria o
+             * leitor repetir "Copiado, botão" e ninguém saberia se a cópia
+             * aconteceu ou se o botão só mudou de nome.
+             */}
+            <ApenasParaLeitor aoVivo>
+              {copiado ? "Endereço copiado." : ""}
+            </ApenasParaLeitor>
           </Stack>
 
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -212,11 +237,31 @@ export function PublicacaoDoSite({ dados }: { dados: DadosDaPublicacao }) {
               </Button>
             )}
 
-            {/* A prévia (V-10) fica ao lado do botão de publicar de propósito: é
-                o último lugar em que olhar antes vale mais do que desfazer
-                depois. */}
+            {/**
+             * A PRÉVIA (V-10) FICA AO LADO DO BOTÃO DE PUBLICAR de propósito: é
+             * o último lugar em que olhar antes vale mais do que desfazer
+             * depois.
+             *
+             * ───────────────────────────────────────────────────────────────
+             * **`Ver antes de publicar` FICA FALSA COM O SITE PUBLICADO**, e a
+             * escolha de comportamento é minha (`pmm`, `gtm.md` §5.18).
+             *
+             * **Neste produto não existe rascunho.** `montarSite` lê o banco, e
+             * a página pública lê o mesmo `montarSite`: salvar um campo no
+             * editor muda o site no ar **na hora**. Não há "mudança não
+             * publicada" a conferir, logo não há prévia a ver — e um rótulo que
+             * promete conferir antes seria a mesma classe de mentira que o
+             * `ninguém mais consegue abrir` era.
+             *
+             * Com o site no ar, então, o gatilho é `Abrir o site`, e ele leva ao
+             * endereço de verdade. Ele repete o link do endereço logo acima de
+             * propósito: o endereço está ali para ser lido e copiado, e este
+             * está aqui para ser apertado, na altura em que a mão já está.
+             * ───────────────────────────────────────────────────────────────
+             */}
             <Link
-              href={`/painel/${dados.eventoId}/previa`}
+              href={publicado ? dados.endereco : `/painel/${dados.eventoId}/previa`}
+              {...(publicado ? { target: "_blank", rel: "noreferrer" } : {})}
               variant="body2"
               sx={{
                 display: "inline-flex",
@@ -226,7 +271,7 @@ export function PublicacaoDoSite({ dados }: { dados: DadosDaPublicacao }) {
               }}
             >
               <Eye size={16} aria-hidden />
-              Ver antes de publicar
+              {publicado ? "Abrir o site" : "Ver antes de publicar"}
             </Link>
           </Stack>
         </Stack>
@@ -265,9 +310,22 @@ export function PublicacaoDoSite({ dados }: { dados: DadosDaPublicacao }) {
             O endereço para de responder: quem abrir o link vai ver uma página de
             endereço não encontrado.
           </Typography>
+          {/**
+           * `Nada é apagado` era **passiva sem dono**: some quem faz a coisa, e
+           * some justamente quem a pessoa precisa que seja responsável.
+           * `Não apagamos nada` tem sujeito, e o sujeito somos nós (`pmm`,
+           * `gtm.md` §5.18).
+           *
+           * **A EMENDA DA V-19 JÁ ESTÁ ESCRITA E NÃO ENTRA AINDA:** quando a
+           * galeria tiver foto, a frase ganha `as fotos` na lista e um parágrafo
+           * novo dizendo que a foto continua respondendo para quem guardou a URL
+           * (RV-21). Hoje seria mentira nas duas pontas — não há foto guardada, e
+           * prometer que guardamos o que não existe é a forma mais barata de
+           * perder a confiança de alguém com o dedo sobre um botão destrutivo.
+           */}
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            Nada é apagado. O texto, as seções e a ordem que vocês escolheram
-            continuam guardados, e publicar de novo traz o site inteiro de volta
+            Não apagamos nada. O texto, as seções e a ordem que vocês escolheram
+            continuam guardados, e publicar de novo traz o site inteiro de volta,
             do jeito que estava.
           </Typography>
         </Stack>

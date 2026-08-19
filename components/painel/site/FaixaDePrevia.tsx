@@ -82,10 +82,25 @@ export function FaixaDePrevia({
       >
         <Stack direction="row" sx={{ gap: 1, alignItems: "center" }}>
           <Eye size={16} aria-hidden />
+          {/**
+           * AS DUAS FRASES SÃO DO `pmm` (`gtm.md` §5.18), e as duas corrigem uma
+           * versão minha que estava errada por motivos diferentes:
+           *
+           *   "Ninguém mais consegue abrir esta página" é **ambíguo em
+           *   português**. Lê-se "ninguém além de vocês" e lê-se "ninguém
+           *   consegue mais" — e numa página que existe para dizer que o site
+           *   está fora do ar, a segunda leitura é *"parou de funcionar"*. Pior
+           *   significado possível, no pior momento possível, e nenhum teste
+           *   pega. `Por enquanto, só vocês conseguem abrir` só tem uma leitura,
+           *   e o `por enquanto` diz que é estado, não defeito.
+           *
+           *   "está no ar agora" sugere site público, e ele não é: a página fica
+           *   fora de buscador por decisão do dono, e quem chega chega por link.
+           */}
           <Typography variant="caption">
             {publicado
-              ? "Prévia: é assim que o site de vocês está no ar agora."
-              : "Prévia: é assim que o site vai ficar. Ninguém mais consegue abrir esta página."}
+              ? "Prévia. É assim que o site está agora, no ar para quem tem o link."
+              : "Prévia. É assim que o site vai ficar. Por enquanto, só vocês conseguem abrir."}
           </Typography>
         </Stack>
 
