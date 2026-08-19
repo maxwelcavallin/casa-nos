@@ -228,8 +228,33 @@ describe("a página não BUSCA o conteúdo de seção desligada", () => {
    * A metade que o teste de DOM não alcança. Uma página que buscasse tudo e
    * passasse adiante só o que está ligado continuaria certa na tela — e voltaria
    * a errar no dia em que alguém acrescentasse um campo ao recorte público.
+   *
+   * ───────────────────────────────────────────────────────────────────────────
+   * A V-10 MUDOU ONDE ESTA VARREDURA OLHA, e a mudança é o ponto.
+   *
+   * Até a prévia existir, este bloco estava escrito duas vezes — uma por página
+   * pública — e o teste conferia as duas cópias. Com a prévia seriam três, e
+   * três é o número em que alguém acrescenta a seção nova em duas delas: a
+   * prévia mentiria, o casal aprovaria o que viu, e o convidado veria outra
+   * coisa. Que é exatamente o erro que a prévia existe para evitar.
+   *
+   * Agora existe **uma** montagem (`lib/site-publico.ts`), e a varredura tem
+   * duas partes: as condições estão lá, e **nenhuma tela remonta o site por
+   * conta própria**. A segunda parte é a que segura de verdade.
+   * ───────────────────────────────────────────────────────────────────────────
    */
-  const PAGINAS = ["app/page.tsx", "app/e/[slug]/page.tsx"];
+  const MONTAGEM = "lib/site-publico.ts";
+
+  /** As três telas que renderizam o site: duas públicas e a prévia (V-10). */
+  const TELAS_DO_SITE = [
+    "app/page.tsx",
+    "app/e/[slug]/page.tsx",
+    "app/painel/[eventoId]/previa/page.tsx",
+  ];
+
+  function ler(relativo: string): string {
+    return fs.readFileSync(path.join(RAIZ, relativo), "utf8");
+  }
 
   it("**as quatro buscas de conteúdo são condicionadas à seção estar ligada**", () => {
     /**
@@ -242,44 +267,78 @@ describe("a página não BUSCA o conteúdo de seção desligada", () => {
       ["indicacoes", /ligadas\.includes\("indicacoes"\)\s*\?\s*listarIndicacoes/],
       ["historia", /ligadas\.includes\("historia"\)\s*\?\s*buscarHistoria/],
       ["programacao", /ligadas\.includes\("programacao"\)\s*\?\s*listarProgramacao/],
-      ["perguntas", /ligadas\.includes\("perguntas"\)\s*\?\s*\n?\s*listarPerguntas/],
+      ["perguntas", /ligadas\.includes\("perguntas"\)\s*\?\s*listarPerguntas/],
     ];
 
-    const semCondicao: string[] = [];
-    for (const relativo of PAGINAS) {
-      const fonte = fs.readFileSync(path.join(RAIZ, relativo), "utf8");
-      for (const [secao, padrao] of BUSCAS) {
-        if (!padrao.test(fonte)) semCondicao.push(`${relativo} → ${secao}`);
-      }
-    }
+    const fonte = ler(MONTAGEM);
+    const semCondicao = BUSCAS.filter(([, padrao]) => !padrao.test(fonte)).map(
+      ([secao]) => `${MONTAGEM} → ${secao}`
+    );
 
     expect(
       semCondicao,
-      "Estas páginas buscam o conteúdo mesmo com a seção desligada:\n" +
-        semCondicao.map(p => `  - ${p}`).join("\n") +
-        "\n\nO corte é no servidor, antes da consulta — não na renderização."
+      "Estas buscas acontecem mesmo com a seção desligada: " +
+        semCondicao.join(", ") +
+        ". O corte é no servidor, antes da consulta — não na renderização."
     ).toEqual([]);
   });
 
   it("**as perguntas são filtradas no SERVIDOR, e não no componente**", () => {
     /**
-     * `perguntasRespondidas` roda na página. Filtrar dentro de `SecaoPerguntas`
-     * daria o mesmo resultado na tela e deixaria o texto das perguntas sugeridas
-     * e não respondidas no código-fonte — que é exatamente o que torna seguro
-     * sugerir as cinco (V-16).
+     * `perguntasRespondidas` roda na montagem do servidor. Filtrar dentro de
+     * `SecaoPerguntas` daria o mesmo resultado na tela e deixaria o texto das
+     * perguntas sugeridas e não respondidas no código-fonte — que é exatamente o
+     * que torna seguro sugerir as cinco (V-16).
      */
-    const semFiltro = PAGINAS.filter(relativo => {
-      const fonte = fs.readFileSync(path.join(RAIZ, relativo), "utf8");
-      return !/\.then\(perguntasRespondidas\)/.test(fonte);
-    });
-    expect(semFiltro).toEqual([]);
+    expect(ler(MONTAGEM)).toMatch(/\.then\(perguntasRespondidas\)/);
   });
 
-  it("as duas páginas resolvem as seções antes de montar", () => {
-    const semSecoes = PAGINAS.filter(relativo => {
-      const fonte = fs.readFileSync(path.join(RAIZ, relativo), "utf8");
-      return !/chavesLigadas\(/.test(fonte) || !/secoes=\{ligadas\}/.test(fonte);
-    });
-    expect(semSecoes).toEqual([]);
+  it("a montagem resolve as seções antes de devolver o conteúdo", () => {
+    expect(ler(MONTAGEM)).toMatch(/chavesLigadas\(/);
+  });
+
+  it("**nenhuma das três telas do site remonta o conteúdo por conta própria**", () => {
+    /**
+     * A catraca da V-10, e a razão de ela existir está no critério: *"o que a
+     * prévia esconde, o site esconde; o que ela mostra, o site mostra"*.
+     *
+     * Uma tela que chame `listarSecoes` ou `buscarHistoria` direto está montando
+     * o site do seu jeito — e a divergência que nasce daí não aparece em tela
+     * nenhuma, porque cada uma continua certa sozinha.
+     */
+    const proprias =
+      /listarSecoes\(|chavesLigadas\(|buscarHistoria\(|listarProgramacao\(|listarPerguntas\(|listarIndicacoes\(/;
+
+    const remontam: string[] = [];
+    const semMontagem: string[] = [];
+    for (const relativo of TELAS_DO_SITE) {
+      const fonte = ler(relativo);
+      if (proprias.test(fonte)) remontam.push(relativo);
+      if (!/montarSite\(/.test(fonte)) semMontagem.push(relativo);
+    }
+
+    expect(
+      remontam,
+      "Estas telas montam o site por conta própria: " +
+        remontam.join(", ") +
+        ". Use `montarSite(evento)` de lib/site-publico.ts — com duas montagens, " +
+        "a prévia pode divergir do site e nenhuma das duas telas acusa."
+    ).toEqual([]);
+
+    expect(semMontagem, "Estas telas não chamam montarSite: " + semMontagem.join(", ")).toEqual(
+      []
+    );
+  });
+
+  it("**só a prévia desliga a medição**", () => {
+    /**
+     * `medir={false}` na tela errada é o erro caro na direção oposta: o site
+     * pararia de contar visita e nada avisaria — não há tela quebrada, não há
+     * erro no console, e o GA4 não preenche o passado.
+     */
+    expect(ler("app/painel/[eventoId]/previa/page.tsx")).toMatch(/medir=\{false\}/);
+    for (const publica of ["app/page.tsx", "app/e/[slug]/page.tsx"]) {
+      expect(ler(publica), `${publica} não pode desligar a medição`).not.toMatch(/medir=/);
+    }
   });
 });

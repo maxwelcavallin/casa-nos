@@ -308,6 +308,25 @@ export const TELAS: Tela[] = [
     segmentosPublicos: ["painel", "site"],
   },
   /**
+   * v1.0 — a prévia (V-10). Ela mora em `/painel/[eventoId]/previa` e **não** em
+   * `/painel/[eventoId]/site/previa`: como irmã de `[secao]`, a palavra `previa`
+   * casaria com o parâmetro dinâmico, que é a armadilha que este arquivo já
+   * documenta duas vezes (`publico` casando com `[convidadoId]`, `moderacao`
+   * casando com `[midiaId]`). Evitar a colisão custa uma pasta; lembrar dela
+   * custa um 404 em produção.
+   *
+   * **`previa` NÃO ENTRA EM `segmentosPublicos` AINDA**, e a ausência é
+   * deliberada: o caminho chega ao GA4 como `/e/<wedding_id>/painel/_`, que é o
+   * lado seguro de errar. Declarar a palavra é decisão da V-13, num commit que
+   * alguém lê — e não efeito colateral de uma tela nova. O `[eventoId]` continua
+   * mascarado de qualquer forma (RN-24).
+   */
+  {
+    caminho: "/painel/[eventoId]/previa",
+    superficie: "casal",
+    segmentosPublicos: ["painel"],
+  },
+  /**
    * O editor de uma seção (V-04 a V-09).
    *
    * **AS SETE CHAVES DE SEÇÃO SÃO PALAVRA DE SUPERFÍCIE** e entram legíveis no

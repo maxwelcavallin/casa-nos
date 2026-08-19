@@ -63,6 +63,18 @@ site mostra um travessão, nunca `--:--`) e **perguntas frequentes** (até 15
 pares; **pergunta sem resposta não aparece no site**, e é isso que permite
 sugeri-las sem publicar nada em branco).
 
+**A prévia** (`/painel/<id>/previa`, V-10) — o casal vê o site **como o convidado
+vai ver**, antes de ele estar no ar. Ela renderiza o mesmo `PaginaDoEvento` com a
+mesma montagem (`lib/site-publico.ts`), e por isso obedece todas as flags sem
+escrever nada: horário não publicado não aparece, nome do local não divulgado não
+aparece, seção desligada não é nem buscada. A faixa que diz "prévia" é **fixa no
+rodapé da janela** — ela não entra na contagem de seções e não empurra o
+conteúdo, porque o casal precisa aprovar o primeiro quadro que o convidado vai
+receber, e não um deslocado alguns pixels.
+
+Ela **não emite `page_view`**: a prévia é do casal, e oito aberturas numa noite
+contaminariam a medição de um site que ainda não tem um único convidado.
+
 Todo texto do casal é **texto puro**: parágrafo é linha em branco, e colar
 `<b>oi</b>` do WhatsApp mostra o `<b>oi</b>` escrito. Não existe
 `dangerouslySetInnerHTML` em ponto nenhum deste produto — e por isso não existe
@@ -489,6 +501,8 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/telas-f1-5-f1-7.smoke.test.tsx` | fila, painel e dia ao vivo montados, com o texto exato — e o CTA **não existindo** antes do primeiro envio |
 | `test/contadores-vs-verdade.test.ts` | **banco real**: o agregado do casal contra `count(*)` depois de centenas de operações |
 | `test/perda-vs-verdade.test.ts` | **banco real**: a consulta de perda diz 0 hoje e diz 3 depois de D+7 — a prova de que ela não está cega |
+| `test/previa.test.ts` | a prévia funciona **sem `publicado`**, obedece as flags, e o conteúdo de seção desligada não é nem buscado |
+| `test/site-secoes.test.tsx` | **nenhuma das três telas do site remonta o conteúdo por conta própria**, e só a prévia desliga a medição |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
 

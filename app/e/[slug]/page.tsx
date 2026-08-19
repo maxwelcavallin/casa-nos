@@ -2,18 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PaginaDoEvento } from "@/components/evento/PaginaDoEvento";
-import { agoraNoServidor } from "@/lib/datas";
-import { listarIndicacoes, recortePublico } from "@/lib/eventos";
+import { recortePublico } from "@/lib/eventos";
 import { ehSlug } from "@/lib/ids";
 import { metadadosDoEvento } from "@/lib/metadados";
-import {
-  buscarHistoria,
-  listarPerguntas,
-  listarProgramacao,
-  perguntasRespondidas,
-} from "@/lib/conteudo-do-site";
-import { chavesLigadas, listarSecoes } from "@/lib/secoes";
 import { eventoPorSlug } from "@/lib/resolver-evento";
+import { montarSite } from "@/lib/site-publico";
 
 /**
  * O mesmo site, endereçado pelo slug: `/e/ana-e-max`.
@@ -21,6 +14,11 @@ import { eventoPorSlug } from "@/lib/resolver-evento";
  * PARA QUE SERVE: é como o casal vê o site antes de o DNS apontar, e é como um
  * segundo casamento existe no mesmo deploy enquanto o domínio dele não chega.
  * A página é a mesma — quem muda é só o degrau que resolve o inquilino.
+ *
+ * **ELA EXIGE `publicado = true`**, porque `buscarEventoPorSlug` exige. É daí
+ * que nasce a V-10: até a prévia existir, um site despublicado não era visível
+ * para ninguém — nem para o casal —, e o único jeito de conferir o resultado
+ * era publicar, ou seja, descobrir o erro com 150 pessoas com o link na mão.
  *
  * `ehSlug` ANTES de consultar: parâmetro de URL é entrada de estranho. Sem o
  * filtro, qualquer texto vira consulta ao banco — e é assim que id malformado
@@ -48,37 +46,6 @@ export default async function PaginaPorSlug({ params }: Props) {
   const evento = await eventoPorSlug(slug);
   if (!evento) notFound();
 
-  const secoes = await listarSecoes(evento.id);
-  const ligadas = chavesLigadas(secoes);
-
-  /**
-   * **O CONTEÚDO DE SEÇÃO DESLIGADA NÃO É NEM BUSCADO** (RV-01). Não é economia
-   * de consulta: é o que faz o texto não existir no HTML. Esconder na
-   * renderização deixaria o conteúdo no código-fonte da página, e o primeiro
-   * convidado curioso leria o que o casal decidiu não contar.
-   *
-   * As perguntas são filtradas AQUI, no servidor: pergunta sem resposta não
-   * chega ao componente, e por isso o texto dela não viaja. É o que torna seguro
-   * sugerir as cinco perguntas da persona (V-16).
-   */
-  const [indicacoes, historia, programacao, perguntas] = await Promise.all([
-    ligadas.includes("indicacoes") ? listarIndicacoes(evento.id) : [],
-    ligadas.includes("historia") ? buscarHistoria(evento.id) : null,
-    ligadas.includes("programacao") ? listarProgramacao(evento.id) : [],
-    ligadas.includes("perguntas")
-      ? listarPerguntas(evento.id).then(perguntasRespondidas)
-      : [],
-  ]);
-
-  return (
-    <PaginaDoEvento
-      evento={recortePublico(evento)}
-      indicacoes={indicacoes}
-      agoraMs={agoraNoServidor().getTime()}
-      secoes={ligadas}
-      historia={historia}
-      programacao={programacao}
-      perguntas={perguntas}
-    />
-  );
+  const dados = await montarSite(evento);
+  return <PaginaDoEvento {...dados} />;
 }

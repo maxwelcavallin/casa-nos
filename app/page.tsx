@@ -2,17 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PaginaDoEvento } from "@/components/evento/PaginaDoEvento";
-import { agoraNoServidor } from "@/lib/datas";
-import { listarIndicacoes, recortePublico } from "@/lib/eventos";
+import { recortePublico } from "@/lib/eventos";
 import { metadadosDoEvento } from "@/lib/metadados";
-import {
-  buscarHistoria,
-  listarPerguntas,
-  listarProgramacao,
-  perguntasRespondidas,
-} from "@/lib/conteudo-do-site";
-import { chavesLigadas, listarSecoes } from "@/lib/secoes";
 import { eventoDaRequisicao } from "@/lib/resolver-evento";
+import { montarSite } from "@/lib/site-publico";
 
 /**
  * A raiz — o site do casamento cujo domínio o visitante digitou.
@@ -22,6 +15,11 @@ import { eventoDaRequisicao } from "@/lib/resolver-evento";
  * domínio que fosse compilado, para todos os outros domínios, com uma contagem
  * congelada no horário do build. É o tipo de bug que só aparece com o segundo
  * inquilino no ar.
+ *
+ * O QUE ELA DECIDE É **QUAL** EVENTO. Como ele aparece — quais seções, em que
+ * ordem, com que conteúdo — é `montarSite`, e é a mesma função que a prévia
+ * usa (V-10). A cópia deste bloco em três telas foi o que a V-10 tirou daqui:
+ * ela era o único jeito de a prévia mentir.
  */
 export const dynamic = "force-dynamic";
 
@@ -35,39 +33,6 @@ export default async function Raiz() {
   const evento = await eventoDaRequisicao();
   if (!evento) notFound();
 
-  const secoes = await listarSecoes(evento.id);
-  const ligadas = chavesLigadas(secoes);
-
-  /**
-   * **O CONTEÚDO DE SEÇÃO DESLIGADA NÃO É NEM BUSCADO** (RV-01). Não é economia
-   * de consulta: é o que faz o texto não existir no HTML. Esconder na
-   * renderização deixaria o conteúdo no código-fonte da página, e o primeiro
-   * convidado curioso leria o que o casal decidiu não contar.
-   *
-   * As perguntas são filtradas AQUI, no servidor: pergunta sem resposta não
-   * chega ao componente, e por isso o texto dela não viaja. É o que torna seguro
-   * sugerir as cinco perguntas da persona (V-16).
-   */
-  const [indicacoes, historia, programacao, perguntas] = await Promise.all([
-    ligadas.includes("indicacoes") ? listarIndicacoes(evento.id) : [],
-    ligadas.includes("historia") ? buscarHistoria(evento.id) : null,
-    ligadas.includes("programacao") ? listarProgramacao(evento.id) : [],
-    ligadas.includes("perguntas")
-      ? listarPerguntas(evento.id).then(perguntasRespondidas)
-      : [],
-  ]);
-
-  return (
-    <PaginaDoEvento
-      evento={recortePublico(evento)}
-      indicacoes={indicacoes}
-      // O "agora" do servidor vai junto para a primeira pintura do cliente ser
-      // idêntica à do servidor. Ver o comentário em ContagemRegressiva.
-      agoraMs={agoraNoServidor().getTime()}
-      secoes={ligadas}
-      historia={historia}
-      programacao={programacao}
-      perguntas={perguntas}
-    />
-  );
+  const dados = await montarSite(evento);
+  return <PaginaDoEvento {...dados} />;
 }

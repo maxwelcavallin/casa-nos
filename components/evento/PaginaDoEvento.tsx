@@ -50,6 +50,22 @@ import { largura } from "@/lib/tokens";
  * jeito que `SecaoIndicacoes` já fazia. A regra ficou onde estava o
  * comportamento, em vez de virar uma segunda lista de condições que se
  * desatualiza da primeira.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `medir` — A ÚNICA COISA QUE A PRÉVIA DESLIGA (v1.0, V-10).
+ *
+ * A prévia renderiza **este** componente, com os mesmos filhos e o mesmo recorte
+ * público. O que ela não pode fazer é contar como visita ao site: o critério da
+ * V-10 é literal — *"a prévia é do casal e não pode contaminar a medição"*. Um
+ * casal que abre a prévia oito vezes numa noite produziria oito `page_view` num
+ * site que ainda não tem um único convidado, e a primeira leitura de tráfego
+ * seria feita sobre um número que é o próprio casal olhando.
+ *
+ * É uma prop e não uma cópia do componente porque **a diferença tem que ser esta
+ * e nenhuma outra**: com uma cópia, a próxima seção nova entraria numa das duas.
+ * `test/previa.test.ts` verifica que as duas telas públicas **não** passam este
+ * parâmetro — desligar a medição do site de verdade seria o erro caro na direção
+ * oposta, e ele não faria barulho nenhum.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export function PaginaDoEvento({
@@ -60,6 +76,7 @@ export function PaginaDoEvento({
   historia,
   programacao,
   perguntas,
+  medir = true,
 }: {
   evento: EventoPublico;
   indicacoes: Indicacao[];
@@ -70,10 +87,12 @@ export function PaginaDoEvento({
   programacao: Momento[];
   /** **Já filtradas**: pergunta sem resposta não chega aqui (RV-02, RV-01). */
   perguntas: Pergunta[];
+  /** `false` só na prévia do painel (V-10). Ver o bloco acima. */
+  medir?: boolean;
 }) {
   return (
     <>
-      <GoogleAnalytics eventoId={evento.id} />
+      {medir ? <GoogleAnalytics eventoId={evento.id} /> : null}
       <Box
         component="main"
         sx={{
