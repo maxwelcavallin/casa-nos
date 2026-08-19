@@ -1,5 +1,5 @@
 {
-  "_leia_me": "Este arquivo E o conteudo do site. O dono edita aqui e roda `pnpm db:seed`. Nao existe painel administrativo nesta fatia — e proposital, esta registrado em docs/fatia-0.md. Chaves comecando com _ sao ignoradas pelo seed.",
+  "_leia_me": "O CONTEUDO COM QUE O EVENTO NASCE — nao o editor do site. Quem edita o site e o painel, em /painel/<id>/site. Desde a V-12 o seed SO PREENCHE O QUE ESTA VAZIO no banco: campo preenchido e mantido e relatado como mantido, indicacao existente nao e reinserida, e nada e apagado. Rodar `pnpm db:seed` num evento ja editado nao desfaz nada. Ele nao le nem escreve evento_secoes, evento_historia, evento_programacao, evento_perguntas e evento_fotos. FOTO NUNCA ENTRA AQUI: foto e binario que vive num balde, e um seed que subisse objeto para o R2 seria um segundo montador de chave, que e o que test/r2-prefixos.test.ts existe para impedir. Chaves comecando com _ sao ignoradas pelo seed.",
 
   "slug": "ana-e-max",
   "nomeCasal": "Ana Flávia e Maxwel",
@@ -8,14 +8,14 @@
   "dataEvento": "2027-08-22",
   "fuso": "America/Sao_Paulo",
 
-  "_hora": "Enquanto `horaPublicada` for false, o site nao anuncia horario nenhum e a contagem regressiva persegue o comeco do dia. Quando o horario fechar: preencha `horaEvento` (formato HH:MM) e vire `horaPublicada` para true. Nao precisa de deploy.",
+  "_hora": "Enquanto `horaPublicada` for false, o site nao anuncia horario nenhum e a contagem regressiva persegue o comeco do dia. Estes dois campos so valem na CRIACAO do evento. Num evento que ja existe, o horario vazio ainda e preenchido por aqui, mas `horaPublicada` nao — anunciar horario e decisao do casal, e ela se toma no painel (editor da capa).",
   "horaEvento": null,
   "horaPublicada": false,
 
   "cidade": "Rio de Janeiro",
   "uf": "RJ",
 
-  "_local_nome": "Deixado VAZIO de proposito. O nome do local nao vai ser divulgado agora, e este arquivo mora no repositorio — escrever o nome aqui com a flag desligada esconderia da pagina e nao esconderia de quem abre o repositorio. Quando for revelar: preencha `localNome` e vire `localNomePublicado` para true.",
+  "_local_nome": "Deixado VAZIO de proposito. O nome do local nao vai ser divulgado agora, e este arquivo mora no repositorio — escrever o nome aqui com a flag desligada esconderia da pagina e nao esconderia de quem abre o repositorio. Revelar o local e decisao do casal e se faz no painel (editor de onde e quando), nao aqui.",
   "localNome": null,
   "localNomePublicado": false,
 
@@ -28,7 +28,7 @@
   "localRevelacao": "regiao",
   "localEndereco": null,
 
-  "_publicado": "false tira o site do ar respondendo 404, sem apagar nada.",
+  "_publicado": "So vale na criacao. Tirar do ar e por do ar sao os botoes do painel (V-11), e o seed NUNCA republica um site que o casal tirou do ar — e a unica sobrescrita que reverteria uma decisao tomada com a consequencia escrita na tela.",
   "publicado": true,
 
   "_dominios": "Como a requisicao vira este evento. `www.` e a porta sao normalizados antes da consulta, entao nao cadastre a variante com www.",
@@ -36,7 +36,7 @@
     { "dominio": "anaemax.com.br", "principal": true }
   ],
 
-  "_indicacoes": "Hospedagem e dicas. Enquanto a lista estiver vazia, a secao inteira nao aparece na pagina — nao fica um card vazio. Preencha e rode o seed de novo. `tipo` e 'hospedagem' ou 'dica'; `ordem` decide a posicao (menor primeiro); `referencia` e a distancia ou o bairro, em texto livre. NAO foram cadastradas indicacoes de exemplo de proposito: hotel inventado num site de casamento e informacao falsa no ar.",
+  "_indicacoes": "Hospedagem e dicas. Enquanto a lista estiver vazia, a secao inteira nao aparece na pagina — nao fica um card vazio. O seed INSERE o que ainda nao existe (a chave e o titulo, sem caixa e sem espaco nas pontas) e nunca exclui: tirar um hotel daqui NAO tira mais o hotel do site — quem tira e o painel. `tipo` e 'hospedagem' ou 'dica'; `ordem` decide a posicao (menor primeiro); `referencia` e a distancia ou o bairro, em texto livre. NAO foram cadastradas indicacoes de exemplo de proposito: hotel inventado num site de casamento e informacao falsa no ar.",
   "_indicacoes_exemplo": [
     {
       "tipo": "hospedagem",

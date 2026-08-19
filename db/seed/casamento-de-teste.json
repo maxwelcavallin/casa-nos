@@ -1,5 +1,5 @@
 {
-  "_leia_me": "O SEGUNDO INQUILINO, e ele existe por um motivo tecnico, nao comercial. O teste de vazamento entre inquilinos e criterio de termino da F1.1 (PRD §9.1, item 6), e ele so tem valor com DOIS eventos no banco desde o primeiro dia: acrescentar o segundo depois significa auditar cada consulta escrita ate ali. Nenhum dado real de casal aqui — e um evento de laboratorio.",
+  "_leia_me": "O SEGUNDO INQUILINO, e ele existe por um motivo tecnico, nao comercial. O teste de vazamento entre inquilinos e criterio de termino da F1.1 (PRD §9.1, item 6), e ele so tem valor com DOIS eventos no banco desde o primeiro dia: acrescentar o segundo depois significa auditar cada consulta escrita ate ali. Nenhum dado real de casal aqui — e um evento de laboratorio. Como todo seed desde a V-12, este arquivo preenche so o que estiver vazio no banco e nunca apaga nada.",
 
   "slug": "casamento-de-teste",
   "nomeCasal": "Casamento de teste",

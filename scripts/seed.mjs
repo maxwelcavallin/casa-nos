@@ -4,18 +4,31 @@
  * Uso:  pnpm db:seed                                (todos os arquivos da pasta)
  *       pnpm db:seed db/seed/casamento-ana-e-max.json  (um so)
  *
- * ESTE E O EDITOR DE CONTEUDO DA FATIA 0. Nao existe painel administrativo, e
- * isso e decisao registrada em docs/fatia-0.md, nao esquecimento. O dono edita o
- * JSON e roda este comando; a pagina muda no proximo carregamento.
+ * ELE NAO E MAIS O EDITOR DO SITE. Quem edita o site e o painel, em
+ * `/painel/<id>/site`, desde a V1.3. Este comando existe para o evento **nascer
+ * com conteudo inicial** — e, desde a V-12, para poder ser rodado por engano num
+ * evento ja editado sem desfazer nada.
  *
- * IDEMPOTENTE: a chave e o `slug`. Rodar dez vezes deixa o banco no mesmo
- * estado que rodar uma. Isso importa porque ele VAI rodar mais de uma vez, em
- * mais de um ambiente, e um seed que duplica evento cria dois inquilinos para o
- * mesmo casamento.
+ * A REGRA, e ela vale para tudo aqui dentro: **semeia o que esta vazio, mantem o
+ * que esta preenchido, nunca apaga.** Quem decide campo a campo e
+ * `scripts/seed-plano.mjs`, que e puro e tem teste proprio; este arquivo so
+ * executa a decisao e imprime o que fez.
+ *
+ * IDEMPOTENTE: a chave e o `slug`. Rodar dez vezes deixa o banco no mesmo estado
+ * que rodar uma — e a partir da segunda rodada ele nao manda UPDATE nenhum, nem
+ * para gravar os mesmos bytes.
  */
 import fs from "node:fs"
 import path from "node:path"
 import { neon } from "@neondatabase/serverless"
+
+import {
+  TABELAS_INTOCADAS,
+  contar,
+  planejarDominios,
+  planejarEvento,
+  planejarIndicacoes,
+} from "./seed-plano.mjs"
 
 const RAIZ = process.cwd()
 const PASTA = path.join(RAIZ, "db", "seed")
@@ -105,106 +118,140 @@ function conferir(dados, arquivo) {
 }
 
 /**
- * ATENCAO — ESTE SCRIPT SOBRESCREVE O QUE O CASAL EDITOU NO PAINEL.
- *
- * Desde a V1.3 o casal edita o site em `/painel/<id>/site`. Este seed continua
- * sendo o que sempre foi: o JSON e a fonte da verdade, e ele reescreve o evento
- * inteiro e APAGA todas as indicacoes antes de reinserir as do arquivo. Rodado
- * por engano num evento ja editado, ele desfaz tudo que a noiva escreveu — sem
- * erro nenhum e sem aviso.
- *
- * Ele NAO toca em `evento_secoes`, `evento_historia`, `evento_programacao` nem
- * `evento_perguntas`: essas quatro estao a salvo.
- *
- * Consertar isso e a historia V-12 do prd-v1.md (fatia V1.6), e ela ainda nao
- * foi feita. Ate la: use o seed para CRIAR evento novo e para o de teste.
+ * Uma linha por campo, alinhada — a saida e a unica coisa que quem roda o
+ * comando ve, e "OK" nao diz se o horario entrou ou foi mantido.
  */
+function imprimir(rotulo, acao, motivo) {
+  console.log(`    ${String(rotulo).padEnd(22)} ${String(acao).padEnd(9)} (${motivo})`)
+}
+
 async function semear(arquivo) {
   const dados = JSON.parse(fs.readFileSync(arquivo, "utf8"))
   conferir(dados, path.relative(RAIZ, arquivo))
 
-  const [evento] = await sql`
-    insert into eventos (
-      slug, nome_casal, data_evento, hora_evento, hora_publicada, fuso,
-      cidade, uf,
-      local_nome, local_nome_publicado,
-      local_endereco, local_latitude, local_longitude, local_raio_metros,
-      local_revelacao, publicado
-    ) values (
-      ${dados.slug}, ${dados.nomeCasal}, ${dados.dataEvento},
-      ${dados.horaEvento ?? null}, ${Boolean(dados.horaPublicada)},
-      ${dados.fuso ?? "America/Sao_Paulo"},
-      ${dados.cidade}, ${dados.uf},
-      ${dados.localNome ?? null}, ${Boolean(dados.localNomePublicado)},
-      ${dados.localEndereco ?? null},
-      ${dados.localLatitude ?? null}, ${dados.localLongitude ?? null},
-      ${dados.localRaioMetros ?? null},
-      ${dados.localRevelacao}, ${Boolean(dados.publicado)}
-    )
-    on conflict (slug) where excluido_em is null do update set
-      nome_casal           = excluded.nome_casal,
-      data_evento          = excluded.data_evento,
-      hora_evento          = excluded.hora_evento,
-      hora_publicada       = excluded.hora_publicada,
-      fuso                 = excluded.fuso,
-      cidade               = excluded.cidade,
-      uf                   = excluded.uf,
-      local_nome           = excluded.local_nome,
-      local_nome_publicado = excluded.local_nome_publicado,
-      local_endereco       = excluded.local_endereco,
-      local_latitude       = excluded.local_latitude,
-      local_longitude      = excluded.local_longitude,
-      local_raio_metros    = excluded.local_raio_metros,
-      local_revelacao      = excluded.local_revelacao,
-      publicado            = excluded.publicado,
-      atualizado_em        = now()
-    returning id, slug
+  /**
+   * Le antes de escrever, e nao `on conflict do update`.
+   *
+   * O upsert de antes era o proprio problema: ele decidia sobrescrever dentro do
+   * banco, onde nao da para perguntar "esse campo estava vazio?". Lendo primeiro,
+   * a decisao acontece em `planejarEvento`, que e puro e testado. A corrida entre
+   * o `select` e o `insert` existe no papel e nao existe na pratica: quem roda
+   * isto e uma pessoa num terminal, uma vez.
+   */
+  const [atual] = await sql`
+    select id, slug, nome_casal, data_evento, hora_evento, cidade, uf,
+           local_nome, local_endereco,
+           local_latitude, local_longitude, local_raio_metros
+      from eventos
+     where slug = ${dados.slug}
+       and excluido_em is null
+     limit 1
   `
 
-  for (const d of dados.dominios ?? []) {
-    await sql`
-      insert into evento_dominios (evento_id, dominio, principal)
-      values (${evento.id}, ${String(d.dominio).toLowerCase().replace(/^www\./, "")}, ${Boolean(d.principal)})
-      on conflict (dominio) where excluido_em is null do update set
-        evento_id     = excluded.evento_id,
-        principal     = excluded.principal,
-        atualizado_em = now()
+  const plano = planejarEvento(dados, atual ?? null)
+  let evento = atual
+
+  if (plano.criar) {
+    const v = plano.valores
+    ;[evento] = await sql`
+      insert into eventos (
+        slug, nome_casal, data_evento, hora_evento, hora_publicada, fuso,
+        cidade, uf,
+        local_nome, local_nome_publicado,
+        local_endereco, local_latitude, local_longitude, local_raio_metros,
+        local_revelacao, publicado
+      ) values (
+        ${dados.slug}, ${v.nome_casal}, ${v.data_evento},
+        ${v.hora_evento}, ${v.hora_publicada}, ${v.fuso},
+        ${v.cidade}, ${v.uf},
+        ${v.local_nome}, ${v.local_nome_publicado},
+        ${v.local_endereco},
+        ${v.local_latitude}, ${v.local_longitude}, ${v.local_raio_metros},
+        ${v.local_revelacao}, ${v.publicado}
+      )
+      returning id, slug
     `
+    console.log(`  ${evento.slug}: evento criado`)
+  } else {
+    console.log(`  ${evento.slug}: evento ja existe — so o que estiver vazio e semeado`)
   }
 
   /**
-   * As indicacoes sao REESCRITAS a cada seed, e nao acumuladas.
+   * O UPDATE e estatico e usa `coalesce(parametro, coluna)`: parametro nulo
+   * significa "nao escreva esta coluna". As cinco colunas de decisao — `fuso`,
+   * `local_revelacao` e os tres booleanos — **nao estao aqui**, e a ausencia
+   * delas e a regra: depois de criado, o seed nao republica um site que o casal
+   * tirou do ar nem revela um local que ele escondeu.
    *
-   * O arquivo e a fonte da verdade: tirar um hotel do JSON tem que tirar o
-   * hotel do site. Com `insert` incremental, um item removido do arquivo
-   * continuaria no ar para sempre e ninguem entenderia por que.
-   *
-   * A exclusao e logica (`excluido_em`), como manda o padrao da casa — o dono
-   * consegue recuperar um item que tirou por engano.
+   * Quando `plano.valores` vem vazio, nem o UPDATE sai — a segunda rodada nao
+   * mexe nem no `atualizado_em`.
    */
-  await sql`
-    update evento_indicacoes
-       set excluido_em = now()
+  if (!plano.criar && Object.keys(plano.valores).length > 0) {
+    const v = plano.valores
+    await sql`
+      update eventos set
+        nome_casal        = coalesce(${v.nome_casal ?? null}::text,    nome_casal),
+        data_evento       = coalesce(${v.data_evento ?? null}::date,   data_evento),
+        cidade            = coalesce(${v.cidade ?? null}::text,        cidade),
+        uf                = coalesce(${v.uf ?? null}::text,            uf),
+        hora_evento       = coalesce(${v.hora_evento ?? null}::time,   hora_evento),
+        local_nome        = coalesce(${v.local_nome ?? null}::text,    local_nome),
+        local_endereco    = coalesce(${v.local_endereco ?? null}::text, local_endereco),
+        local_latitude    = coalesce(${v.local_latitude ?? null}::numeric, local_latitude),
+        local_longitude   = coalesce(${v.local_longitude ?? null}::numeric, local_longitude),
+        local_raio_metros = coalesce(${v.local_raio_metros ?? null}::integer, local_raio_metros),
+        atualizado_em     = now()
+      where id = ${evento.id}
+    `
+  }
+
+  for (const linha of plano.linhas) imprimir(linha.coluna, linha.acao, linha.motivo)
+
+  const dominiosNoBanco = await sql`
+    select dominio from evento_dominios where excluido_em is null
+  `
+  const planoDominios = planejarDominios(dados, dominiosNoBanco.map(d => d.dominio))
+
+  for (const d of planoDominios.inserir) {
+    await sql`
+      insert into evento_dominios (evento_id, dominio, principal)
+      values (${evento.id}, ${d.dominio}, ${d.principal})
+    `
+  }
+  for (const linha of planoDominios.linhas) imprimir(linha.dominio, linha.acao, linha.motivo)
+
+  /**
+   * As indicacoes deixaram de ser reescritas em bloco.
+   *
+   * O `update ... set excluido_em = now()` que abria este trecho apagava, a cada
+   * rodada, **tudo** que o casal tivesse acrescentado pelo painel — e essa era a
+   * linha mais cara do script. A chave passa a ser `evento_id` + `titulo`: o que
+   * o arquivo tem e o banco nao, entra; o resto fica de pe.
+   */
+  const titulosNoBanco = await sql`
+    select titulo from evento_indicacoes
      where evento_id = ${evento.id}
        and excluido_em is null
   `
+  const planoIndicacoes = planejarIndicacoes(dados, titulosNoBanco.map(i => i.titulo))
 
-  for (const [i, ind] of (dados.indicacoes ?? []).entries()) {
+  for (const ind of planoIndicacoes.inserir) {
     await sql`
       insert into evento_indicacoes
         (evento_id, tipo, titulo, descricao, referencia, url, ordem, publicado)
       values (
         ${evento.id}, ${ind.tipo}, ${ind.titulo},
         ${ind.descricao ?? null}, ${ind.referencia ?? null}, ${ind.url ?? null},
-        ${ind.ordem ?? i + 1}, ${ind.publicado === undefined ? true : Boolean(ind.publicado)}
+        ${ind.ordem}, ${ind.publicado === undefined ? true : Boolean(ind.publicado)}
       )
     `
   }
+  for (const linha of planoIndicacoes.linhas) imprimir(linha.titulo, linha.acao, linha.motivo)
 
-  const quantas = (dados.indicacoes ?? []).length
+  const total = contar(plano.linhas, planoDominios.linhas, planoIndicacoes.linhas)
   console.log(
-    `  ${evento.slug}: evento gravado, ${(dados.dominios ?? []).length} dominio(s), ` +
-      `${quantas} indicacao(oes)${quantas === 0 ? " — a secao de indicacoes nao vai aparecer na pagina" : ""}`
+    `    ${total.semeados} semeado(s), ${total.mantidos} mantido(s). ` +
+      `Nao toca em: ${TABELAS_INTOCADAS.join(", ")}.`
   )
 }
 

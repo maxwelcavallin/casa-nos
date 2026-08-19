@@ -99,9 +99,9 @@ Todo texto do casal é **texto puro**: parágrafo é linha em branco, e colar
 sanitização: o que não é interpretado não precisa ser limpo.
 
 **Este é o ponto em que o `db/seed/*.json` deixa de ser necessário** para mudar o
-conteúdo do site. Ele continua existindo para o evento nascer com conteúdo
-inicial — ver [Seed](#seed--é-assim-que-o-dono-edita-o-site), cujo título ainda
-descreve o mundo anterior e vira dívida até a V1.6 (V-12).
+conteúdo do site. Ele continua existindo para o evento **nascer** com conteúdo
+inicial — e, desde a V-12, rodá-lo por engano num evento já editado não desfaz
+nada: ver [Seed](#seed--é-assim-que-o-evento-nasce-com-conteúdo-inicial).
 
 **A galeria do casal** (migration `0015`, V-18) — a oitava seção, e a única que
 escreve no R2 a partir do painel. Em `/painel/<id>/site/galeria` o casal escolhe
@@ -398,53 +398,72 @@ link na tela de entrada, que manda por e-mail (Brevo).
 `--dono` marca o acesso do dono do produto, que é quem enxerga a medição. No
 casamento cobaia o dono **é** o casal; no evento de teste, ninguém é dono.
 
-### Seed — como o evento nasce com conteúdo inicial
+### Seed — é assim que o evento nasce com conteúdo inicial
 
-> ### ⚠ NÃO RODE `pnpm db:seed` NUM EVENTO QUE O CASAL JÁ EDITOU
->
-> **O seed sobrescreve o painel, hoje, em silêncio.** Desde a V1.3 o casal edita
-> o site em `/painel/<id>/site`, e o seed continua sendo o que ele sempre foi:
-> o arquivo JSON é a fonte da verdade e ele **reescreve** `nome_casal`,
-> `data_evento`, `hora_evento`, `hora_publicada`, `cidade`, `uf`, o local
-> inteiro e as flags de revelação — e **apaga todas as indicações** (exclusão
-> lógica) antes de reinserir as do arquivo.
->
-> Ou seja: um `pnpm db:seed` rodado por engano devolve o site ao estado do
-> repositório e desfaz tudo que a noiva escreveu, sem erro nenhum e sem aviso.
->
-> Ele **não** toca em `evento_secoes`, `evento_historia`, `evento_programacao`
-> nem `evento_perguntas` — essas quatro estão a salvo hoje. O risco é o
-> parágrafo acima.
->
-> **Isso é a história V-12 do `prd-v1.md` (fatia V1.6), e ela ainda não foi
-> feita.** Até lá, o seed serve para **criar** um evento novo com conteúdo
-> inicial e para o evento de teste — não para editar o do casal.
-
-O conteúdo inicial mora em `db/seed/casamento-ana-e-max.json`; para semear, edite
-o arquivo e rode:
+**O seed não é o editor do site.** Quem edita o site é o painel, em
+`/painel/<id>/site`, desde a V1.3. Este comando serve para o evento **nascer**
+com conteúdo — e, desde a V-12, para poder ser rodado por engano num evento já
+editado sem desfazer nada.
 
 ```bash
 pnpm db:seed
 ```
 
-O seed é idempotente (a chave é o `slug`) e confere o arquivo **antes** de tocar
-no banco: data em formato brasileiro, horário publicado sem horário preenchido,
-nome de local publicado sem nome, coordenada faltando — cada um vira uma mensagem
-que diz o que corrigir, em vez de um erro de constraint no meio da escrita.
+A regra é uma só: **semeia o que está vazio, mantém o que está preenchido, nunca
+apaga.** A saída diz, uma linha por campo, o que ele fez com cada um, e termina
+com o número dos dois lados.
 
-As indicações são reescritas a cada seed: o arquivo é a fonte da verdade, então
-tirar um hotel do JSON tira o hotel do site (por exclusão lógica — dá para
-recuperar).
+```
+  ana-e-max: evento já existe — só o que estiver vazio é semeado
+    nome_casal             mantido   (ja preenchido no banco — o painel manda)
+    hora_evento            semeado   (estava vazio no banco)
+    publicado              mantido   (decisao do painel: false e 'oculto' sao valores, nao vazios)
+    Hotel do Arquivo       mantido   (ja existe neste evento)
+    1 semeado(s), 14 mantido(s). Nao toca em: evento_secoes, evento_historia,
+    evento_programacao, evento_perguntas, evento_fotos.
+```
 
-O que o dono muda sem tocar em código, e sem deploy:
+**Três classes de campo, e a terceira é a que evita o estrago:**
 
-| Para | Mude no JSON | e rode |
+| Classe | Quais | O que o seed faz num evento que já existe |
 |---|---|---|
-| Divulgar o horário | `horaEvento` + `horaPublicada: true` | `pnpm db:seed` |
-| Divulgar o nome do local | `localNome` + `localNomePublicado: true` | `pnpm db:seed` |
-| Trocar a região pelo endereço exato | `localRevelacao: "exato"` + `localEndereco` | `pnpm db:seed` |
-| Acrescentar hotéis e dicas | `indicacoes: [...]` | `pnpm db:seed` |
-| Tirar o site do ar | — | **o botão em `/painel/<id>/site`** (V-11). O JSON continua tendo `publicado`, mas o seed não é mais o caminho |
+| Aceita nulo | `horaEvento`, `localNome`, `localEndereco`, coordenadas, raio | preenche **se, e só se,** a coluna estiver nula ou em branco |
+| Obrigatório | `nomeCasal`, `dataEvento`, `cidade`, `uf` | mantém — no banco eles nunca estão vazios |
+| **Decisão** | `publicado`, `horaPublicada`, `localNomePublicado`, `localRevelacao`, `fuso` | **nunca escreve.** `false` não é "faltando" e `'oculto'` não é "em branco": são os valores que o painel grava quando o casal decide não divulgar. Um seed que os "corrigisse" pelo JSON **republicaria um site que o casal tirou do ar** |
+
+As **indicações** deixaram de ser reescritas em bloco. A chave é o título (sem
+caixa e sem espaço nas pontas): o que está no arquivo e não no banco é inserido,
+o resto fica de pé. **Tirar um hotel do JSON não tira mais o hotel do site** —
+quem tira é o painel. Era o comportamento antigo, e ele custava apagar, a cada
+rodada, tudo que o casal tivesse acrescentado por lá.
+
+O seed **não lê, não escreve e não exclui** `evento_secoes`, `evento_historia`,
+`evento_programacao`, `evento_perguntas` e `evento_fotos` — e o comando nomeia as
+cinco na saída. `evento_fotos` está fora por um motivo mais duro que os outros
+quatro: foto é binário que vive num balde, e um seed que subisse objeto para o R2
+seria um **segundo montador de chave**, exatamente o que
+`test/r2-prefixos.test.ts` existe para impedir. Por isso o JSON também não ganha
+campo de foto — nem agora, nem depois.
+
+Ele continua conferindo o arquivo **antes** de tocar no banco: data em formato
+brasileiro, horário publicado sem horário preenchido, nome de local publicado sem
+nome, coordenada faltando — cada um vira uma mensagem que diz o que corrigir, em
+vez de um erro de constraint no meio da escrita.
+
+Quem decide campo a campo é `scripts/seed-plano.mjs`, que é puro e tem catraca
+própria em `test/seed-plano.test.ts` — inclusive a que prova que a **segunda**
+rodada não escreve coluna nenhuma, nem para gravar os mesmos bytes.
+
+**O que ainda se muda pelo JSON, e o que não se muda mais:**
+
+| Para | Onde |
+|---|---|
+| Criar um evento novo com conteúdo inicial | o JSON + `pnpm db:seed` |
+| Preencher um campo que ainda está vazio (horário, nome do local, endereço) | o JSON + `pnpm db:seed`, ou o painel |
+| Acrescentar hotéis e dicas que ainda não existem | o JSON + `pnpm db:seed`, ou o painel |
+| **Corrigir** qualquer campo já preenchido | **o painel** — o seed mantém o que está lá |
+| **Tirar** um hotel ou uma dica | **o painel** — o seed nunca exclui |
+| Divulgar o horário, revelar o local, publicar ou tirar do ar | **o painel** — são decisões, e o seed não as escreve |
 
 ---
 
@@ -511,7 +530,9 @@ embed ele existia com os links mortos.
 
 > **Confira o ponto.** A coordenada no seed (`-22.97, -43.37`, região
 > Jacarepaguá/Barra) foi escolhida como centro genérico da região, sem consultar
-> o endereço do local. Se a região estiver errada, corrija no JSON e rode o seed.
+> o endereço do local. Se a região estiver errada, **corrija no painel**: as
+> coordenadas já estão no banco, e desde a V-12 o seed não sobrescreve campo
+> preenchido.
 
 ---
 
