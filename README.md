@@ -156,6 +156,30 @@ balde sem linha que os aponte, e não há cron de limpeza.
 > existe devolve 404, que o cliente do balde trata como "não está mais lá", e a
 > segunda passada chega à linha. A mensagem da tela diz exatamente isso.
 
+**Sair de um editor com alteração não salva avisa** (V-15). Sem alteração, o
+"Voltar para o site" é um link e mais nada — aviso que aparece sempre vira
+mobília, e a pessoa aprende a atravessá-lo sem ler justamente nas duas vezes em
+que ele importava. **No editor da galeria a frase é outra**, e a diferença não é
+de tom: com um envio em curso, o que se perde não é o que foi digitado, é a
+**foto** — a linha existe sem `armazenada_em`, não renderiza no site, e não há
+botão de salvar que resolva. A saída oferecida ali é mandar de novo. Fechar a aba
+e recarregar são cobertos pelo `beforeunload` (com a frase do navegador, não a
+nossa); **o botão *voltar* do navegador não é interceptado**, e isso está escrito
+em `lib/usar-aviso-de-saida.ts` para não ser redescoberto na marra.
+
+**A seção de perguntas oferece as cinco que todo mundo faz** (V-16) — traje,
+horário, como chegar, estacionamento e criança — para a seção que **nunca** teve
+pergunta. Elas entram sem resposta, e é a regra do V-09 que torna a oferta
+segura: pergunta sem resposta não aparece no site. A oferta some no primeiro uso
+e **não volta quando o casal apaga todas** — quem decidiu não as querer decidiu
+uma vez, e repetir a oferta a cada visita é insistência.
+
+**A contagem de caracteres aparece a 200 do teto** (V-17), e **os campos que a
+têm não truncam**: colar do WhatsApp um texto acima do limite mantém o texto
+inteiro, a contagem fica vermelha dizendo quantos passaram, e quem recusa é o
+servidor — com o número. O `maxLength`, que parece proteção, jogava fora o fim do
+texto colado em silêncio.
+
 **As seções do site são dado** (migration `0012`). O catálogo — quais existem,
 o nome de cada uma, quais não se desligam — vive em `lib/secoes.ts`, porque cada
 seção tem um componente que a desenha. **Linha ausente significa o padrão do
@@ -606,6 +630,10 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/galeria-exclusao-rota.test.ts` | **quando a linha é marcada, o objeto já saiu** — a asserção é sobre o estado do banco no instante em que o R2 é chamado, não sobre a ordem das linhas no arquivo. Mais o 502 com a linha viva, e o **409 com os dois números** na décima terceira foto |
 | `test/galeria-editor.test.tsx` | dois toques rápidos em subir/descer: a lista move na hora, **um** pedido no ar, e o último descreve a tela. Mais a legenda salvando por botão e a caixa de apagar dizendo a consequência |
 | `test/seed-plano.test.ts` | **o segundo `pnpm db:seed` não escreve coluna nenhuma** — e o seed não republica um site que o casal tirou do ar, nem reinsere indicação que já existe |
+| `test/aviso-de-saida.test.tsx` | o aviso não aparece sem alteração; aparece com texto digitado; e **no envio em curso a frase é outra**, porque a perda é outra |
+| `test/perguntas-sugeridas.test.ts` | as cinco nascem invisíveis, entram num `unnest` só, e **a consulta que decide a oferta não filtra `excluido_em`** — a ausência é a funcionalidade |
+| `test/perguntas-oferta.test.tsx` | a oferta aparece só na seção que nunca teve pergunta, e não volta depois que o casal apagou todas |
+| `test/contagem-de-caracteres.test.tsx` | a contagem só perto do teto, e **`maxLength` ausente pelo nome do atributo** — é a primeira coisa que alguém repõe "para proteger o campo" |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
 
