@@ -126,6 +126,7 @@ async function montarComOSeed() {
         historia={null}
         programacao={[]}
         perguntas={[]}
+        fotos={[]}
       />
     </Providers>
   );

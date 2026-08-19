@@ -8,6 +8,7 @@ import { PaginaDoEvento } from "@/components/evento/PaginaDoEvento";
 import { Providers } from "@/components/Providers";
 import type { Historia, Momento, Pergunta } from "@/lib/conteudo-do-site";
 import type { EventoPublico, Indicacao } from "@/lib/eventos";
+import type { FotoDoSite } from "@/lib/galeria";
 import { CHAVES_DE_SECAO, type ChaveDeSecao } from "@/lib/secoes";
 
 /**
@@ -73,6 +74,25 @@ const PERGUNTAS: Pergunta[] = [
   { id: "p1", pergunta: "Qual é o traje?", resposta: "Esporte fino secreto.", ordem: 1 },
 ];
 
+/**
+ * Duas fotos, e a segunda tem legenda. É o mínimo que exercita as duas metades
+ * da RV-19: `alt=""` nas duas, `<figcaption>` só na segunda.
+ */
+const FOTOS: FotoDoSite[] = [
+  {
+    url: "https://midia.exemplo/pub/e/11111111-1111-4111-8111-111111111111/g/f1/p.jpg",
+    largura: 1600,
+    altura: 1067,
+    legenda: null,
+  },
+  {
+    url: "https://midia.exemplo/pub/e/11111111-1111-4111-8111-111111111111/g/f2/p.jpg",
+    largura: 1200,
+    altura: 1600,
+    legenda: "O dia em que a gente decidiu.",
+  },
+];
+
 function montar(
   secoes: readonly ChaveDeSecao[],
   indicacoes: Indicacao[] = INDICACOES,
@@ -80,7 +100,13 @@ function montar(
     historia = HISTORIA,
     programacao = PROGRAMACAO,
     perguntas = PERGUNTAS,
-  }: { historia?: Historia | null; programacao?: Momento[]; perguntas?: Pergunta[] } = {}
+    fotos = FOTOS,
+  }: {
+    historia?: Historia | null;
+    programacao?: Momento[];
+    perguntas?: Pergunta[];
+    fotos?: FotoDoSite[];
+  } = {}
 ) {
   return render(
     <Providers>
@@ -92,6 +118,7 @@ function montar(
         historia={historia}
         programacao={programacao}
         perguntas={perguntas}
+        fotos={fotos}
       />
     </Providers>
   );
@@ -256,7 +283,7 @@ describe("a página não BUSCA o conteúdo de seção desligada", () => {
     return fs.readFileSync(path.join(RAIZ, relativo), "utf8");
   }
 
-  it("**as quatro buscas de conteúdo são condicionadas à seção estar ligada**", () => {
+  it("**as cinco buscas de conteúdo são condicionadas à seção estar ligada**", () => {
     /**
      * Uma busca por seção, e cada uma atrás do seu `ligadas.includes(...)`. No
      * dia em que uma seção nova esquecer a condição, o conteúdo dela passa a
@@ -268,6 +295,14 @@ describe("a página não BUSCA o conteúdo de seção desligada", () => {
       ["historia", /ligadas\.includes\("historia"\)\s*\?\s*buscarHistoria/],
       ["programacao", /ligadas\.includes\("programacao"\)\s*\?\s*listarProgramacao/],
       ["perguntas", /ligadas\.includes\("perguntas"\)\s*\?\s*listarPerguntas/],
+      /**
+       * A galeria (V-18). Aqui a metade que se esquece custa mais que texto: o
+       * endereço público de uma foto **não expira e não pede sessão**. Se a
+       * busca acontecesse com a seção desligada, o `src` das fotos que o casal
+       * decidiu não mostrar viajaria no código-fonte da página — e quem copiasse
+       * o endereço continuaria abrindo a foto depois, para sempre.
+       */
+      ["galeria", /ligadas\.includes\("galeria"\)\s*\?\s*listarFotosArmazenadas/],
     ];
 
     const fonte = ler(MONTAGEM);

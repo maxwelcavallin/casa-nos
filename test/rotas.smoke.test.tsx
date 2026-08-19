@@ -130,6 +130,7 @@ function montar(evento: EventoPublico, indicacoes: Indicacao[] = []) {
         historia={null}
         programacao={[]}
         perguntas={[]}
+        fotos={[]}
       />
     </Providers>
   );

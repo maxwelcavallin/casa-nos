@@ -81,6 +81,70 @@ export function chavesDaMidia(
   };
 }
 
+/**
+ * As DUAS chaves de uma foto da galeria do casal (v1.0, V-18).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A SEGUNDA — E ÚLTIMA — FUNÇÃO DO PRODUTO QUE SABE MONTAR CAMINHO NO R2.
+ * `test/r2-prefixos.test.ts` aceita **exatamente duas** e falha na terceira.
+ * Duas, e não N: o layout do balde tem um dono (RN-33), e a mudança mais cara
+ * que este produto tem é mover objeto.
+ *
+ *   pub/e/<evento_id>/g/<foto_id>/t.jpg   miniatura de 400 — do EDITOR
+ *   pub/e/<evento_id>/g/<foto_id>/p.jpg   prévia de 1600  — do SITE
+ *
+ * `g/` de galeria, irmão de `m/` de mídia, dentro do prefixo por evento que já
+ * existe. Duas consequências saem de graça: a regra de ciclo de vida de 12 meses
+ * por prefixo (`pub/e/<id>/`) já cobre a galeria sem regra nova, e a
+ * reconciliação não precisa aprender caminho nenhum.
+ *
+ * **SÓ `pub/`, E NÃO HÁ ORIGINAL** (prd-v1 §4.8.2), e as duas metades decidem:
+ *
+ *   1. A foto do casal num site publicado **é pública por natureza**: a página é
+ *      aberta por 150 pessoas sem sessão, sem conta e sem cookie. E URL assinada
+ *      é incompatível com o que o site é — o HTML sai do servidor com `<img
+ *      src>`, e uma URL de 15 minutos expira na aba que ficou aberta. `prv/`
+ *      existe para cumprir a promessa *"só os noivos veem esta foto"*, que a
+ *      galeria não faz; ocupá-lo com um objeto sem promessa dilui o prefixo.
+ *
+ *   2. Sem original não há assinatura no caminho quente, não há download, não há
+ *      expurgo, não há carência — e **nenhum EXIF chega ao balde, inclusive o
+ *      GPS**. Isso não é uma linha de código: `gerarDerivadas` re-codifica a
+ *      partir dos pixels no `canvas`, e pixels não têm EXIF. O endereço de casa
+ *      gravado na foto de noivado nunca sai do celular.
+ *
+ * **O PREÇO, ESCRITO EM VEZ DE DESCOBERTO** (§4.8.4): tirar o site do ar faz
+ * `/e/<slug>` responder 404 e **não** faz a foto parar de responder. Quem já tem
+ * a URL continua abrindo. A saída completa é apagar a foto, e é V-19 quem a
+ * constrói e quem emenda o texto da confirmação.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+export function chavesDaFoto(
+  eventoId: string,
+  fotoId: string
+): Record<"miniatura" | "previa", string> {
+  const base = `${PREFIXO_PUBLICO}/e/${eventoId}/g/${fotoId}`;
+  return { miniatura: `${base}/t.jpg`, previa: `${base}/p.jpg` };
+}
+
+/**
+ * O endereço público de uma derivada da galeria.
+ *
+ * `null` quando `R2_PUBLIC_BASE` não está configurada — e quem chama trata o
+ * nulo como **não renderizar a foto**, nunca como uma `<img>` com `src` vazio.
+ * Uma imagem quebrada no site do casamento é pior que uma foto a menos, pelo
+ * mesmo motivo da caixa não reservada (RV-26).
+ */
+export function urlPublicaDaFoto(
+  eventoId: string,
+  fotoId: string,
+  faixa: "miniatura" | "previa"
+): string | null {
+  const base = baseDoPublico();
+  if (!base) return null;
+  return `${base}/${chavesDaFoto(eventoId, fotoId)[faixa]}`;
+}
+
 /** `feed` → `pub`, `noivos` → `prv`. A regra inteira, num lugar só. */
 export function prefixoDeDerivada(visibilidade: VisibilidadeDaChave): string {
   return visibilidade === "feed" ? PREFIXO_PUBLICO : PREFIXO_PRIVADO;

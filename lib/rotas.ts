@@ -216,6 +216,26 @@ export const ROTAS_DE_API: RotaDeApi[] = [
     metodos: { PATCH: "site.editar", DELETE: "site.editar" },
   },
 
+  /**
+   * A GALERIA (v1.0, V-18) — as duas rotas do envio de foto.
+   *
+   * **`site.editar`, e NENHUMA delas entra em `ACOES_DO_ALBUM`** (RV-23). É o
+   * risco mais provável desta emenda, porque a semelhança superficial entre
+   * álbum e galeria convida: as duas sobem foto, as duas assinam `PUT`, as duas
+   * carimbam depois. O que as separa é que a galeria é **conteúdo do site**,
+   * escrito pelo casal — e o site é justamente o que a v1.0 é.
+   *
+   * Coleção antes de item, como manda a regra deste arquivo. As duas têm número
+   * de segmentos diferente e não colidem, mas a ordem fica obedecida para o dia
+   * em que um caminho novo empatar — que é quando o defeito aparece (405 num
+   * POST legítimo) e ninguém entende por quê.
+   */
+  { caminho: "/api/eventos/[id]/site/galeria", metodos: { POST: "site.editar" } },
+  {
+    caminho: "/api/eventos/[id]/site/galeria/[fotoId]/confirmacao",
+    metodos: { POST: "site.editar" },
+  },
+
   // H-18 — o aparelho conta o que deu errado com ele
   { caminho: "/api/interno/erro-cliente", metodos: { POST: "interno.erro" }, publica: true },
 
@@ -335,7 +355,7 @@ export const TELAS: Tela[] = [
   /**
    * O editor de uma seção (V-04 a V-09).
    *
-   * **AS SETE CHAVES DE SEÇÃO SÃO PALAVRA DE SUPERFÍCIE** e entram legíveis no
+   * **AS OITO CHAVES DE SEÇÃO SÃO PALAVRA DE SUPERFÍCIE** e entram legíveis no
    * GA4: `capa`, `onde` e `indicacoes` dizem qual editor foi aberto, e nenhuma
    * delas nomeia gente. É a mesma régua de `album` e `minhas`. O `[eventoId]`
    * continua mascarado.
@@ -350,6 +370,7 @@ export const TELAS: Tela[] = [
       "onde",
       "programacao",
       "historia",
+      "galeria",
       "perguntas",
       "indicacoes",
       "rodape",

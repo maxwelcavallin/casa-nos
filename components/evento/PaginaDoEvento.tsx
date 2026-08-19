@@ -4,12 +4,14 @@ import Stack from "@mui/material/Stack";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { HeroDoCasamento } from "@/components/evento/HeroDoCasamento";
 import { RodapeDoCasamento } from "@/components/evento/RodapeDoCasamento";
+import { SecaoGaleria } from "@/components/evento/SecaoGaleria";
 import { SecaoHistoria } from "@/components/evento/SecaoHistoria";
 import { SecaoIndicacoes } from "@/components/evento/SecaoIndicacoes";
 import { SecaoOnde } from "@/components/evento/SecaoOnde";
 import { SecaoPerguntas } from "@/components/evento/SecaoPerguntas";
 import { SecaoProgramacao } from "@/components/evento/SecaoProgramacao";
 import type { Historia, Momento, Pergunta } from "@/lib/conteudo-do-site";
+import type { FotoDoSite } from "@/lib/galeria";
 import type { EventoPublico, Indicacao } from "@/lib/eventos";
 import type { ChaveDeSecao } from "@/lib/secoes";
 import { largura } from "@/lib/tokens";
@@ -76,6 +78,7 @@ export function PaginaDoEvento({
   historia,
   programacao,
   perguntas,
+  fotos,
   medir = true,
 }: {
   evento: EventoPublico;
@@ -87,6 +90,13 @@ export function PaginaDoEvento({
   programacao: Momento[];
   /** **Já filtradas**: pergunta sem resposta não chega aqui (RV-02, RV-01). */
   perguntas: Pergunta[];
+  /**
+   * **Já recortadas** por `fotosParaOSite`: intenção não confirmada, medida
+   * incoerente (RV-26) e foto sem endereço público não chegam aqui. É por isso
+   * que a linha invisível de contagem pode contar `fotos.length` — ela conta o
+   * que foi renderizado, e não um número configurado.
+   */
+  fotos: FotoDoSite[];
   /** `false` só na prévia do painel (V-10). Ver o bloco acima. */
   medir?: boolean;
 }) {
@@ -118,6 +128,8 @@ export function PaginaDoEvento({
                   return <SecaoProgramacao key={chave} momentos={programacao} />;
                 case "historia":
                   return <SecaoHistoria key={chave} historia={historia} />;
+                case "galeria":
+                  return <SecaoGaleria key={chave} fotos={fotos} />;
                 case "perguntas":
                   return <SecaoPerguntas key={chave} perguntas={perguntas} />;
                 case "indicacoes":

@@ -294,6 +294,68 @@ export const largura = {
 } as const;
 
 /**
+ * Respiro lateral da coluna, em px — o vão entre a borda da coluna e o
+ * conteúdo.
+ *
+ * A §8 já escrevia "16 no mobile, 24 acima de `sm`, sem exceção" desde a v2.
+ * O que faltava era o TOKEN, e a falta só apareceu na v4: o teto de altura da
+ * foto da galeria (§20.2) é, por definição, "a largura da coluna cheia", e a
+ * única forma de escrever isso sem token era o literal `592`. Literal de
+ * largura derivada é exatamente como um valor de sistema vira cinco valores
+ * parecidos.
+ *
+ * Em `sx` do MUI continua sendo `px: { xs: 2, sm: 3 }` — `theme.spacing(1)` é
+ * 8, e 2/3 são estes mesmos 16/24. O token existe para quem precisa do NÚMERO,
+ * não do multiplicador.
+ */
+export const respiro = { xs: espaco.lg, sm: espaco.xl } as const;
+
+/**
+ * A foto de conteúdo na coluna do site — a galeria do casal (§20).
+ *
+ * NÃO é a grade de mídia do álbum (`grade`). São dois problemas diferentes e a
+ * diferença está escrita: no álbum a foto é um alvo de toque de 104 px que ABRE
+ * a foto grande, e por isso ela pode ser recortada em 1:1 (`object-fit: cover`,
+ * §16.2). Aqui a foto renderizada é a ÚNICA que existe — não há lightbox na
+ * v1.0 — e portanto ela nunca é recortada: proporção intrínseca, sempre (§20.3).
+ *
+ * `tetoAltura` é um teto de ALTURA, e é o que impede que uma foto 9:16 de
+ * celular ocupe uma tela e meia numa coluna de leitura. Ele NÃO recorta: com
+ * `maxWidth: "100%"` e `maxHeight: tetoAltura`, a foto retrato encolhe em
+ * LARGURA mantendo a proporção e fica centrada na coluna. Não há recorte, não
+ * há tarja, não há `object-fit`.
+ *
+ *   xs = 520 — derivado, não escolhido. A 328 px de coluna (viewport de 360),
+ *   um retrato 2:3 mede 492 px e passa INTEIRO; um 9:16 mede 583 e é trazido a
+ *   520, perdendo 36 px de largura — um recuo visível, que se lê como
+ *   intencional, e não como erro de arredondamento. E 520 + 8 de vão + duas
+ *   linhas de `body2` (48) somam 576: numa área de conteúdo de 640 px de altura
+ *   ainda sobram 64 px do próximo bloco, então quem rola SEMPRE vê que a faixa
+ *   continua. Não "corrija" para 512 nem para 480: é medida, não escala.
+ *
+ *   sm = 592 — a largura da coluna cheia. A regra em uma frase: **acima de
+ *   `sm`, nenhuma foto fica mais alta do que larga.** Entre 600 e 640 px de
+ *   viewport a coluna é mais estreita que 592 e o teto simplesmente não pega,
+ *   o que é o comportamento certo.
+ *
+ * NÃO EXISTE teto de largura aqui: a largura é a da coluna, que já é
+ * `largura.texto`. Um segundo teto seria uma segunda régua para a mesma coisa.
+ */
+export const foto = {
+  /** Teto de altura da foto na coluna do site. Ver o bloco acima. */
+  tetoAltura: { xs: 520, sm: largura.texto - 2 * respiro.sm },
+  /** Foto → legenda. Perto, porque a legenda é DAQUELA foto. */
+  vaoLegenda: espaco.sm,
+  /** Bloco (foto + legenda) → próximo bloco. Três vezes o vão da legenda: é a
+   *  razão que torna impossível ler uma legenda como pertencendo à foto de
+   *  baixo. Não encoste os dois números. */
+  vaoBloco: espaco.xl,
+  /** A derivada que a PÁGINA serve. A miniatura de 400 (`grade.miniatura`) é do
+   *  editor no painel e NUNCA aparece no site — sem lightbox, a prévia é a foto. */
+  previa: 1600,
+} as const;
+
+/**
  * Traço — espessura de linha, em px, e por que existe um piso por superfície.
  *
  * `hairline` é o filete entre itens numa tela na mão. `controle` é o contorno de
@@ -511,6 +573,8 @@ export const tokens = {
   duracao,
   grade,
   largura,
+  respiro,
+  foto,
   escalaProjecao,
   toque,
 } as const;

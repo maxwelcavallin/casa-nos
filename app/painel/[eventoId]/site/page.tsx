@@ -15,6 +15,7 @@ import {
   origemDaRequisicao,
 } from "@/lib/enderecos";
 import { buscarEventoPorId, dominioPrincipal } from "@/lib/eventos";
+import { contarFotosArmazenadas } from "@/lib/galeria";
 import { ehUuid } from "@/lib/ids";
 import { listarIndicacoesDoPainel } from "@/lib/indicacoes";
 import { resumirSecao, type ContagemDoConteudo } from "@/lib/resumo-do-site";
@@ -70,13 +71,15 @@ export default async function PaginaDoSite({
    * `listarIndicacoesDoPainel` e `listarPerguntas` incluem, pelo mesmo motivo, o
    * que o site não mostra: indicação não publicada e pergunta sem resposta.
    */
-  const [secoes, indicacoes, historia, programacao, perguntas, dominio] =
+  const [secoes, indicacoes, historia, programacao, perguntas, fotos, dominio] =
     await Promise.all([
       listarSecoes(evento.id),
       listarIndicacoesDoPainel(evento.id),
       buscarHistoria(evento.id),
       listarProgramacao(evento.id),
       listarPerguntas(evento.id),
+      // Só as armazenadas: a intenção que não confirmou não está no site.
+      contarFotosArmazenadas(evento.id),
       // V-11: o domínio do casal, quando houver. Sem ele o endereço mostrado é o
       // `/e/<slug>` da origem atual — que continua valendo depois que o domínio
       // entrar, e por isso não é um endereço "de mentira".
@@ -102,6 +105,7 @@ export default async function PaginaDoSite({
     perguntasRespondidas: perguntas.filter(p => p.resposta !== null).length,
     perguntasTotal: perguntas.length,
     historiaTemTexto: historia !== null && historia.texto.trim() !== "",
+    fotos,
   };
 
   const linhas: LinhaDeSecao[] = secoes.map(secao => {

@@ -99,6 +99,34 @@ conteúdo do site. Ele continua existindo para o evento nascer com conteúdo
 inicial — ver [Seed](#seed--é-assim-que-o-dono-edita-o-site), cujo título ainda
 descreve o mundo anterior e vira dívida até a V1.6 (V-12).
 
+**A galeria do casal** (migration `0015`, V-18) — a oitava seção, e a única que
+escreve no R2 a partir do painel. Em `/painel/<id>/site/galeria` o casal escolhe
+uma foto do celular; **o navegador gera as duas derivadas e sobe só elas**, então
+os 12 MB do iPhone nunca cruzam a rede. Não há original no balde, e a
+consequência que mais importa é de privacidade: **nenhum EXIF chega ao R2,
+inclusive o GPS** — o `canvas` re-codifica a partir dos pixels, e pixels não têm
+EXIF.
+
+Na página, a galeria é **uma coluna, uma foto por linha, em todos os viewports**,
+com **proporção intrínseca** e um teto de altura que encolhe o retrato sem
+recortar. Isso não é preferência de layout, e mexer numa metade quebra a outra:
+não há lightbox nesta versão, então a foto renderizada é a única que existe — um
+tile pequeno seria a promessa de que a foto abre. Pelo mesmo motivo **nenhuma
+foto é alvo de toque**, e **nada se desenha por cima dela**. O `alt` é sempre
+vazio: o produto nunca inventa texto alternativo, e doze `alt` iguais fazem o
+leitor de tela parar doze vezes para não dizer nada. Quem nomeia a região é o
+`h2` "Nossas fotos", e uma linha invisível conta quantas fotos entraram.
+
+> **O que V-18 ainda NÃO tem, e é V-19:** legenda (a coluna existe e a página já
+> a renderiza), ordem, exclusão e o teto de 12 validado no servidor. A galeria
+> aceita mais de doze fotos hoje.
+
+> **Despublicar o site não tira a foto do ar.** O arquivo mora no prefixo público
+> do balde, e quem já guardou o endereço continua abrindo. É decisão registrada
+> (mover objeto a objeto ao despublicar é cópia sem transação disparada por
+> alguém no celular às 23h), e a saída completa é **apagar a foto** — que é V-19,
+> junto com a emenda do texto de confirmação.
+
 **As seções do site são dado** (migration `0012`). O catálogo — quais existem,
 o nome de cada uma, quais não se desligam — vive em `lib/secoes.ts`, porque cada
 seção tem um componente que a desenha. **Linha ausente significa o padrão do
@@ -278,7 +306,7 @@ painel da Vercel e no do Neon.
 | `EVENTO_SLUG_PADRAO` | só fora de produção | `/` responde 404 em localhost e no preview |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | não | o GA4 não carrega — nenhum script, nenhum cookie |
 | `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | para o envio | a rota de intenção responde 503 **e a linha de intenção fica gravada** — o servidor sabe que a foto existe, e a reconciliação vai procurá-la |
-| `R2_PUBLIC_BASE` | para **ver** as fotos | a grade renderiza os tiles sem imagem e nada quebra: as telas abrem, o botão de mandar funciona e o envio acontece. Ver [ADR 0005](docs/adr/0005-leitura-de-midia-por-base-publica.md) |
+| `R2_PUBLIC_BASE` | **sim, para quem publica site com galeria** | a galeria não funciona e **não quebra nada**: o envio responde 503 e a tela avisa **antes** de a pessoa escolher o arquivo, e nenhuma foto renderiza — sem imagem quebrada na página, porque foto sem endereço público é descartada no recorte. O resto do site continua no ar. (No álbum, que está desligado, ela era opcional: a grade renderizava os tiles sem imagem.) Ver [ADR 0005](docs/adr/0005-leitura-de-midia-por-base-publica.md) |
 | `BREVO_API_KEY`, `BREVO_REMETENTE` | para o link do casal | nenhum e-mail sai; a tela não mente dizendo que mandou. Entre pelo cookie que o bootstrap imprime |
 | `ALERTA_EMAIL` | não | o alerta de taxa de erro não sai; o registro em `eventos_de_erro` continua |
 | `CRON_SEGREDO` | F1.6 | a sessão de cron nunca é reconhecida — o lado seguro de errar |
@@ -518,6 +546,12 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/previa.test.ts` | a prévia funciona **sem `publicado`**, obedece as flags, e o conteúdo de seção desligada não é nem buscado |
 | `test/site-secoes.test.tsx` | **nenhuma das três telas do site remonta o conteúdo por conta própria**, e só a prévia desliga a medição |
 | `test/publicacao.test.ts` | dois toques não geram dois eventos; tirar do ar não apaga nada; o casamento A não publica o B; a frase da confirmação está escrita |
+| `test/r2-prefixos.test.ts` | **exatamente duas** funções sabem montar caminho no balde, e a terceira quebra o CI |
+| `test/galeria.test.ts` | as **cinco recusas de medida** (RV-26), o recorte público, e as fotos de um casamento não vazando para o outro |
+| `test/galeria-secao.test.tsx` | `alt` sempre vazio; `<figcaption>` só quando há legenda; **nada se sobrepõe à foto**; e os catorze itens proibidos da galeria varridos no código |
+| `test/vazamento-galeria.test.ts` | toda instrução SQL sobre `evento_fotos` cita `evento_id`, e nenhuma rota monta SQL por conta própria |
+| `test/album-desligado.test.ts` (asserção inversa) | **as rotas da galeria respondem com `album_ativo = false`** — a semelhança entre álbum e galeria é o que mais convida a violar isso |
+| `test/saude.test.ts` | a rota de saúde exige o segredo, e a falha vira linha em `eventos_de_erro` |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
 

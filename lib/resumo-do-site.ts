@@ -31,6 +31,12 @@ export type ContagemDoConteudo = {
   perguntasRespondidas: number;
   perguntasTotal: number;
   historiaTemTexto: boolean;
+  /**
+   * Só as ARMAZENADAS contam (RV-25). Uma intenção que nunca confirmou não
+   * renderiza no site, e contá-la faria o painel dizer que a seção está pronta
+   * enquanto o convidado não vê nada — o mesmo defeito da pergunta sem resposta.
+   */
+  fotos: number;
 };
 
 export type ResumoDaSecao = {
@@ -116,6 +122,16 @@ export function resumirSecao(
         faltaPreencher: false,
       };
     }
+
+    case "galeria":
+      return conteudo.fotos === 0
+        ? {
+            // A consequência escrita, e não só o vazio nomeado: enquanto a
+            // seção estiver vazia ela não aparece no site (RV-02).
+            texto: "Sem nenhuma foto ainda",
+            faltaPreencher: true,
+          }
+        : { texto: PLURAL(conteudo.fotos, "foto", "fotos"), faltaPreencher: false };
 
     case "indicacoes":
       return conteudo.indicacoes === 0

@@ -88,9 +88,10 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
     expect([...segmentosPublicos()].sort()).toEqual([
       "album",
       /**
-       * AS SETE CHAVES DE SEÇÃO (v1.0, V-04 a V-09). Elas aparecem espalhadas
-       * nesta lista porque ela é ordenada, e são: `capa`, `onde`, `programacao`,
-       * `historia`, `perguntas`, `indicacoes` e `rodape`.
+       * AS OITO CHAVES DE SEÇÃO (v1.0, V-04 a V-09 e V-18). Elas aparecem
+       * espalhadas nesta lista porque ela é ordenada, e são: `capa`, `onde`,
+       * `programacao`, `historia`, `galeria`, `perguntas`, `indicacoes` e
+       * `rodape`.
        *
        * Cada uma nomeia **qual editor foi aberto**, e nenhuma nomeia gente: a
        * tela de `historia` é a mesma para todo casal, e o texto que ela edita
@@ -113,6 +114,13 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
       "entrar",
       "feed",
       "fila",
+      /**
+       * A oitava chave (V-18). `galeria` nomeia **qual editor foi aberto**, e é
+       * a mesma tela para todo casal. Nem o nome do arquivo, nem a legenda, nem
+       * o `foto_id` chegam ao GA4 em canto nenhum — a galeria não emite evento
+       * (V-13), e o `[eventoId]` que vem antes continua mascarado.
+       */
+      "galeria",
       "historia",
       "indicacoes",
       "materiais",

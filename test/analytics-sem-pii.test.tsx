@@ -86,6 +86,7 @@ function montar() {
         historia={null}
         programacao={[]}
         perguntas={[]}
+        fotos={[]}
       />
     </Providers>
   );

@@ -32,6 +32,7 @@ export type ChaveDeSecao =
   | "onde"
   | "programacao"
   | "historia"
+  | "galeria"
   | "perguntas"
   | "indicacoes"
   | "rodape";
@@ -95,13 +96,29 @@ export const CATALOGO: readonly SecaoDoCatalogo[] = [
     posicaoFixa: null,
     ordemPadrao: 3,
   },
+  /**
+   * A GALERIA (v1.0, V-18) — a oitava chave, e a única seção que toca o R2.
+   *
+   * **LOGO DEPOIS DE `historia` NA ORDEM PADRÃO**, e as duas seguintes desceram
+   * um degrau. Mudar a ordem padrão não mexe em evento nenhum que já tenha
+   * linha em `evento_secoes`: linha ausente é que significa "o padrão do
+   * catálogo", e o casal que já ordenou continua com a ordem dele.
+   */
+  {
+    chave: "galeria",
+    nome: "As nossas fotos",
+    explicacao: "Fotos de vocês, uma embaixo da outra, na ordem que vocês quiserem.",
+    podeDesligar: true,
+    posicaoFixa: null,
+    ordemPadrao: 4,
+  },
   {
     chave: "perguntas",
     nome: "Perguntas frequentes",
     explicacao: "Traje, estacionamento, criança — o que sempre perguntam.",
     podeDesligar: true,
     posicaoFixa: null,
-    ordemPadrao: 4,
+    ordemPadrao: 5,
   },
   {
     chave: "indicacoes",
@@ -109,7 +126,7 @@ export const CATALOGO: readonly SecaoDoCatalogo[] = [
     explicacao: "Hotéis e dicas da cidade para quem vem de fora.",
     podeDesligar: true,
     posicaoFixa: null,
-    ordemPadrao: 5,
+    ordemPadrao: 6,
   },
   {
     chave: "rodape",
@@ -163,6 +180,7 @@ export const SECOES_COM_EDITOR: ReadonlySet<ChaveDeSecao> = new Set<ChaveDeSecao
   "onde",
   "programacao",
   "historia",
+  "galeria",
   "perguntas",
   "indicacoes",
 ]);
@@ -211,7 +229,7 @@ export function ordenarSecoes(secoes: EstadoDaSecao[]): EstadoDaSecao[] {
 }
 
 /**
- * O estado das sete seções deste evento, na ordem em que elas aparecem.
+ * O estado das oito seções deste evento, na ordem em que elas aparecem.
  *
  * O `evento_id` vem do evento já resolvido pelo servidor, nunca de parâmetro de
  * URL ou de corpo de requisição (`dados.md` §8). O executor entra por parâmetro

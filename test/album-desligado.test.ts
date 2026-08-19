@@ -478,6 +478,79 @@ describe("o guarda está no lugar certo, e é 404", () => {
     ).toEqual([]);
   });
 
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * **A ASSERÇÃO INVERSA — a mais importante desta emenda** (RV-23, V-18).
+   *
+   * As varreduras acima provam que o álbum NÃO responde. Esta prova o contrário
+   * sobre a galeria: com `album_ativo = false`, as rotas dela **respondem**.
+   *
+   * Ela existe porque a semelhança superficial entre as duas convida ao erro: as
+   * duas sobem foto, as duas assinam `PUT` no R2, as duas carimbam depois. Numa
+   * arrumação futura, alguém vai olhar `ACOES_DO_ALBUM`, ver que falta "a rota
+   * de foto" e acrescentar `site.editar` — e nesse instante **a v1.0 inteira**
+   * responde 404, porque `site.editar` é a ação de todo o painel do site.
+   *
+   * O sintoma seria "o painel parou de funcionar", e ninguém ligaria a causa ao
+   * desligamento do álbum. A regra vira catraca aqui em vez de continuar sendo
+   * parágrafo.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  const ROTAS_DA_GALERIA = [
+    "/api/eventos/[id]/site/galeria",
+    "/api/eventos/[id]/site/galeria/[fotoId]/confirmacao",
+  ];
+
+  it("**as rotas da galeria existem, e nenhuma ação delas está no conjunto**", () => {
+    for (const caminho of ROTAS_DA_GALERIA) {
+      const rota = ROTAS_DE_API.find(r => r.caminho === caminho);
+      expect(rota, `a rota ${caminho} sumiu de lib/rotas.ts`).toBeTruthy();
+      for (const acao of Object.values(rota!.metodos)) {
+        expect(
+          ACOES_DO_ALBUM.has(acao as Acao),
+          `${caminho} declara \`${acao}\`, que está em ACOES_DO_ALBUM. Com o ` +
+            "álbum desligado ela responderia 404 — e, se a ação for `site.editar`, " +
+            "o painel inteiro do site vai junto."
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("**as rotas da galeria NÃO respondem 404 com o álbum desligado**", async () => {
+    for (const caminho of ROTAS_DA_GALERIA) {
+      const arquivo = Object.keys(modulos).find(a => urlDoArquivo(a) === caminho);
+      expect(arquivo, `sem arquivo no disco para ${caminho}`).toBeTruthy();
+
+      const modulo = await modulos[arquivo as string]();
+      const pedido = new Request(`https://casa-nos.invalid${caminho}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        /**
+         * CORPO SEM MEDIDAS, DE PROPÓSITO. As duas rotas conferem as medidas
+         * **depois** de `autorizar()` e **antes** de tocar em banco ou em R2,
+         * então a resposta esperada é 400 — determinística, sem ambiente, e ela
+         * só é alcançável por quem atravessou o guarda do álbum.
+         *
+         * Uma asserção de "não é 404" passaria também com um 500, e um 500 é
+         * exatamente o que este arquivo não deveria aceitar como prova.
+         */
+        body: "{}",
+      });
+
+      const resposta = await modulo.POST!(pedido, {
+        params: Promise.resolve(parametrosDe(caminho)),
+      });
+
+      expect(
+        resposta.status,
+        `${caminho} respondeu ${resposta.status} com \`album_ativo = false\`. ` +
+          "Esperado 400 (medidas ausentes), que só se alcança do outro lado do " +
+          "guarda. A galeria é conteúdo do SITE, e o site é justamente o que a " +
+          "v1.0 é."
+      ).toBe(400);
+    }
+  });
+
   it("a flag não interfere nas ações de fora do conjunto", async () => {
     const { autorizar } = await import("@/lib/api");
     // `evento.configurar` é o login. Com o álbum desligado ele precisa continuar

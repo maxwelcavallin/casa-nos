@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CascaDoEditor } from "@/components/painel/site/CascaDoEditor";
 import { EditorDaCapa } from "@/components/painel/site/EditorDaCapa";
+import { EditorDaGaleria } from "@/components/painel/site/EditorDaGaleria";
 import { EditorDaHistoria } from "@/components/painel/site/EditorDaHistoria";
 import { EditorDaProgramacao } from "@/components/painel/site/EditorDaProgramacao";
 import { EditorDasPerguntas } from "@/components/painel/site/EditorDasPerguntas";
@@ -15,8 +16,10 @@ import {
   listarProgramacao,
 } from "@/lib/conteudo-do-site";
 import { buscarEventoPorId } from "@/lib/eventos";
+import { listarFotosArmazenadas, medidasCoerentes } from "@/lib/galeria";
 import { ehUuid } from "@/lib/ids";
 import { listarIndicacoesDoPainel } from "@/lib/indicacoes";
+import { baseDoPublico, configuracaoR2, urlPublicaDaFoto } from "@/lib/r2";
 import {
   ehChaveDeSecao,
   listarSecoes,
@@ -153,6 +156,39 @@ export default async function PaginaDoEditorDeSecao({
     return (
       <CascaDoEditor {...casca}>
         <EditorDaProgramacao dados={{ eventoId: evento.id, momentos }} />
+      </CascaDoEditor>
+    );
+  }
+
+  if (secao === "galeria") {
+    const fotos = await listarFotosArmazenadas(evento.id);
+    /**
+     * O EDITOR CARREGA A MINIATURA DE 400 (D7), e nunca a prévia de 1600. São
+     * doze arquivos numa lista de painel aberta no celular: a prévia aqui seria
+     * ~3,6 MB para mostrar doze quadradinhos de 104 px.
+     *
+     * `envioDisponivel` é conferido no SERVIDOR e vem pronto: a tela precisa
+     * dizer que o envio está indisponível **antes** de a pessoa escolher um
+     * arquivo. Deixá-la escolher a foto de 12 MB para receber 503 depois é
+     * gastar o tempo dela para dar a mesma resposta.
+     */
+    return (
+      <CascaDoEditor {...casca}>
+        <EditorDaGaleria
+          dados={{
+            eventoId: evento.id,
+            envioDisponivel: configuracaoR2() !== null && baseDoPublico() !== null,
+            fotos: fotos.map(f => ({
+              id: f.id,
+              urlMiniatura: urlPublicaDaFoto(evento.id, f.id, "miniatura"),
+              legenda: f.legenda,
+              // A mesma régua do site (RV-26). Aqui ela não esconde a foto: ela
+              // DIZ que a foto não aparece, porque o casal a mandou e precisa
+              // saber por que ela não está lá.
+              apareceNoSite: medidasCoerentes(f.largura, f.altura),
+            })),
+          }}
+        />
       </CascaDoEditor>
     );
   }

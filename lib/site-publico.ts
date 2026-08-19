@@ -9,6 +9,7 @@ import {
 } from "@/lib/conteudo-do-site";
 import { agoraNoServidor } from "@/lib/datas";
 import { sql, type Executor } from "@/lib/db";
+import { fotosParaOSite, listarFotosArmazenadas, type FotoDoSite } from "@/lib/galeria";
 import {
   listarIndicacoes,
   recortePublico,
@@ -58,6 +59,13 @@ export type DadosDoSite = {
   programacao: Momento[];
   /** **Já filtradas**: pergunta sem resposta não chega ao componente (RV-02). */
   perguntas: Pergunta[];
+  /**
+   * **Já recortadas** por `fotosParaOSite` (V-18): intenção não confirmada
+   * (RV-25), medidas incoerentes (RV-26) e foto sem `R2_PUBLIC_BASE` ficam de
+   * fora. O corte acontece aqui, e não no componente, pelo mesmo motivo de
+   * `perguntasRespondidas`: o que não deve aparecer também não deve viajar.
+   */
+  fotos: FotoDoSite[];
 };
 
 /**
@@ -75,12 +83,15 @@ export async function montarSite(
   const secoes = await listarSecoes(evento.id, exec);
   const ligadas = chavesLigadas(secoes);
 
-  const [indicacoes, historia, programacao, perguntas] = await Promise.all([
+  const [indicacoes, historia, programacao, perguntas, fotos] = await Promise.all([
     ligadas.includes("indicacoes") ? listarIndicacoes(evento.id, exec) : [],
     ligadas.includes("historia") ? buscarHistoria(evento.id, exec) : null,
     ligadas.includes("programacao") ? listarProgramacao(evento.id, exec) : [],
     ligadas.includes("perguntas")
       ? listarPerguntas(evento.id, exec).then(perguntasRespondidas)
+      : [],
+    ligadas.includes("galeria")
+      ? listarFotosArmazenadas(evento.id, exec).then(lista => fotosParaOSite(evento.id, lista))
       : [],
   ]);
 
@@ -94,5 +105,6 @@ export async function montarSite(
     historia,
     programacao,
     perguntas,
+    fotos,
   };
 }

@@ -46,16 +46,38 @@ const OUTRO = "22222222-2222-4222-8222-222222222222";
  * ------------------------------------------------------------------ */
 
 describe("o catálogo e o `CHECK` da migration dizem a mesma coisa", () => {
-  const migracao = fs.readFileSync(
-    path.join(RAIZ, "db", "migrations", "0012_secoes_do_site.sql"),
-    "utf8"
-  );
-
-  /** As chaves entre aspas dentro do `check (chave in (...))`. */
+  /**
+   * **O `CHECK` EFETIVO É O DA ÚLTIMA MIGRATION QUE O ESCREVE, e não o da 0012.**
+   *
+   * A 0012 criou a restrição com sete chaves e é IMUTÁVEL (`dados.md` §1); a
+   * 0015 a derruba e recria com oito. Um varredor que lesse só a 0012
+   * continuaria reprovando a oitava seção para sempre — e o conserto mais fácil
+   * seria apagar a asserção, que é justamente a catraca que este arquivo é.
+   *
+   * A ordem alfanumérica dos nomes de arquivo é a ordem de aplicação, e é o que
+   * `scripts/migrar.mjs` usa.
+   */
   function chavesDoCheck(): string[] {
-    const bloco = /check\s*\(chave in \(([\s\S]*?)\)\)/.exec(migracao);
-    expect(bloco, "o `CHECK` da 0012 mudou de forma e o varredor não o achou").toBeTruthy();
-    return [...(bloco as RegExpExecArray)[1].matchAll(/'([a-z]+)'/g)].map(m => m[1]);
+    const pasta = path.join(RAIZ, "db", "migrations");
+    const arquivos = fs.readdirSync(pasta).filter(n => n.endsWith(".sql")).sort();
+
+    let ultimo: string | null = null;
+    for (const nome of arquivos) {
+      const sql = fs.readFileSync(path.join(pasta, nome), "utf8");
+      // Só o `CHECK` de `evento_secoes.chave`: outras tabelas também têm CHECK
+      // com lista de valores, e casar com qualquer um deles daria uma lista de
+      // chaves que não é a desta tabela.
+      for (const achado of sql.matchAll(/check\s*\(chave in \(([\s\S]*?)\)\)/g)) {
+        ultimo = achado[1];
+      }
+    }
+
+    expect(
+      ultimo,
+      "nenhuma migration escreve `check (chave in (...))` — ou o varredor parou " +
+        "de casar, e aí ele fica verde sem verificar nada"
+    ).toBeTruthy();
+    return [...(ultimo as string).matchAll(/'([a-z]+)'/g)].map(m => m[1]);
   }
 
   it("toda chave do `CHECK` tem entrada no catálogo", () => {
@@ -79,14 +101,16 @@ describe("o catálogo e o `CHECK` da migration dizem a mesma coisa", () => {
     ).toEqual([]);
   });
 
-  it("são sete, e são estas", () => {
+  it("são oito, e são estas", () => {
     // Lista travada: seção nova é uma decisão visível num diff, com componente e
-    // editor no mesmo commit — não um efeito colateral.
+    // editor no mesmo commit — não um efeito colateral. A oitava é `galeria`
+    // (V-18), e ela entrou com a 0015, o componente e o editor no mesmo commit.
     expect([...CHAVES_DE_SECAO]).toEqual([
       "capa",
       "onde",
       "programacao",
       "historia",
+      "galeria",
       "perguntas",
       "indicacoes",
       "rodape",
@@ -414,13 +438,14 @@ describe("as seções de um casamento não vazam para o outro", () => {
      */
     const { exec } = bancoFalso([]);
     const secoes = await listarSecoes("33333333-3333-4333-8333-333333333333", exec);
-    expect(secoes).toHaveLength(7);
+    expect(secoes).toHaveLength(8);
     expect(secoes.every(s => s.ativa)).toBe(true);
     expect(secoes.map(s => s.chave)).toEqual([
       "capa",
       "onde",
       "programacao",
       "historia",
+      "galeria",
       "perguntas",
       "indicacoes",
       "rodape",
@@ -434,7 +459,7 @@ describe("as seções de um casamento não vazam para o outro", () => {
       { evento_id: ANA, chave: "secao-que-nao-existe-mais", ativa: true, ordem: 1 },
     ]);
     const secoes = await listarSecoes(ANA, exec);
-    expect(secoes).toHaveLength(7);
+    expect(secoes).toHaveLength(8);
   });
 
   it("**a escrita é UMA instrução, com a lista inteira** (RV-05)", async () => {
@@ -451,7 +476,7 @@ describe("as seções de um casamento não vazam para o outro", () => {
     );
     expect(
       registro,
-      "A gravação das sete seções virou mais de uma requisição."
+      "A gravação das oito seções virou mais de uma requisição."
     ).toHaveLength(1);
     expect(registro[0].texto).toMatch(/on conflict \(evento_id, chave\) do update/);
   });

@@ -43,8 +43,18 @@ export function ApenasParaLeitor({
       {...(aoVivo ? { role: "status", "aria-live": "polite" as const } : {})}
       sx={{
         position: "absolute",
-        width: 1,
-        height: 1,
+        /**
+         * `"1px"` como STRING, e não `1`.
+         *
+         * No `sx` do MUI, `width: 1` significa **100%** — a convenção de fração
+         * do sistema de layout. O recorte continuaria escondendo o texto (o
+         * `clip-path` faz esse trabalho sozinho), mas o elemento passaria a
+         * ocupar a caixa inteira do pai, invisível e por cima de tudo. É o tipo
+         * de defeito que não aparece em teste nenhum e reaparece meses depois
+         * como "não consigo tocar nessa parte da tela".
+         */
+        width: "1px",
+        height: "1px",
         p: 0,
         m: "-1px",
         overflow: "hidden",

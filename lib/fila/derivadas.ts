@@ -34,8 +34,24 @@ import { grade } from "@/lib/tokens";
 export type Derivadas = {
   miniatura: Blob;
   previa: Blob;
+  /** Medidas da PRÉVIA — o arquivo que a página serve. */
   largura: number;
   altura: number;
+  /**
+   * Medidas do arquivo que a pessoa escolheu, **antes** do redimensionamento.
+   *
+   * Acrescentadas em V-18, e a razão é uma só: a galeria recusa foto com lado
+   * menor abaixo de 800 px (`prd-v1` §4.8.3), e a régua é sobre **a foto**, não
+   * sobre a derivada. Uma panorâmica de 4000×900 tem lado menor de 900 e é
+   * legítima; a prévia dela mede 1600×360, e uma conferência feita sobre a
+   * prévia a recusaria por um número que o redimensionamento produziu.
+   *
+   * Sai de graça daqui porque o bitmap já está decodificado. A alternativa era
+   * decodificar a foto de 12 MB **duas vezes** no celular — que é o custo que
+   * este arquivo inteiro existe para não pagar.
+   */
+  larguraOriginal: number;
+  alturaOriginal: number;
 };
 
 /** 1600 px no maior lado, ~300 KB (H-07). É a faixa que conta. */
@@ -87,6 +103,10 @@ export async function gerarDerivadas(arquivo: Blob): Promise<Derivadas | null> {
 
     const previa = await paraBlob(bitmap, LADO_DA_PREVIA, QUALIDADE_DA_PREVIA);
     const miniatura = await paraBlob(bitmap, grade.miniatura, QUALIDADE_DA_MINIATURA);
+    // Lidas ANTES do `close()`: depois dele o bitmap é 0×0 e a conferência de
+    // lado mínimo da galeria passaria a recusar tudo.
+    const larguraOriginal = bitmap.width;
+    const alturaOriginal = bitmap.height;
     bitmap.close();
 
     return {
@@ -94,6 +114,8 @@ export async function gerarDerivadas(arquivo: Blob): Promise<Derivadas | null> {
       previa: previa.blob,
       largura: previa.largura,
       altura: previa.altura,
+      larguraOriginal,
+      alturaOriginal,
     };
   } catch {
     /**
