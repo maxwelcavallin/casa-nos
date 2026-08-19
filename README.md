@@ -633,6 +633,7 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/aviso-de-saida.test.tsx` | o aviso não aparece sem alteração; aparece com texto digitado; e **no envio em curso a frase é outra**, porque a perda é outra |
 | `test/perguntas-sugeridas.test.ts` | as cinco nascem invisíveis, entram num `unnest` só, e **a consulta que decide a oferta não filtra `excluido_em`** — a ausência é a funcionalidade |
 | `test/perguntas-oferta.test.tsx` | a oferta aparece só na seção que nunca teve pergunta, e não volta depois que o casal apagou todas |
+| `test/perguntas-lote-rota.test.ts` | o teto conferido **contra o tamanho do lote** — com 12 gravadas, as cinco são recusadas com 409 e nada é inserido |
 | `test/contagem-de-caracteres.test.tsx` | a contagem só perto do teto, e **`maxLength` ausente pelo nome do atributo** — é a primeira coisa que alguém repõe "para proteger o campo" |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
