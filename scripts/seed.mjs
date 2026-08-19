@@ -104,6 +104,21 @@ function conferir(dados, arquivo) {
   }
 }
 
+/**
+ * ATENCAO — ESTE SCRIPT SOBRESCREVE O QUE O CASAL EDITOU NO PAINEL.
+ *
+ * Desde a V1.3 o casal edita o site em `/painel/<id>/site`. Este seed continua
+ * sendo o que sempre foi: o JSON e a fonte da verdade, e ele reescreve o evento
+ * inteiro e APAGA todas as indicacoes antes de reinserir as do arquivo. Rodado
+ * por engano num evento ja editado, ele desfaz tudo que a noiva escreveu — sem
+ * erro nenhum e sem aviso.
+ *
+ * Ele NAO toca em `evento_secoes`, `evento_historia`, `evento_programacao` nem
+ * `evento_perguntas`: essas quatro estao a salvo.
+ *
+ * Consertar isso e a historia V-12 do prd-v1.md (fatia V1.6), e ela ainda nao
+ * foi feita. Ate la: use o seed para CRIAR evento novo e para o de teste.
+ */
 async function semear(arquivo) {
   const dados = JSON.parse(fs.readFileSync(arquivo, "utf8"))
   conferir(dados, path.relative(RAIZ, arquivo))

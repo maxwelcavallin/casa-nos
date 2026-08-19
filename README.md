@@ -315,10 +315,30 @@ link na tela de entrada, que manda por e-mail (Brevo).
 `--dono` marca o acesso do dono do produto, que é quem enxerga a medição. No
 casamento cobaia o dono **é** o casal; no evento de teste, ninguém é dono.
 
-### Seed — é assim que o dono edita o site
+### Seed — como o evento nasce com conteúdo inicial
 
-**Não existe painel administrativo nesta fatia.** O conteúdo mora em
-`db/seed/casamento-ana-e-max.json`; o dono edita o arquivo e roda:
+> ### ⚠ NÃO RODE `pnpm db:seed` NUM EVENTO QUE O CASAL JÁ EDITOU
+>
+> **O seed sobrescreve o painel, hoje, em silêncio.** Desde a V1.3 o casal edita
+> o site em `/painel/<id>/site`, e o seed continua sendo o que ele sempre foi:
+> o arquivo JSON é a fonte da verdade e ele **reescreve** `nome_casal`,
+> `data_evento`, `hora_evento`, `hora_publicada`, `cidade`, `uf`, o local
+> inteiro e as flags de revelação — e **apaga todas as indicações** (exclusão
+> lógica) antes de reinserir as do arquivo.
+>
+> Ou seja: um `pnpm db:seed` rodado por engano devolve o site ao estado do
+> repositório e desfaz tudo que a noiva escreveu, sem erro nenhum e sem aviso.
+>
+> Ele **não** toca em `evento_secoes`, `evento_historia`, `evento_programacao`
+> nem `evento_perguntas` — essas quatro estão a salvo hoje. O risco é o
+> parágrafo acima.
+>
+> **Isso é a história V-12 do `prd-v1.md` (fatia V1.6), e ela ainda não foi
+> feita.** Até lá, o seed serve para **criar** um evento novo com conteúdo
+> inicial e para o evento de teste — não para editar o do casal.
+
+O conteúdo inicial mora em `db/seed/casamento-ana-e-max.json`; para semear, edite
+o arquivo e rode:
 
 ```bash
 pnpm db:seed
