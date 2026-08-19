@@ -84,12 +84,14 @@ Publicar emite `site_published` **só na transição** de fora do ar para no ar,
 quem decide isso é a mesma instrução SQL que grava a coluna — dois toques não
 geram dois eventos.
 
-> **Este texto de confirmação está incompleto desde a V-18, e isso está escrito
-> no código.** A foto da galeria mora no prefixo público do balde, e despublicar
-> o site **não** tira o arquivo do ar: quem já guardou a URL de uma foto continua
-> abrindo. **V-19 tem o critério de emendar a frase**, e a emenda já está
-> escrita. Ela não entrou antes porque falar de fotos guardadas quando não havia
-> foto confundiria mais do que a ausência.
+> **A emenda da V-19 entrou, e ela é condicional à foto.** Com pelo menos uma
+> foto na galeria, a lista do que continua guardado passa a citar **as fotos**, e
+> um parágrafo a mais diz a verdade desconfortável: *"a página para de responder,
+> mas quem já abriu o site e guardou o endereço de uma foto continua conseguindo
+> abrir essa foto. Para tirar uma foto do ar de vez, apague a foto."* Com zero
+> foto as duas metades não aparecem — prometer que guardamos o que não existe, e
+> avisar sobre endereços que ninguém tem, custaria mais confiança do que a
+> ausência. A régua é **por casal**, e não por versão do produto.
 
 Todo texto do casal é **texto puro**: parágrafo é linha em branco, e colar
 `<b>oi</b>` do WhatsApp mostra o `<b>oi</b>` escrito. Não existe
@@ -119,15 +121,40 @@ vazio: o produto nunca inventa texto alternativo, e doze `alt` iguais fazem o
 leitor de tela parar doze vezes para não dizer nada. Quem nomeia a região é o
 `h2` "Nossas fotos", e uma linha invisível conta quantas fotos entraram.
 
-> **O que V-18 ainda NÃO tem, e é V-19:** legenda (a coluna existe e a página já
-> a renderiza), ordem, exclusão e o teto de 12 validado no servidor. A galeria
-> aceita mais de doze fotos hoje.
+**A galeria vira galeria** (V-19). No painel, cada foto que já está no site ganha
+três coisas: **legenda** de até 80 caracteres (opcional, validada no servidor com
+o `CHECK` do banco como segunda tranca; vazia não desenha `<figcaption>` nenhum e
+não deixa caixa vazia sob a foto), **ordem** por subir/descer, e **apagar**.
 
-> **Despublicar o site não tira a foto do ar.** O arquivo mora no prefixo público
-> do balde, e quem já guardou o endereço continua abrindo. É decisão registrada
-> (mover objeto a objeto ao despublicar é cópia sem transação disparada por
-> alguém no celular às 23h), e a saída completa é **apagar a foto** — que é V-19,
-> junto com a emenda do texto de confirmação.
+A ordem é **um `PATCH` com a lista inteira**, nunca uma requisição por toque — e
+a tela **não trava enquanto salva**, ao contrário do painel de seções. O motivo é
+concreto: levar a décima segunda foto ao topo são onze toques, e um botão que não
+responde ao segundo toque é lido como defeito. Os toques se **fundem numa fila de
+um lugar só**: enquanto um pedido está no ar, o toque seguinte substitui o
+pendente. Dois toques rápidos custam um ou dois pedidos, nunca dois concorrentes
+que cheguem fora de ordem e gravem o penúltimo estado por último.
+
+O **teto de doze** é validado no servidor, na rota de intenção, e responde **409
+com os dois números** — quantas cabem e quantas já existem —, porque um 400 sem
+número vira "erro" na tela e "erro" não vira ação nenhuma. A conferência é na
+intenção e não na confirmação: recusar depois dos dois `PUT` deixaria objetos no
+balde sem linha que os aponte, e não há cron de limpeza.
+
+> **Apagar a foto é a única operação desta versão que apaga byte**, e a ordem dos
+> dois passos é o requisito: **o objeto sai de `pub/` primeiro, e só então a
+> linha recebe `excluido_em`**. O balde recusando responde **502 com a linha
+> intacta** — nunca uma linha que diz "apagada" sobre um arquivo que continua
+> respondendo, porque é justamente essa a promessa que a confirmação de tirar o
+> site do ar faz. Não há carência de 30 dias como no álbum: o original está no
+> celular do casal.
+
+> **A janela que sobra, escrita em vez de descoberta:** entre o arquivo sair do
+> balde e a linha ser marcada, o processo pode morrer. Nesse instante o arquivo
+> já não existe e a foto ainda está na lista — o site renderiza uma imagem
+> quebrada. É a menos ruim das duas janelas (a outra seria a mentira acima) e
+> **tem conserto de um toque**: apagar de novo. Apagar um objeto que já não
+> existe devolve 404, que o cliente do balde trata como "não está mais lá", e a
+> segunda passada chega à linha. A mensagem da tela diz exatamente isso.
 
 **As seções do site são dado** (migration `0012`). O catálogo — quais existem,
 o nome de cada uma, quais não se desligam — vive em `lib/secoes.ts`, porque cada
@@ -307,7 +334,7 @@ painel da Vercel e no do Neon.
 | `DATABASE_URL` | sim | toda página responde 500 |
 | `EVENTO_SLUG_PADRAO` | só fora de produção | `/` responde 404 em localhost e no preview |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | não | o GA4 não carrega — nenhum script, nenhum cookie |
-| `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | para o envio | a rota de intenção responde 503 **e a linha de intenção fica gravada** — o servidor sabe que a foto existe, e a reconciliação vai procurá-la |
+| `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | para o envio | as duas superfícies respondem 503, e fazem coisas **diferentes** com a linha: no **álbum** a intenção fica gravada (perdê-la é perder a foto do convidado, e a reconciliação a procura); na **galeria nenhuma linha nasce** — não há reconciliação, o original está no celular do casal, e gravar produziria lixo que nenhum cron limpa |
 | `R2_PUBLIC_BASE` | **sim, para quem publica site com galeria** | a galeria não funciona e **não quebra nada**: o envio responde 503 e a tela avisa **antes** de a pessoa escolher o arquivo, e nenhuma foto renderiza — sem imagem quebrada na página, porque foto sem endereço público é descartada no recorte. O resto do site continua no ar. (No álbum, que está desligado, ela era opcional: a grade renderizava os tiles sem imagem.) Ver [ADR 0005](docs/adr/0005-leitura-de-midia-por-base-publica.md) |
 | `BREVO_API_KEY`, `BREVO_REMETENTE` | para o link do casal | nenhum e-mail sai; a tela não mente dizendo que mandou. Entre pelo cookie que o bootstrap imprime |
 | `ALERTA_EMAIL` | não | o alerta de taxa de erro não sai; o registro em `eventos_de_erro` continua |
@@ -554,6 +581,9 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
 | `test/vazamento-galeria.test.ts` | toda instrução SQL sobre `evento_fotos` cita `evento_id`, e nenhuma rota monta SQL por conta própria |
 | `test/album-desligado.test.ts` (asserção inversa) | **as rotas da galeria respondem com `album_ativo = false`** — a semelhança entre álbum e galeria é o que mais convida a violar isso |
 | `test/saude.test.ts` | a rota de saúde exige o segredo, e a falha vira linha em `eventos_de_erro` |
+| `test/galeria-v19.test.ts` | a legenda (80, texto puro, espaço normalizado antes de medir); a ordem recusada **inteira** quando um item é ruim; e as duas derivadas saindo do balde — **a miniatura antes da prévia**, e o balde recusando não apagando nada |
+| `test/galeria-exclusao-rota.test.ts` | **quando a linha é marcada, o objeto já saiu** — a asserção é sobre o estado do banco no instante em que o R2 é chamado, não sobre a ordem das linhas no arquivo. Mais o 502 com a linha viva, e o **409 com os dois números** na décima terceira foto |
+| `test/galeria-editor.test.tsx` | dois toques rápidos em subir/descer: a lista move na hora, **um** pedido no ar, e o último descreve a tela. Mais a legenda salvando por botão e a caixa de apagar dizendo a consequência |
 
 **O que ele NÃO cobre, e nenhum comando cobre:**
 
@@ -573,6 +603,15 @@ verificação que ninguém roda. Ele roda no CI e deve rodar no hook de pré-com
   quando a borda não confirma são provadas; que o domínio público esteja
   configurado só no prefixo `pub/` é configuração, e está escrita no
   `.env.example`.
+
+  > **E hoje isso não é hipótese.** As cinco variáveis do R2 **não estão
+  > configuradas em produção**, e é infraestrutura, não código. O caminho
+  > exercitado de verdade lá foi o de degradação: doze tentativas de envio
+  > responderam 503, a tela avisou item a item com botão de tentar de novo, e o
+  > rodapé continuou honesto em *"0 fotos no site. Cabem 12."* **O caminho feliz
+  > nunca rodou fora de teste** — nenhuma foto subiu, e portanto nenhuma foi
+  > apagada. Enquanto o balde não existir, `galeria-v19` e `galeria-exclusao-rota`
+  > são a única coisa que separa a promessa da esperança.
 - **Escala.** `pnpm verificar` não sobe 200 clientes. Quem faz isso é
   `pnpm carga`, e o resultado está em
   [`docs/carga-fatia-1.md`](docs/carga-fatia-1.md).
