@@ -182,6 +182,10 @@ export default async function PaginaDoEditorDeSecao({
               id: f.id,
               urlMiniatura: urlPublicaDaFoto(evento.id, f.id, "miniatura"),
               legenda: f.legenda,
+              // A lista já vem ordenada por `ordem, criado_em` (RV-04). O número
+              // viaja porque o `PATCH` de reordenação manda a lista inteira com
+              // ele (RV-05) — a tela não o reinventa a partir do índice.
+              ordem: f.ordem,
               // A mesma régua do site (RV-26). Aqui ela não esconde a foto: ela
               // DIZ que a foto não aparece, porque o casal a mandou e precisa
               // saber por que ela não está lá.

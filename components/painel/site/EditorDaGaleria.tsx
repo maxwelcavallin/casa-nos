@@ -5,11 +5,18 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { ImagePlus } from "lucide-react";
-import { useRef, useState } from "react";
+import { ArrowDown, ArrowUp, ImagePlus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { gerarDerivadas } from "@/lib/fila/derivadas";
@@ -18,11 +25,12 @@ import {
   conferirLadoMenor,
   MAXIMO_DE_FOTOS,
   RECUSA_DE_FORMATO_EXOTICO,
+  TETO_DA_LEGENDA,
 } from "@/lib/galeria";
-import { grade, raio, toque } from "@/lib/tokens";
+import { grade, largura, raio, toque } from "@/lib/tokens";
 
 /**
- * O EDITOR DA GALERIA (v1.0, V-18) — o laço de envio, e a falha parcial.
+ * O EDITOR DA GALERIA (v1.0, V-18 e V-19) — o envio, e o que vem depois dele.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * O CAMINHO INTEIRO DE UMA FOTO, e por que ele é assim:
@@ -31,7 +39,8 @@ import { grade, raio, toque } from "@/lib/tokens";
  *   2. `gerarDerivadas`      duas derivadas NO NAVEGADOR — os 12 MB do iPhone
  *                            nunca cruzam a rede
  *   3. `conferirLadoMenor`   sobre as medidas do arquivo escolhido, não da prévia
- *   4. `POST .../galeria`    a intenção: a LINHA nasce, e volta com duas URLs
+ *   4. `POST .../galeria`    a intenção: a LINHA nasce, e volta com duas URLs.
+ *                            **É aqui que o teto de 12 responde 409** (RV-24)
  *   5. dois `PUT` no R2      direto do navegador para o balde
  *   6. `POST .../confirmacao` o carimbo. Antes dele a foto não existe para o site
  *
@@ -62,10 +71,27 @@ import { grade, raio, toque } from "@/lib/tokens";
  * problema. Escrever a ausência é mais barato que construir o faxineiro.
  * ─────────────────────────────────────────────────────────────────────────────
  *
- * TODA MENSAGEM DE RECUSA É ESPECÍFICA, e **nenhuma usa a palavra "erro"**. O
- * HEIC exótico é o caso real documentado: o álbum guarda o original e manda o
- * servidor gerar a prévia depois; a galeria não tem original no balde, então ela
- * responde a verdade na hora, com a saída na mão da pessoa.
+ * O QUE A V-19 ACRESCENTA — legenda, ordem e exclusão —, com as duas decisões de
+ * comportamento que não são óbvias:
+ *
+ * **1. A ORDEM NÃO TRAVA A TELA ENQUANTO SALVA, e aqui esta tela diverge do
+ * `PainelDoSite` de propósito.** Lá os botões de subir/descer ficam
+ * desabilitados durante o salvamento, e está certo: são sete seções, quase
+ * sempre um movimento por vez. Aqui são **doze fotos**, e levar a última ao topo
+ * são **onze toques seguidos** — com o botão desabilitado a cada um, isso é onze
+ * esperas de rede em cima de uma pessoa que só queria arrumar a ordem. Então a
+ * lista move na hora, sempre, e os pedidos são **enfileirados e fundidos**:
+ * enquanto um está no ar, o próximo toque só atualiza o que será mandado depois.
+ * Como o `PATCH` leva a **lista inteira** (RV-05), o último pedido descreve o
+ * estado final sozinho — dois toques rápidos custam no máximo dois pedidos, e
+ * podem custar um só.
+ *
+ * **2. APAGAR PEDE UMA CONFIRMAÇÃO, E UMA SÓ.** Não são dois passos, não se
+ * digita nada, não há segunda caixa. O que a caixa faz é **dizer o que
+ * acontece**: esta é a única exclusão do produto que apaga byte, e o arquivo sai
+ * do ar de verdade — inclusive para quem tinha o endereço dele guardado. É
+ * exatamente a saída que a confirmação de tirar o site do ar aponta (RV-21), e
+ * uma pessoa que chega aqui vindo de lá precisa reconhecer a promessa.
  */
 
 /** A foto que já está no site. Vem do servidor, montada na página. */
@@ -74,6 +100,7 @@ export type FotoNoEditor = {
   /** A MINIATURA de 400 (D7). A prévia de 1600 é do site. `null` sem R2. */
   urlMiniatura: string | null;
   legenda: string | null;
+  ordem: number;
   /** `false` = medidas incoerentes: a foto está guardada e **não aparece**. */
   apareceNoSite: boolean;
 };
@@ -90,7 +117,7 @@ export type DadosDaGaleria = {
   envioDisponivel: boolean;
 };
 
-type Passo = "preparando" | "enviando" | "confirmando" | "pronta" | "parou";
+type Passo = "preparando" | "enviando" | "confirmando" | "parou";
 
 type Envio = {
   /** Id local. Não é o `foto_id`: ele só existe depois da intenção. */
@@ -113,16 +140,43 @@ const ROTULO_DO_PASSO: Record<Passo, string> = {
   preparando: "Preparando a foto…",
   enviando: "Enviando…",
   confirmando: "Quase lá…",
-  pronta: "No site",
   parou: "Não terminou",
 };
 
 export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
-  const [fotos] = useState(dados.fotos);
+  const [fotos, setFotos] = useState<FotoNoEditor[]>(dados.fotos);
   const [envios, setEnvios] = useState<Envio[]>([]);
+  const [aApagar, setAApagar] = useState<FotoNoEditor | null>(null);
+  const [erroDaLista, setErroDaLista] = useState<string | null>(null);
   const entrada = useRef<HTMLInputElement>(null);
 
-  const prontas = fotos.length + envios.filter(e => e.passo === "pronta").length;
+  /**
+   * O ESTADO DA FILA DA ORDEM — em `ref`, e não em `useState`, de propósito.
+   *
+   * Estes três valores são lidos e escritos **dentro do laço assíncrono**, e um
+   * `useState` ali devolveria o valor da renderização em que o laço começou:
+   * dois toques rápidos leriam os dois "não estou salvando" e disparariam dois
+   * pedidos concorrentes, que é justamente o que a fila existe para impedir.
+   * Nada aqui é desenhado na tela, então nada aqui precisa causar renderização.
+   */
+  const ordemConfirmada = useRef<FotoNoEditor[]>(dados.fotos);
+  const salvandoOrdem = useRef(false);
+  const ordemPendente = useRef<FotoNoEditor[] | null>(null);
+
+  /**
+   * A ORDEM CONFIRMADA ACOMPANHA A LISTA — **menos enquanto um `PATCH` de ordem
+   * está no ar**, que é quando o laço da fila é o dono dela.
+   *
+   * Sem isto, apagar uma foto e depois falhar ao reordenar devolveria a tela a
+   * uma lista que ainda continha a foto apagada. Uma foto que "volta" depois de
+   * apagada é a pior reversão possível: ela é exatamente o resultado que a
+   * pessoa acabou de pedir para não existir.
+   */
+  useEffect(() => {
+    if (!salvandoOrdem.current && !ordemPendente.current) ordemConfirmada.current = fotos;
+  }, [fotos]);
+
+  const noTeto = fotos.length >= MAXIMO_DE_FOTOS;
 
   function atualizar(chave: string, mudanca: Partial<Envio>) {
     setEnvios(atual => atual.map(e => (e.chave === chave ? { ...e, ...mudanca } : e)));
@@ -130,6 +184,29 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
 
   function parar(chave: string, motivo: string) {
     atualizar(chave, { passo: "parou", motivo });
+  }
+
+  /**
+   * A foto acabou de ser carimbada: ela sai da lista de envios e entra na lista
+   * gerenciada, **sem recarregar a página**.
+   *
+   * A miniatura usada é o endereço LOCAL do arquivo escolhido, e não a do balde.
+   * É a mesma imagem, já decodificada neste aparelho, e não custa um byte de
+   * rede — enquanto a do balde custaria uma volta pela borda que acabou de
+   * receber o objeto. No próximo carregamento a do balde entra sozinha.
+   */
+  function promoverAFoto(envio: Envio, fotoId: string) {
+    setFotos(atual => [
+      ...atual,
+      {
+        id: fotoId,
+        urlMiniatura: envio.previaLocal,
+        legenda: null,
+        ordem: atual.length + 1,
+        apareceNoSite: true,
+      },
+    ]);
+    setEnvios(atual => atual.filter(e => e.chave !== envio.chave));
   }
 
   /**
@@ -187,6 +264,7 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
             bytes_previa: medidas.bytesPrevia,
           }),
         });
+
         if (resposta.status === 503) {
           return parar(
             chave,
@@ -194,6 +272,26 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
               "tente de novo daqui a pouco, ou avise quem cuida do site."
           );
         }
+
+        /**
+         * **O TETO, COM OS DOIS NÚMEROS** (RV-24). Eles vêm do servidor, e não
+         * da constante daqui: se um dia o teto mudar, a frase muda junto sem
+         * ninguém lembrar desta tela. A constante só entra como rede de
+         * segurança, para a frase nunca sair sem número.
+         */
+        if (resposta.status === 409) {
+          const corpo = (await resposta.json().catch(() => null)) as {
+            detalhe?: { teto?: number; quantas?: number };
+          } | null;
+          const teto = corpo?.detalhe?.teto ?? MAXIMO_DE_FOTOS;
+          const quantas = corpo?.detalhe?.quantas ?? teto;
+          return parar(
+            chave,
+            `Vocês já têm ${quantas} fotos no site, e cabem ${teto}. ` +
+              "Apague uma para pôr esta no lugar."
+          );
+        }
+
         if (!resposta.ok) {
           return parar(
             chave,
@@ -272,7 +370,7 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
       );
     }
 
-    atualizar(chave, { passo: "pronta", motivo: null });
+    promoverAFoto(envio, fotoId);
   }
 
   function escolher(lista: FileList | null) {
@@ -310,6 +408,164 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
     void levar(envio);
   }
 
+  /* ---------------------------------------------------------------- *
+   * A legenda
+   * ---------------------------------------------------------------- */
+
+  async function salvarLegenda(fotoId: string, texto: string): Promise<boolean> {
+    setErroDaLista(null);
+    try {
+      const resposta = await fetch(
+        `/api/eventos/${dados.eventoId}/site/galeria/${fotoId}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          // Campo vazio viaja como `null` e não como `""`: limpar a legenda é
+          // uma edição legítima, e o servidor trata as duas como a mesma coisa.
+          body: JSON.stringify({ legenda: texto.trim() === "" ? null : texto }),
+        }
+      );
+      if (!resposta.ok) throw new Error(String(resposta.status));
+
+      const corpo = (await resposta.json()) as { legenda: string | null };
+      // Repinta com o que o SERVIDOR gravou, e não com o que foi digitado: é
+      // ele quem normaliza o espaço em branco, e a pessoa precisa ver a frase
+      // que o site vai mostrar.
+      setFotos(atual =>
+        atual.map(f => (f.id === fotoId ? { ...f, legenda: corpo.legenda } : f))
+      );
+      return true;
+    } catch {
+      setErroDaLista(
+        "Não conseguimos salvar a legenda agora. O que você escreveu continua aqui, " +
+          "e o site continua com a legenda de antes."
+      );
+      return false;
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * A ordem — a lista move na hora, e os pedidos se fundem
+   * ---------------------------------------------------------------- */
+
+  function mover(indice: number, direcao: -1 | 1) {
+    const destino = indice + direcao;
+    if (destino < 0 || destino >= fotos.length) return;
+
+    const trocadas = [...fotos];
+    [trocadas[indice], trocadas[destino]] = [trocadas[destino], trocadas[indice]];
+
+    /**
+     * A ordem é REESCRITA de 1 a N, e não trocada entre as duas linhas.
+     *
+     * Trocar os números funcionaria enquanto eles fossem distintos. Uma galeria
+     * que nunca foi reordenada tem os números de chegada, e um envio que morreu
+     * no meio pode ter deixado empates. Reescrever a sequência inteira torna a
+     * ordem do casal independente do que havia antes.
+     */
+    const proximas = trocadas.map((f, i) => ({ ...f, ordem: i + 1 }));
+    setFotos(proximas);
+    void enfileirarOrdem(proximas);
+  }
+
+  /**
+   * A FILA DE UM LUGAR SÓ.
+   *
+   * Enquanto um `PATCH` está no ar, o toque seguinte **não dispara outro**: ele
+   * substitui o que está pendente. Quando o pedido em curso volta, o laço manda
+   * o pendente — que já é o estado final da tela, porque o corpo é a lista
+   * inteira (RV-05). Dois toques rápidos no celular custam **um ou dois**
+   * pedidos, nunca dois pedidos concorrentes que cheguem fora de ordem e gravem
+   * o penúltimo estado por último.
+   */
+  async function enfileirarOrdem(lista: FotoNoEditor[]) {
+    ordemPendente.current = lista;
+    if (salvandoOrdem.current) return;
+    salvandoOrdem.current = true;
+
+    try {
+      while (ordemPendente.current) {
+        const aMandar = ordemPendente.current;
+        ordemPendente.current = null;
+
+        const resposta = await fetch(`/api/eventos/${dados.eventoId}/site/galeria`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            fotos: aMandar.map(f => ({ id: f.id, ordem: f.ordem })),
+          }),
+        });
+        if (!resposta.ok) throw new Error(String(resposta.status));
+        ordemConfirmada.current = aMandar;
+      }
+      setErroDaLista(null);
+    } catch {
+      /**
+       * A tela volta à ÚLTIMA ORDEM QUE O SERVIDOR CONFIRMOU, e não à de um
+       * toque atrás: com toques fundidos, "o estado anterior" não existe como
+       * um só. E a mensagem diz **em que estado o site ficou**, que é a regra
+       * das mensagens de falha deste produto.
+       */
+      setFotos(ordemConfirmada.current);
+      ordemPendente.current = null;
+      setErroDaLista(
+        "Não conseguimos salvar a ordem agora. A ordem no site continua a de antes."
+      );
+    } finally {
+      salvandoOrdem.current = false;
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * A exclusão — a única do produto que apaga byte
+   * ---------------------------------------------------------------- */
+
+  async function apagar(foto: FotoNoEditor) {
+    setAApagar(null);
+    setErroDaLista(null);
+    try {
+      const resposta = await fetch(
+        `/api/eventos/${dados.eventoId}/site/galeria/${foto.id}`,
+        { method: "DELETE" }
+      );
+
+      /**
+       * **502 = O BALDE RECUSOU, E NADA FOI APAGADO** (RV-22). É o único caso em
+       * que dá para afirmar as duas metades com certeza, e a frase afirma as
+       * duas: a foto continua no site, e o arquivo continua respondendo. Quem
+       * chegou aqui pela confirmação de tirar o site do ar precisa saber que a
+       * saída que ela prometeu **não** aconteceu.
+       */
+      if (resposta.status === 502) {
+        setErroDaLista(
+          "Não conseguimos apagar o arquivo agora. A foto continua no site, e nada " +
+            "foi apagado pela metade. Tente de novo daqui a pouco."
+        );
+        return;
+      }
+
+      // 404 é "já não estava lá" — outra aba apagou, ou a passada anterior
+      // terminou o trabalho. Some da lista, sem mensagem: não há nada a
+      // consertar, e um alerta aqui seria erro inventado.
+      if (!resposta.ok && resposta.status !== 404) throw new Error(String(resposta.status));
+
+      setFotos(atual => atual.filter(f => f.id !== foto.id));
+    } catch {
+      /**
+       * A JANELA DE FALHA NO MEIO, dita como ela é. Entre o arquivo sair do
+       * balde e a linha ser marcada, o processo pode morrer — e nesse instante o
+       * arquivo já não existe e a foto ainda está na lista. Não dá para saber,
+       * daqui, de que lado a falha ficou; o que dá para dizer é **o que resolve
+       * os dois casos**, que é apertar apagar de novo (apagar o que já não
+       * existe atravessa o balde sem fazer nada).
+       */
+      setErroDaLista(
+        "Não conseguimos terminar de apagar agora. Toque em apagar de novo — " +
+          "a gente termina daqui."
+      );
+    }
+  }
+
   const nada = fotos.length === 0 && envios.length === 0;
 
   return (
@@ -318,6 +574,12 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
         <Alert severity="warning">
           O envio de fotos está indisponível neste momento. O resto do site
           continua funcionando normalmente, e nada do que já está no ar mudou.
+        </Alert>
+      ) : null}
+
+      {erroDaLista ? (
+        <Alert severity="error" onClose={() => setErroDaLista(null)}>
+          {erroDaLista}
         </Alert>
       ) : null}
 
@@ -342,27 +604,26 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
       {!nada ? (
         <Card>
           <Stack divider={<Divider />}>
-            {fotos.map(item => (
-              <LinhaDaFoto
+            {fotos.map((item, indice) => (
+              <FotoGerenciada
                 key={item.id}
-                url={item.urlMiniatura}
-                titulo={item.legenda ?? "Foto de vocês"}
-                estado={item.apareceNoSite ? "No site" : "Guardada, mas fora do site"}
-                aviso={
-                  item.apareceNoSite
-                    ? null
-                    : "As medidas desta foto não batem, e por isso o site não consegue reservar o espaço dela. Mande a foto de novo."
-                }
+                foto={item}
+                posicao={indice + 1}
+                primeira={indice === 0}
+                ultima={indice === fotos.length - 1}
+                aoMover={direcao => mover(indice, direcao)}
+                aoSalvarLegenda={texto => salvarLegenda(item.id, texto)}
+                aoApagar={() => setAApagar(item)}
               />
             ))}
 
             {envios.map(envio => (
-              <LinhaDaFoto
+              <LinhaDeEnvio
                 key={envio.chave}
                 url={envio.previaLocal}
                 titulo={envio.nome}
                 estado={ROTULO_DO_PASSO[envio.passo]}
-                trabalhando={envio.passo !== "pronta" && envio.passo !== "parou"}
+                trabalhando={envio.passo !== "parou"}
                 aviso={envio.motivo}
                 acao={
                   envio.passo === "parou" ? (
@@ -402,32 +663,219 @@ export function EditorDaGaleria({ dados }: { dados: DadosDaGaleria }) {
             variant="contained"
             startIcon={<ImagePlus size={18} />}
             onClick={() => entrada.current?.click()}
-            disabled={!dados.envioDisponivel}
+            disabled={!dados.envioDisponivel || noTeto}
             sx={{ minHeight: toque.confortavel }}
           >
             Escolher outra foto
           </Button>
+          {/* A razão escrita ao lado do botão apagado. Um botão desabilitado sem
+              motivo é um defeito, do ponto de vista de quem olha. */}
           <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            {prontas === 1
-              ? `Uma foto no site. Cabem ${MAXIMO_DE_FOTOS}.`
-              : `${prontas} fotos no site. Cabem ${MAXIMO_DE_FOTOS}.`}
+            {noTeto
+              ? `Vocês chegaram a ${MAXIMO_DE_FOTOS} fotos. Apague uma para pôr outra.`
+              : fotos.length === 1
+                ? `Uma foto no site. Cabem ${MAXIMO_DE_FOTOS}.`
+                : `${fotos.length} fotos no site. Cabem ${MAXIMO_DE_FOTOS}.`}
           </Typography>
         </Stack>
       ) : null}
+
+      <Dialog
+        open={aApagar !== null}
+        onClose={() => setAApagar(null)}
+        slotProps={{ paper: { sx: { maxWidth: largura.dialogo } } }}
+      >
+        <DialogTitle>Apagar esta foto?</DialogTitle>
+        <DialogContent>
+          {/**
+           * **É A ÚNICA EXCLUSÃO DESTA VERSÃO QUE APAGA ARQUIVO**, e a caixa diz
+           * isso em vez de perguntar se a pessoa tem certeza. Ela também é a
+           * saída que a confirmação de tirar o site do ar aponta (RV-21): quem
+           * chega aqui vindo de lá precisa reconhecer a mesma promessa, com as
+           * mesmas palavras — o endereço da foto para de responder.
+           */}
+          <DialogContentText>
+            O arquivo sai do ar de verdade e não volta: o endereço dele para de
+            responder, inclusive para quem já tinha guardado o link da foto. Se
+            esta for a única, a seção inteira deixa de aparecer no site.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAApagar(null)} sx={{ minHeight: toque.minimo }}>
+            Deixar como está
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => aApagar && void apagar(aApagar)}
+            sx={{ minHeight: toque.minimo }}
+          >
+            Apagar a foto
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
 
+/* ------------------------------------------------------------------ *
+ * Uma foto que já está no site
+ * ------------------------------------------------------------------ */
+
 /**
- * Uma linha da lista do editor.
- *
  * **A MINIATURA AQUI PODE SER RECORTADA EM 1:1**, e isso não contradiz a regra
  * do site: lá a foto renderizada é a única que existe e o recorte é permanente
- * (§20.3); aqui ela é um reconhecedor de 72 px ao lado do nome do arquivo, e a
- * foto de verdade está a um toque no site. É a mesma régua do `CardMidia`:
+ * (§20.3); aqui ela é um reconhecedor de 72 px ao lado dos controles, e a foto de
+ * verdade está a um toque no site. É a mesma régua do `CardMidia`:
  * `object-fit: cover` só onde a foto abre em outra superfície.
+ *
+ * **A LEGENDA SALVA POR BOTÃO, E NÃO AO SAIR DO CAMPO** (RV-11). Não há
+ * salvamento automático em lugar nenhum deste painel, e o motivo vale aqui
+ * inteiro: no celular, à noite, em conexão ruim, salvar sozinho produz gravações
+ * parciais que ninguém pediu. O botão **só aparece quando o texto mudou** — uma
+ * fileira de doze botões "salvar" acesos sobre doze legendas já salvas é ruído
+ * que ensina a ignorar o botão.
  */
-function LinhaDaFoto({
+function FotoGerenciada({
+  foto,
+  posicao,
+  primeira,
+  ultima,
+  aoMover,
+  aoSalvarLegenda,
+  aoApagar,
+}: {
+  foto: FotoNoEditor;
+  posicao: number;
+  primeira: boolean;
+  ultima: boolean;
+  aoMover: (direcao: -1 | 1) => void;
+  aoSalvarLegenda: (texto: string) => Promise<boolean>;
+  aoApagar: () => void;
+}) {
+  const [texto, setTexto] = useState(foto.legenda ?? "");
+  const [salvando, setSalvando] = useState(false);
+  const [salvou, setSalvou] = useState(false);
+
+  const gravada = foto.legenda ?? "";
+  const mudou = texto.trim() !== gravada;
+
+  async function salvar() {
+    setSalvando(true);
+    try {
+      const ok = await aoSalvarLegenda(texto);
+      setSalvou(ok);
+    } finally {
+      // O desligamento no `finally`, e nenhum `return` de guarda antes dele
+      // (`stack.md` §6): um caminho de saída que não desligue deixaria o botão
+      // travado para sempre, sem erro e sem nada no console.
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Stack direction="row" sx={{ gap: 1.5, px: 2, py: 2, alignItems: "flex-start" }}>
+      <Box
+        sx={{
+          width: grade.tileMinimo,
+          height: grade.tileMinimo,
+          flex: "none",
+          borderRadius: `${raio.input}px`,
+          bgcolor: "action.selected",
+          overflow: "hidden",
+        }}
+      >
+        {foto.urlMiniatura ? (
+          <Box
+            component="img"
+            src={foto.urlMiniatura}
+            alt=""
+            sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : null}
+      </Box>
+
+      <Stack sx={{ gap: 1, flex: 1, minWidth: 0 }}>
+        <TextField
+          label="Legenda"
+          value={texto}
+          onChange={e => {
+            setTexto(e.target.value);
+            setSalvou(false);
+          }}
+          helperText={
+            salvou && !mudou
+              ? "Legenda salva."
+              : "Opcional. Sem legenda, a foto aparece sozinha."
+          }
+          slotProps={{ htmlInput: { maxLength: TETO_DA_LEGENDA } }}
+          size="small"
+          fullWidth
+        />
+
+        {!foto.apareceNoSite ? (
+          <Typography variant="body2" sx={{ color: "warning.dark", overflowWrap: "anywhere" }}>
+            As medidas desta foto não batem, e por isso o site não consegue
+            reservar o espaço dela. Mande a foto de novo.
+          </Typography>
+        ) : null}
+
+        <Stack direction="row" sx={{ gap: 0.5, alignItems: "center", flexWrap: "wrap" }}>
+          {/**
+           * **SUBIR/DESCER, E NÃO ARRASTAR-E-SOLTAR** (prd-v1 §2.2). Arrastar em
+           * lista, no celular, com leitor de tela, é o padrão de acessibilidade
+           * mais caro que existe. Cada botão tem `aria-label` que diz **qual**
+           * foto ele move — e a foto é nomeada pela posição, porque legenda é
+           * opcional e doze rótulos iguais não distinguem nada.
+           */}
+          <IconButton
+            aria-label={`Subir a foto ${posicao}`}
+            onClick={() => aoMover(-1)}
+            disabled={primeira}
+            sx={{ minWidth: toque.minimo, minHeight: toque.minimo }}
+          >
+            <ArrowUp size={18} aria-hidden />
+          </IconButton>
+          <IconButton
+            aria-label={`Descer a foto ${posicao}`}
+            onClick={() => aoMover(1)}
+            disabled={ultima}
+            sx={{ minWidth: toque.minimo, minHeight: toque.minimo }}
+          >
+            <ArrowDown size={18} aria-hidden />
+          </IconButton>
+
+          <Box sx={{ flex: 1 }} />
+
+          {mudou ? (
+            <Button
+              variant="contained"
+              onClick={() => void salvar()}
+              disabled={salvando}
+              sx={{ minHeight: toque.minimo }}
+            >
+              {salvando ? "Salvando…" : "Salvar legenda"}
+            </Button>
+          ) : null}
+
+          <Button
+            color="error"
+            onClick={aoApagar}
+            sx={{ minHeight: toque.minimo }}
+          >
+            Apagar
+          </Button>
+        </Stack>
+      </Stack>
+    </Stack>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Uma foto que ainda está a caminho
+ * ------------------------------------------------------------------ */
+
+function LinhaDeEnvio({
   url,
   titulo,
   estado,
