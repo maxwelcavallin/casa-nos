@@ -13,6 +13,8 @@ import {
   ordenarSecoes,
   salvarSecoes,
   secaoDoCatalogo,
+  SECOES_COM_EDITOR,
+  SECOES_SEM_CONTEUDO,
   type EstadoDaSecao,
 } from "@/lib/secoes";
 
@@ -114,6 +116,114 @@ describe("o catálogo e o `CHECK` da migration dizem a mesma coisa", () => {
     // que entra ali sem abrir.
     const mudas = CATALOGO.filter(s => !s.nome.trim() || !s.explicacao.trim());
     expect(mudas.map(s => s.chave)).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * 1b. Toda seção tem componente que a desenha e editor que a escreve
+ * ------------------------------------------------------------------ */
+
+describe("toda chave do catálogo tem componente e editor", () => {
+  it("catálogo = com editor + sem conteúdo, sem sobra e sem sobreposição", () => {
+    /**
+     * O critério da V-03: **toda chave do `CHECK` tem entrada no catálogo, um
+     * componente que a desenha e um editor**. Uma seção no catálogo e fora dos
+     * dois conjuntos vira um nome no painel que não abre nada — e o casal toca
+     * nele, não acontece nada, e não há erro para investigar.
+     *
+     * `SECOES_SEM_CONTEUDO` existe para o teste distinguir "não tem editor
+     * porque não precisa" (o rodapé) de "não tem editor porque alguém
+     * esqueceu" — diferença que uma soma de conjuntos não conta.
+     */
+    /**
+     * **CATRACA EM MODO CONTAGEM** (`qualidade.md` §2), com a lista escrita.
+     *
+     * Estas três seções existem no catálogo desde a `0012` porque a ordem
+     * precisa conhecê-las e porque o `CHECK` já as aceita — mas o conteúdo delas
+     * é a migration `0013`, e os editores são a V1.4. Enquanto isso, elas
+     * aparecem no painel marcadas como "falta preencher", **sem link**, e o
+     * endereço delas responde 404.
+     *
+     * Catraca que nasce proibindo trabalho existente é desligada no primeiro
+     * dia. Esta nasce com a dívida escrita e vira proibição quando a lista
+     * esvaziar — o que é o critério de término da V1.4.
+     */
+    const PENDENTES: ReadonlySet<string> = new Set([
+      "programacao",
+      "historia",
+      "perguntas",
+    ]);
+
+    const cobertas = new Set([...SECOES_COM_EDITOR, ...SECOES_SEM_CONTEUDO]);
+    const descobertas = CHAVES_DE_SECAO.filter(
+      c => !cobertas.has(c) && !PENDENTES.has(c)
+    );
+
+    // A lista de pendentes não guarda seção que já tem editor: sobrando, ela
+    // abriria um buraco na catraca por um motivo que ninguém reconstrói depois.
+    const jaResolvidas = [...PENDENTES].filter(c => (cobertas as Set<string>).has(c));
+    expect(
+      jaResolvidas,
+      `Estas seções já têm editor e continuam na lista de pendentes: ${jaResolvidas.join(", ")}`
+    ).toEqual([]);
+
+    expect(
+      descobertas,
+      "Estas seções existem no catálogo e não têm editor nem declaração de que " +
+        "não precisam de um:\n" +
+        descobertas.map(c => `  - ${c}`).join("\n") +
+        "\n\nOu escreva o editor, ou declare em SECOES_SEM_CONTEUDO com o motivo."
+    ).toEqual([]);
+
+    const nosDois = [...SECOES_COM_EDITOR].filter(c => SECOES_SEM_CONTEUDO.has(c));
+    expect(nosDois, "Seção em SECOES_COM_EDITOR e em SECOES_SEM_CONTEUDO").toEqual([]);
+  });
+
+  it("cada seção com editor tem um componente que a desenha no site", () => {
+    /**
+     * O outro lado do critério. Um editor que grava conteúdo que nenhum
+     * componente desenha é a pior forma de trabalho perdido: o casal escreve, o
+     * campo salva, e o site continua igual.
+     *
+     * `capa` e `onde` são desenhadas por `HeroDoCasamento` e `SecaoOnde`, que
+     * `PaginaDoEvento` monta fora do laço de seções (a capa é fixa). As demais
+     * aparecem no `switch` por chave.
+     */
+    const pagina = fs.readFileSync(
+      path.join(RAIZ, "components", "evento", "PaginaDoEvento.tsx"),
+      "utf8"
+    );
+    const FORA_DO_LACO: Record<string, RegExp> = {
+      capa: /<HeroDoCasamento/,
+      rodape: /<RodapeDoCasamento/,
+    };
+
+    const semDesenho = CHAVES_DE_SECAO.filter(chave => {
+      const fixa = FORA_DO_LACO[chave];
+      if (fixa) return !fixa.test(pagina);
+      // As seções que ainda não têm editor também ainda não desenham, e é o
+      // certo: desenhar sem conteúdo seria um espaço em branco no site.
+      if (!SECOES_COM_EDITOR.has(chave)) return false;
+      return !new RegExp(`case "${chave}":`).test(pagina);
+    });
+
+    expect(
+      semDesenho,
+      "Estas seções têm editor e nenhum componente as desenha no site:\n" +
+        semDesenho.map(c => `  - ${c}`).join("\n") +
+        "\n\nO casal escreve, o campo salva, e o site continua igual."
+    ).toEqual([]);
+  });
+
+  it("a tela `[secao]` recusa chave sem editor", () => {
+    // A tela lê o mesmo conjunto. Se ela tivesse a própria lista, as duas
+    // divergiriam — e o painel viraria um nome em link para um 404.
+    const tela = fs.readFileSync(
+      path.join(RAIZ, "app", "painel", "[eventoId]", "site", "[secao]", "page.tsx"),
+      "utf8"
+    );
+    expect(tela).toMatch(/if \(!ehChaveDeSecao\(secao\)\) notFound\(\);/);
+    expect(tela).toMatch(/if \(!SECOES_COM_EDITOR\.has\(secao\)\) notFound\(\);/);
   });
 });
 

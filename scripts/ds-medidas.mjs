@@ -240,7 +240,7 @@ const LIMITE_DE_FAMILIAS = 2
  * ninguem saberia qual manda.
  */
 const COMPOSICOES =
-  /PaginaDoEvento|AlbumDoConvidado|TelaDoDia|EntrarNoPainel|PalcoTelao|MinhasFotos|ListaDeConvidados|MateriaisDoQr|TelaoDoSalao|FilaDeAprovacao|FotosQueChegaram|DiaAoVivo|RetomarAlbum|PainelDoSite/
+  /PaginaDoEvento|AlbumDoConvidado|TelaDoDia|EntrarNoPainel|PalcoTelao|MinhasFotos|ListaDeConvidados|MateriaisDoQr|TelaoDoSalao|FilaDeAprovacao|FotosQueChegaram|DiaAoVivo|RetomarAlbum|PainelDoSite|CascaDoEditor/
 
 function trataLargura(fonte) {
   if (/\bmaxWidth\b/.test(fonte)) return true

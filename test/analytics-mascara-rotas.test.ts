@@ -87,6 +87,17 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
     // uma palavra seja uma decisão visível num diff, e não um efeito colateral.
     expect([...segmentosPublicos()].sort()).toEqual([
       "album",
+      /**
+       * AS SETE CHAVES DE SEÇÃO (v1.0, V-04 a V-09). Elas aparecem espalhadas
+       * nesta lista porque ela é ordenada, e são: `capa`, `onde`, `programacao`,
+       * `historia`, `perguntas`, `indicacoes` e `rodape`.
+       *
+       * Cada uma nomeia **qual editor foi aberto**, e nenhuma nomeia gente: a
+       * tela de `historia` é a mesma para todo casal, e o texto que ela edita
+       * não vai para o GA4 em canto nenhum. O `[eventoId]` que vem antes delas
+       * continua mascarado (RN-24).
+       */
+      "capa",
       "convidado",
       // A lista da F1.3/F1.4. As três palavras novas nomeiam SUPERFÍCIE, e
       // nenhuma delas nomeia gente: `minhas` é a mesma tela para todo mundo,
@@ -102,11 +113,17 @@ describe("toda rota declarada chega mascarada ao GA4", () => {
       "entrar",
       "feed",
       "fila",
+      "historia",
+      "indicacoes",
       "materiais",
       "midias",
       "minhas",
+      "onde",
       "painel",
+      "perguntas",
+      "programacao",
       "r",
+      "rodape",
       /**
        * A palavra da v1.0. `site` nomeia a SUPERFÍCIE — a casa do editor — e não
        * nomeia ninguém: é a mesma tela para todo casal. O `[eventoId]` que vem

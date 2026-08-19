@@ -6,7 +6,7 @@ import { podeNoEvento } from "@/lib/autorizacao";
 import { buscarEventoPorId, listarIndicacoes } from "@/lib/eventos";
 import { ehUuid } from "@/lib/ids";
 import { resumirSecao, type ContagemDoConteudo } from "@/lib/resumo-do-site";
-import { listarSecoes } from "@/lib/secoes";
+import { listarSecoes, SECOES_COM_EDITOR } from "@/lib/secoes";
 import { sessaoDoEvento } from "@/lib/sessao";
 
 /**
@@ -74,6 +74,7 @@ export default async function PaginaDoSite({
       resumo: resumo.texto,
       faltaPreencher: resumo.faltaPreencher,
       podeDesligar: secao.podeDesligar,
+      temEditor: SECOES_COM_EDITOR.has(secao.chave),
       fixa: secao.posicaoFixa !== null,
       ativa: secao.ativa,
       ordem: secao.ordem,

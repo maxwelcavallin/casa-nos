@@ -188,6 +188,14 @@ export const ROTAS_DE_API: RotaDeApi[] = [
    * ─────────────────────────────────────────────────────────────────────────
    */
   { caminho: "/api/eventos/[id]/site/secoes", metodos: { PATCH: "site.editar" } },
+  // A capa e o "onde e quando" — as duas escrevem colunas de `eventos`.
+  { caminho: "/api/eventos/[id]/site/evento", metodos: { PATCH: "site.editar" } },
+  // Coleção antes de item, como manda a regra do arquivo.
+  { caminho: "/api/eventos/[id]/site/indicacoes", metodos: { POST: "site.editar" } },
+  {
+    caminho: "/api/eventos/[id]/site/indicacoes/[indicacaoId]",
+    metodos: { PATCH: "site.editar", DELETE: "site.editar" },
+  },
 
   // H-18 — o aparelho conta o que deu errado com ele
   { caminho: "/api/interno/erro-cliente", metodos: { POST: "interno.erro" }, publica: true },
@@ -285,6 +293,29 @@ export const TELAS: Tela[] = [
     caminho: "/painel/[eventoId]/site",
     superficie: "casal",
     segmentosPublicos: ["painel", "site"],
+  },
+  /**
+   * O editor de uma seção (V-04 a V-09).
+   *
+   * **AS SETE CHAVES DE SEÇÃO SÃO PALAVRA DE SUPERFÍCIE** e entram legíveis no
+   * GA4: `capa`, `onde` e `indicacoes` dizem qual editor foi aberto, e nenhuma
+   * delas nomeia gente. É a mesma régua de `album` e `minhas`. O `[eventoId]`
+   * continua mascarado.
+   */
+  {
+    caminho: "/painel/[eventoId]/site/[secao]",
+    superficie: "casal",
+    segmentosPublicos: [
+      "painel",
+      "site",
+      "capa",
+      "onde",
+      "programacao",
+      "historia",
+      "perguntas",
+      "indicacoes",
+      "rodape",
+    ],
   },
 ];
 

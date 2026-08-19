@@ -50,6 +50,17 @@ link do e-mail do casal. Lista as sete seções na ordem atual, com um resumo de
 uma linha de cada, marca as que estão **ligadas e vazias**, e liga, desliga e
 reordena. Desligar não apaga nada: o conteúdo continua no banco.
 
+**Os editores de três seções** (`/painel/<id>/site/<secao>`): a **capa** (nomes,
+data, horário e a flag que decide se o horário é anunciado), **onde e quando** (o
+nome do local, a flag que o divulga, e os três níveis de revelação do mapa) e
+**onde ficar e dicas** (hotéis e dicas, com link só `http`/`https`, teto de 20 e
+exclusão lógica).
+
+**Este é o ponto em que o `db/seed/*.json` deixa de ser necessário** para mudar o
+conteúdo do site. Ele continua existindo para o evento nascer com conteúdo
+inicial — ver [Seed](#seed--é-assim-que-o-dono-edita-o-site), cujo título ainda
+descreve o mundo anterior e vira dívida até a V1.6 (V-12).
+
 **As seções do site são dado** (migration `0012`). O catálogo — quais existem,
 o nome de cada uma, quais não se desligam — vive em `lib/secoes.ts`, porque cada
 seção tem um componente que a desenha. **Linha ausente significa o padrão do

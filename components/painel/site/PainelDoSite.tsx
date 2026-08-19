@@ -6,6 +6,7 @@ import Card from "@mui/material/Card";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
+import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
@@ -52,6 +53,12 @@ export type LinhaDeSecao = {
   resumo: string;
   faltaPreencher: boolean;
   podeDesligar: boolean;
+  /**
+   * A seção já tem editor? Enquanto não tiver, o nome dela **não é link** — e o
+   * endereço dela responde 404. Um link que abre uma tela que não edita nada é a
+   * meia funcionalidade que esta versão existe para não ter.
+   */
+  temEditor: boolean;
   /** `capa` e `rodape` não entram na reordenação. */
   fixa: boolean;
   ativa: boolean;
@@ -165,7 +172,7 @@ export function PainelDoSite({ dados }: { dados: DadosDoPainelDoSite }) {
             </Typography>
             <Typography variant="body1">
               {faltando === 0
-                ? "Ligue e desligue o que o site conta, e ponha na ordem que vocês quiserem."
+                ? "Toque numa seção para mudar o que ela mostra. Desligue as que vocês não querem contar."
                 : faltando === 1
                   ? "Uma seção está ligada e ainda vazia — enquanto estiver assim, ela não aparece no site."
                   : `${faltando} seções estão ligadas e ainda vazias — enquanto estiverem assim, elas não aparecem no site.`}
@@ -209,9 +216,26 @@ export function PainelDoSite({ dados }: { dados: DadosDoPainelDoSite }) {
                         direction="row"
                         sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}
                       >
-                        <Typography variant="subtitle1" component="h2">
-                          {secao.nome}
-                        </Typography>
+                        {secao.temEditor ? (
+                          <Link
+                            href={`/painel/${dados.eventoId}/site/${secao.chave}`}
+                            variant="subtitle1"
+                            // O nome inteiro é o alvo, e ele tem 44 px de altura:
+                            // um link de uma palavra numa lista é o alvo mais
+                            // errado do celular.
+                            sx={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              minHeight: toque.minimo,
+                            }}
+                          >
+                            {secao.nome}
+                          </Link>
+                        ) : (
+                          <Typography variant="subtitle1" component="h2">
+                            {secao.nome}
+                          </Typography>
+                        )}
                         {secao.ativa && secao.faltaPreencher ? (
                           /* COR NÃO É O ÚNICO SINAL: o estado tem rótulo escrito
                              (§10 da régua de acessibilidade). */

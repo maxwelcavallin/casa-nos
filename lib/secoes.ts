@@ -148,6 +148,37 @@ export function secaoDoCatalogo(chave: ChaveDeSecao): SecaoDoCatalogo {
   return achada;
 }
 
+/**
+ * AS SEÇÕES QUE TÊM EDITOR — **um lugar só, e três consumidores**.
+ *
+ *   `/painel/[eventoId]/site`          decide o que vira link
+ *   `/painel/[eventoId]/site/[secao]`  responde 404 para o que está fora
+ *   `test/secoes-catalogo.test.ts`     exige que catálogo = editor + sem conteúdo
+ *
+ * Escrita nos dois primeiros, ela divergiria: o painel viraria um nome em link
+ * para um 404, que é pior do que um nome sem link.
+ */
+export const SECOES_COM_EDITOR: ReadonlySet<ChaveDeSecao> = new Set<ChaveDeSecao>([
+  "capa",
+  "onde",
+  "indicacoes",
+]);
+
+/**
+ * As seções que **não têm o que editar**, com o motivo.
+ *
+ * `rodape` é o fecho da página: ele carrega o nome do produto, que é a única
+ * marca dali, e não tem campo do casal. Ele existe no catálogo porque existe no
+ * site e porque a ordem precisa conhecê-lo — não porque alguém vá preenchê-lo.
+ *
+ * A lista é separada de `SECOES_COM_EDITOR` de propósito: assim o teste consegue
+ * distinguir "não tem editor porque não precisa" de "não tem editor porque
+ * alguém esqueceu", que é a diferença que uma soma de conjuntos não conta.
+ */
+export const SECOES_SEM_CONTEUDO: ReadonlySet<ChaveDeSecao> = new Set<ChaveDeSecao>([
+  "rodape",
+]);
+
 /* ------------------------------------------------------------------ *
  * O estado: catálogo + o que este casal decidiu
  * ------------------------------------------------------------------ */
