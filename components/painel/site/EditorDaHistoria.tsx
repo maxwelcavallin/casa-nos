@@ -22,6 +22,14 @@ import { useSalvamento } from "@/lib/usar-salvamento";
  * pessoa escreve não informa nada e vira ruído; ele só passa a ser informação
  * quando o teto está perto.
  *
+ * **E O CAMPO NÃO TRUNCA SOZINHO** (V-17). O `maxLength` saiu daqui de
+ * propósito: com ele, colar do WhatsApp um texto de 1.300 caracteres joga fora
+ * as últimas 100 letras **em silêncio** — o campo simplesmente para de aceitar,
+ * sem mensagem, e a última frase da história do casal some sem ninguém ver. Sem
+ * ele, o texto inteiro entra, a contagem fica vermelha dizendo quantos passaram,
+ * e quem recusa é o servidor, com o número. Perder o fim de um texto colado é
+ * exatamente o que esta história existe para impedir.
+ *
  * **TEXTO PURO, e a tela diz isso**: parágrafo é linha em branco, e colar
  * `<b>oi</b>` do WhatsApp mostra o `<b>oi</b>` escrito no site. Dizer isso na
  * tela evita o caminho em que o casal formata o texto achando que funciona e só
@@ -108,7 +116,6 @@ export function EditorDaHistoria({ dados }: { dados: DadosDaHistoria }) {
                 salvamento.erros.texto ??
                 "Deixe uma linha em branco entre os parágrafos. É texto puro: negrito e itálico não funcionam aqui."
               }
-              slotProps={{ htmlInput: { maxLength: TETOS_DE_CONTEUDO.historiaTexto } }}
               multiline
               // A caixa nasce com a altura de leitura e cresce até um teto: sem
               // o teto, 1.200 caracteres empurram o botão de salvar para fora da

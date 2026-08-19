@@ -106,17 +106,29 @@ export function EditorDaCapa({ dados }: { dados: DadosDaCapa }) {
               onChange={e => mudar("nome_casal", e.target.value)}
               error={!!salvamento.erros.nome_casal}
               helperText={salvamento.erros.nome_casal}
-              slotProps={{ htmlInput: { maxLength: TETOS_DO_EVENTO.nomeCasal } }}
               fullWidth
             />
             <Typography
               variant="caption"
-              sx={{ color: sobramNoNome <= 10 ? "warning.dark" : "text.secondary" }}
+              sx={{
+                color:
+                  sobramNoNome < 0
+                    ? "error.main"
+                    : sobramNoNome <= 10
+                      ? "warning.dark"
+                      : "text.secondary",
+              }}
             >
               {/* 60 caracteres é o pior caso que o design system manda testar no
                   `h1` a 360 px. A contagem aparece sempre neste campo porque ele
-                  é curto e a régua é apertada. */}
-              {sobramNoNome} de {TETOS_DO_EVENTO.nomeCasal} caracteres sobrando
+                  é curto e a régua é apertada.
+
+                  O campo NÃO trunca (V-17): passar do teto fica vermelho e o
+                  servidor recusa com o número. Um campo que para de aceitar
+                  letra no meio de um nome colado não diz o que houve. */}
+              {sobramNoNome >= 0
+                ? `${sobramNoNome} de ${TETOS_DO_EVENTO.nomeCasal} caracteres sobrando`
+                : `${-sobramNoNome} caracteres acima do limite`}
             </Typography>
           </Stack>
 
