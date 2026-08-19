@@ -688,6 +688,25 @@ teto em `design-system.baseline.json` sem o motivo escrito na mensagem do commit
 O `build` roda `ds-check` antes do `next build`: desvio de design system não faz
 deploy.
 
+> ### O estado de produção em 19/08/2026 — conferido, não presumido
+>
+> A v1.0 está **inteira em código** e no ar. **Duas coisas dela dependem de
+> configuração que não existe hoje**, e nenhuma das duas é defeito de código:
+>
+> | O que | Como está | O que falta |
+> |---|---|---|
+> | **As cinco variáveis do R2** | ausentes | Sem elas a galeria **não funciona**: o envio responde 503 e a tela desabilita o botão com o motivo escrito, **antes** de a pessoa escolher o arquivo. O resto do site continua no ar. É o único caminho da v1.0 que nenhum teste pode fechar — sem balde, nenhuma foto subiu e nenhuma foi apagada |
+> | **`anaemax.com.br`** | **o DNS não resolve** | O painel mostra esse endereço como *"o endereço de vocês"*, com botão de copiar, porque a linha existe em `evento_dominios`. **Enquanto o domínio não apontar, esse botão copia um link morto.** Ou o domínio é registrado e apontado (passo 4 acima), ou a linha sai de `evento_dominios` e o painel volta a mostrar `/e/ana-e-max`, que responde 200 hoje |
+>
+> `casa-nos.vercel.app/` responder **404** é o comportamento correto e não é
+> ausência: em produção quem resolve o inquilino é o domínio, e `/e/ana-e-max`
+> responde 200.
+>
+> **O que foi conferido no ar, a 360 px:** a página pública, as seis telas de
+> editor, a prévia e o painel do site — nenhuma delas com rolagem horizontal nem
+> elemento mais largo que a tela. E `pnpm db:seed` rodado contra o banco de
+> produção: **0 semeados, 31 mantidos, nenhuma escrita** (V-12).
+
 **O cron da reconciliação está em `vercel.json`: `0 12 * * *`, que é 12:00 UTC /
 9h de Brasília.** O horário obedece à regra da casa (job que fala com API de terceiro
 roda entre 12 e 20 UTC) e evita o único horário proibido de verdade: um cron às
