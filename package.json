@@ -19,7 +19,8 @@
     "contrato": "node scripts/openapi.mjs --conferir",
     "db:bootstrap": "node scripts/bootstrap.mjs",
     "carga": "node scripts/carga.mjs",
-    "medida": "vitest run --config vitest.medida.mts"
+    "medida": "vitest run --config vitest.medida.mts",
+    "db:link": "node scripts/link-de-entrada.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

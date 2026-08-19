@@ -82,7 +82,7 @@ async function principal() {
     values (${dados.slug}, ${dados.nomeCasal}, ${dados.dataEvento},
             ${dados.fuso ?? "America/Sao_Paulo"}, ${dados.cidade}, ${dados.uf},
             true, ${dados.emailCasal ?? null})
-    on conflict (slug) do update set
+    on conflict (slug) where excluido_em is null do update set
       nome_casal    = excluded.nome_casal,
       data_evento   = excluded.data_evento,
       email_casal   = coalesce(excluded.email_casal, eventos.email_casal),
@@ -94,7 +94,7 @@ async function principal() {
     await sql`
       insert into evento_dominios (evento_id, dominio)
       values (${evento.id}, ${dados.dominio})
-      on conflict (dominio) do nothing
+      on conflict (dominio) where excluido_em is null do nothing
     `
   }
 
